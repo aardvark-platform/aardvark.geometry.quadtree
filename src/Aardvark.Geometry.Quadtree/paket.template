@@ -1,0 +1,9 @@
+type project
+id Aardvark.Geometry.Quadtree
+authors Aardvark Platform Team
+owners Aardvark Platform Team
+projectUrl http://github.com/aardvark-platform
+licenseUrl http://www.apache.org/licenses/LICENSE-2.0.txt
+description
+    This library provides tools for out-of-core processing of unbounded multi-layer raster data.
+include-pdbs true
