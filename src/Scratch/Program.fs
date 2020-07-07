@@ -57,14 +57,14 @@ let example () =
 
 let buildQuadtree () =
 
-    let size = V2i(1500,1000)
+    let size = V2i(15000,10000)
     printfn "building quadtree for %i x %i raster" size.X size.Y
     let sw = Stopwatch()
     sw.Start()
 
-    let data = Array.zeroCreate<V3f> (size.X * size.Y)
+    let data = Array.zeroCreate<float32> (size.X * size.Y)
     let mapping = DataMapping(origin = V2l(500_000, 2_000), size = size, exponent = 0)
-    let layer = Layer(Defs.Normals3f, data, mapping)
+    let layer = Layer(Defs.Heights1f, data, mapping)
     let q = Quadtree.Build BuildConfig.Default [| layer |]
 
     sw.Stop()
@@ -74,8 +74,8 @@ let buildQuadtree () =
 [<EntryPoint>]
 let main argv =
 
-    example ()
+    //example ()
 
-    //buildQuadtree ()
+    buildQuadtree ()
 
     0

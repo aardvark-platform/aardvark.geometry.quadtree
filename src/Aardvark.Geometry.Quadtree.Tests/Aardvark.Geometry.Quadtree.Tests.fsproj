@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <Compile Include="LayerTests.fs" />
-    <Compile Include="BuildTests.fs" />
+    <Compile Include="QuadtreeTests.fs" />
     <Compile Include="QueryTests.fs" />
     <Compile Include="SamplingTests.fs" />
     <Compile Include="Program.fs" />

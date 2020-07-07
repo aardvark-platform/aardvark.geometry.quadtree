@@ -5,6 +5,12 @@ open System
 open System.Runtime.CompilerServices
 
 [<AutoOpen>]
+module Prelude =
+
+    let inline invariant condition id =
+        if not condition then failwith <| sprintf "Invariant %s" id
+
+[<AutoOpen>]
 module Extensions =
 
     type Box2l with

@@ -22,7 +22,7 @@ module INodeExtensions =
     type INode with
         member this.IsInnerNode with get() = this.SubNodes.IsSome
         member this.IsLeafNode  with get() = this.SubNodes.IsNone
-        member this.WindowBoundingBox with get() = this.Layers.[0].BoundingBox
+        member this.SampleWindowBoundingBox with get() = this.Layers.[0].BoundingBox
         member this.AllSamples with get() =
             let e = this.Layers.[0].SampleExponent
             let w = this.Layers.[0].SampleWindow
@@ -38,6 +38,8 @@ module INodeExtensions =
             samples
 
 type Node(cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
+
+    
 
     do
         if layers.Length = 0 then
@@ -71,8 +73,15 @@ type Node(cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
 module Node =
 
     let internal GenerateLodLayers (subNodes : INode option[]) =
+
+        let subNodes = subNodes |> Array.choose id
+        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a."
+
+        let subNodeExponent = subNodes.[0].SampleExponent
+        invariant (subNodes |> Array.forall (fun n -> n.SampleExponent = subNodeExponent)) "0615df58-7c58-4b48-8be4-3f872140bbb2."
+
         let result =
-            subNodes |> Seq.choose id |> Seq.map (fun x -> x.Layers) |> Seq.collect id
+            subNodes |> Seq.map (fun x -> x.Layers) |> Seq.collect id
             |> Seq.groupBy (fun x -> x.Def)
             |> Seq.map (fun (_, xs) ->
                 let maxExponent = xs |> Seq.map (fun x -> x.SampleExponent) |> Seq.max
@@ -87,6 +96,9 @@ module Node =
             |> Seq.choose id
             |> Seq.map (fun layer -> layer.ResampleUntyped())
             |> Seq.toArray
-        let es = result |> Array.map (fun x -> x.SampleExponent)
-        for e in es do if e <> es.[0] then failwith "Invariant 5296dbf9-5ab4-4529-a473-39cda2d0eb5f."
+
+        let selfExponent = result.[0].SampleExponent
+        invariant (selfExponent = subNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81."
+        invariant (result |> Array.forall (fun n -> n.SampleExponent = selfExponent)) "5296dbf9-5ab4-4529-a473-39cda2d0eb5f."
+
         result

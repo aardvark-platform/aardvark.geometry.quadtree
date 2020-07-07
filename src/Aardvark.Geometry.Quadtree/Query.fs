@@ -92,15 +92,15 @@ module Query =
     /// Returns all samples inside given cell.
     let InsideCell (config : Config) (filter : Cell2d) (root : INode) : Result seq =
         let filterBb = filter.BoundingBox
-        let isNodeFullyInside (n : INode) = filterBb.Contains n.WindowBoundingBox
-        let isNodeFullyOutside (n : INode) = not (filterBb.Intersects n.WindowBoundingBox)
+        let isNodeFullyInside (n : INode) = filterBb.Contains n.SampleWindowBoundingBox
+        let isNodeFullyOutside (n : INode) = not (filterBb.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n
         Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
     /// Returns all samples inside given box.
     let InsideBox (config : Config) (filter : Box2d) (root : INode) : Result seq =
-        let isNodeFullyInside (n : INode) = filter.Contains n.WindowBoundingBox
-        let isNodeFullyOutside (n : INode) = not (filter.Intersects n.WindowBoundingBox)
+        let isNodeFullyInside (n : INode) = filter.Contains n.SampleWindowBoundingBox
+        let isNodeFullyOutside (n : INode) = not (filter.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n.BoundingBox
         Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
@@ -108,9 +108,9 @@ module Query =
     let InsidePolygon (config : Config) (filter : Polygon2d) (root : INode) : Result seq =
         let rpos = V2d(config.SampleMode.RelativePosition)
         let isNodeFullyInside (n : INode) =
-            filter.IsFullyContainedInside(n.WindowBoundingBox.ToPolygon2dCCW())
+            filter.IsFullyContainedInside(n.SampleWindowBoundingBox.ToPolygon2dCCW())
         let isNodeFullyOutside (n : INode) =
-            not (filter.Intersects(n.WindowBoundingBox.ToPolygon2dCCW()))
+            not (filter.Intersects(n.SampleWindowBoundingBox.ToPolygon2dCCW()))
         let isSampleInside (n : Cell2d) =
             let bb = n.BoundingBox
             let p = V2d(bb.Min.X + bb.SizeX * rpos.X, bb.Min.Y + bb.SizeY * rpos.Y)
@@ -122,12 +122,12 @@ module Query =
         let filter = Ray2d(filter.Origin, filter.Direction.Normalized)
         let rpos = V2d(config.SampleMode.RelativePosition)
         let isNodeFullyInside (n : INode) =
-            let wbb = n.WindowBoundingBox
+            let wbb = n.SampleWindowBoundingBox
             let halfDiagonal = wbb.Size.Length * 0.5
             let centerDist = filter.GetDistanceToRay(wbb.Center)
             centerDist + halfDiagonal <= withinDistance
         let isNodeFullyOutside (n : INode) =
-            let wbb = n.WindowBoundingBox
+            let wbb = n.SampleWindowBoundingBox
             let halfDiagonal = wbb.Size.Length * 0.5
             let centerDist = filter.GetDistanceToRay(wbb.Center)
             centerDist >= withinDistance + halfDiagonal
