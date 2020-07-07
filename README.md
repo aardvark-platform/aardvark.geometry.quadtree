@@ -30,8 +30,8 @@ let colors = [|
 let mapping = DataMapping(origin = Cell2d(500000L, 2000L, 0), size = V2i(4, 3))
 
 // a layer gives meaning to raw data
-let heightsLayer = Layer.Create Defs.Heights1d heights mapping
-let colorLayer   = Layer.Create Defs.Colors3b  colors  mapping
+let heightsLayer = Layer(Defs.Heights1d, heights, mapping)
+let colorLayer   = Layer(Defs.Colors3b , colors,  mapping)
 
 // build the quadtree (incl. levels-of-detail)
 let qtree = Quadtree.Build BuildConfig.Default [| heightsLayer; colorLayer |]
@@ -39,7 +39,7 @@ let qtree = Quadtree.Build BuildConfig.Default [| heightsLayer; colorLayer |]
 // query
 let config = Query.Config.Default
 let line = Ray2d(origin = V2d(500_000, 2_000), direction = V2d(1,1))
-let withinDistance = 1.5
+let withinDistance = 0.5
 let chunks = qtree |> Query.NearLine config line withinDistance
 
 let positions = // : V3d[]
