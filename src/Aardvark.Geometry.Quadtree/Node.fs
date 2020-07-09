@@ -73,11 +73,11 @@ type Node(cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
 
 module Node =
 
-    let internal create (cell : Cell2d) (layers : ILayer[]) (subNodes : INode option[] option) : Map<Durable.Def, obj> =
-        [
-            (Defs.NodeId, Guid.NewGuid().ToString() :> obj)
-        ]
-        |> Map.ofList
+    //let internal create (cell : Cell2d) (layers : ILayer[]) (subNodes : INode option[] option) : Map<Durable.Def, obj> =
+    //    [
+    //        (Defs.NodeId, Guid.NewGuid().ToString() :> obj)
+    //    ]
+    //    |> Map.ofList
 
     let internal GenerateLodLayers (subNodes : INode option[]) =
 
