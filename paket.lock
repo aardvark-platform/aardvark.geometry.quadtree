@@ -8,7 +8,7 @@ NUGET
       System.Collections.Immutable (>= 1.7 < 2.0)
       System.Reflection.Metadata (>= 1.8 < 2.0) - restriction: || (&& (== netcoreapp3.1) (< netcoreapp3.0)) (== netstandard2.0) (== netstandard2.1)
     Aardvark.Base.Telemetry (5.0.13)
-    Aardvark.Data.Durable (0.2.1)
+    Aardvark.Data.Durable (0.2.2)
     DevILSharp (0.2.9)
       FSharp.Core (>= 4.6.2)
     FSharp.Core (4.6.2)

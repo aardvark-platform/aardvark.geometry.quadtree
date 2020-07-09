@@ -2,6 +2,7 @@
 
 open Aardvark.Base
 open Aardvark.Data
+open System
 
 (*
     Node.
@@ -71,6 +72,12 @@ type Node(cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
         member this.GetLayer<'b> (def : Durable.Def) = this.GetLayer<'b>(def)
 
 module Node =
+
+    let internal create (cell : Cell2d) (layers : ILayer[]) (subNodes : INode option[] option) : Map<Durable.Def, obj> =
+        [
+            (Defs.NodeId, Guid.NewGuid().ToString() :> obj)
+        ]
+        |> Map.ofList
 
     let internal GenerateLodLayers (subNodes : INode option[]) =
 
