@@ -74,6 +74,7 @@ let buildQuadtree () =
 
 let test () =
 
+    // parse pts file
     let samples =
         File.ReadLines(@"T:\Vgm\Data\Raster\kiga_002_ground_raster_1m.pts")
         |> Seq.skip 1
@@ -86,22 +87,16 @@ let test () =
             )
         |> Seq.toArray
 
-    printfn "count:  %d" (samples |> Seq.length)
-
     let bb = Box2l(samples |> Seq.map (fun (xy, _, _) -> xy));
     let size = V2i(bb.Size) + V2i.II
-    printfn "bb    : %A" bb
-    printfn "origin: %A" bb.Min
-    printfn "size  : %A" size
-    printfn "area  : %d" (size.X * size.Y)
+    printfn "pts data: %A" bb
+    printfn "  count : %d" (samples |> Seq.length)
+    printfn "  bb    : %A" bb
+    printfn "  origin: %A" bb.Min
+    printfn "  size  : %A" size
+    printfn "  area  : %d" (size.X * size.Y)
 
     let poly = Polygon2d([ V2d(1.5, 2.5); V2d(6.0, 2.5); V2d(6.0, -1.0); V2d(1.5, -1.0) ])
-    let polyCcw = poly.Reversed
-
-    let ps = samples |> Array.map (fun (xy, _, _) -> V2d(xy) + V2d(0.5, 0.5))
-    let psInside = ps |> Array.filter poly.Contains
-    printfn "points inside polygon  : %d" psInside.Length
-    printfn "%A" psInside
 
     (* 
         
@@ -132,7 +127,7 @@ let test () =
         normals.[i] <- n
 
     // define mapping of raw data to raster
-    let mapping = DataMapping(bufferOrigin, bufferSize, window)
+    let mapping = DataMapping(bufferOrigin, bufferSize)
     
     // a layer gives meaning to raw data
     let heightsLayer = Layer(Defs.Heights1f, heights, mapping)
@@ -143,7 +138,7 @@ let test () =
     printfn "qtree root cell: %A" qtree.Cell
 
     // query
-    let config = Query.Config.Default
+    let config = { Query.Config.Default with Query.SampleMode = Query.Center }
     let chunks = qtree |> Query.InsidePolygon config poly   // currently poly must be ccw (should not matter?)
 
     let positions = // : V3f[]
