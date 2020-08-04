@@ -2,7 +2,6 @@
 open Aardvark.Base
 open Aardvark.Geometry.Quadtree
 open System.Diagnostics
-open Aardvark.Data
 open System.IO
 
 let example () =
@@ -76,7 +75,8 @@ let test () =
 
     // parse pts file
     let samples =
-        File.ReadLines(@"T:\Vgm\Data\Raster\kiga_002_ground_raster_1m.pts")
+        //File.ReadLines(@"T:\Vgm\Data\Raster\kiga_002_ground_raster_1m.pts")
+        File.ReadLines(@"T:\Vgm\Data\Raster\kiga_0_5.pts")
         |> Seq.skip 1
         |> Seq.map (fun line ->
             let ts = line.Split(' ')
@@ -114,8 +114,10 @@ let test () =
      *)
 
     
-    let bufferOrigin = Cell2d(bb.Min, 0)
+    let bufferOrigin = Cell2d(bb.Min,-1)
+    let bufferOrigin = Cell2d(-237L, -127L, -1)
     let bufferSize = size
+    let bufferSize = V2i(414, 384)
     let window = Box2l(bb.Min, bb.Min + V2l(size))
 
     let heights = Array.create (bufferSize.X * bufferSize.Y) nanf
@@ -141,15 +143,22 @@ let test () =
     let config = { Query.Config.Default with Query.SampleMode = Query.Center }
     let chunks = qtree |> Query.InsidePolygon config poly   // currently poly must be ccw (should not matter?)
 
-    let positions = // : V3f[]
+    let positions =
         chunks 
         |> Seq.collect (fun chunk -> chunk.GetSamples<float32> Defs.Heights1f)
         |> Seq.map (fun (cell, h) -> V3d(cell.GetCenter(), float h))
         |> Array.ofSeq
 
+    let normals =
+        chunks 
+        |> Seq.collect (fun chunk -> chunk.GetSamples<V3f> Defs.Normals3f)
+        |> Seq.map (fun (cell, n) -> n)
+        |> Array.ofSeq
+
     printfn "query:"
     printfn "  count    : %A" positions.Length
     printfn "  positions: %A" positions
+    printfn "  normals  : %A" normals
 
     ()
 
@@ -158,8 +167,8 @@ let main argv =
 
     //example ()
 
-    //buildQuadtree ()
+    buildQuadtree ()
 
-    test ()
+    //test ()
 
     0

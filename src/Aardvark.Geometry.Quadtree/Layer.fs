@@ -2,17 +2,21 @@
 
 open Aardvark.Base
 open Aardvark.Data
+open System.Collections.Immutable
+open System.Collections.Generic
 
 type ILayer =
     abstract member Def : Durable.Def
     abstract member Mapping : DataMapping
     abstract member WithWindow : Box2l -> ILayer option
     abstract member ResampleUntyped : unit -> ILayer
+    abstract member Materialize : unit -> ILayer
+    abstract member ToDurableMap : unit -> seq<KeyValuePair<Durable.Def, obj>>
 
 [<AutoOpen>]
 module ILayerExtensions =
     type ILayer with
-        member this.SampleExponent    with get() = this.Mapping.Origin.Exponent
+        member this.SampleExponent    with get() = this.Mapping.BufferOrigin.Exponent
         member this.SampleMin         with get() = Cell2d(this.Mapping.Window.Min, this.SampleExponent)
         member this.SampleMaxExcl     with get() = Cell2d(this.Mapping.Window.Max, this.SampleExponent)
         member this.SampleMaxIncl     with get() = Cell2d(this.Mapping.Window.Max - V2l.II, this.SampleExponent)
@@ -31,6 +35,30 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             let f = Resamplers.getResamplerFor def 
             let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a))
             r :> ILayer
+
+        member this.Materialize () =
+            if mapping.Window.Min = V2l.OO && mapping.WindowSize = V2l(mapping.BufferSize) then
+                this :> ILayer
+            else
+                let size = V2i(mapping.WindowSize)
+                let newdata = Array.zeroCreate<'a> (int mapping.Window.Area)
+                let mutable i = 0
+                for y = 0 to size.Y - 1 do
+                    for x = 0 to size.X - 1 do
+                        let c = Cell2d(mapping.Window.Min.X + int64 x, mapping.Window.Min.Y + int64 y, mapping.BufferOrigin.Exponent)
+                        let s = this.GetSample Fail c
+                        newdata.[i] <- s
+                        i <- i + 1
+
+                let m = DataMapping(Cell2d(mapping.Window.Min, mapping.BufferOrigin.Exponent), size)
+                Layer<'a>(def, newdata, m) :> ILayer
+
+        member this.ToDurableMap () = seq {
+            kvp Defs.Layer.BufferOrigin mapping.BufferOrigin
+            kvp Defs.Layer.BufferSize mapping.BufferSize
+            kvp Defs.Layer.Window mapping.Window
+            kvp def data
+            }
 
     member this.Def with get() = def
     member this.Mapping with get() = mapping
@@ -85,12 +113,44 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         let newMapping = DataMapping(min, maxIncl)
         Layer(def, buffer, newMapping)
 
+    
 
-        
 
 module Layer =
 
     let private verbose = false
+
+    type private M = ImmutableDictionary<Durable.Def, obj>
+    let private foo = Map.ofList [
+        (Defs.Heights1d, fun (map : M) -> map.[Defs.Heights1d])
+        ]
+
+    let Deserialize (buffer : byte[]) : ILayer =
+        let struct (def, o) = DurableCodec.Deserialize(buffer)
+        let map = o :?> ImmutableDictionary<Durable.Def, obj>
+        let mapping = DataMapping(
+                        map.[Defs.Layer.BufferOrigin] :?> Cell2d,
+                        map.[Defs.Layer.BufferSize]   :?> V2i,
+                        map.[Defs.Layer.Window]       :?> Box2l
+                        )
+        let data = map |> foo.[def]
+        match data with
+        | :? (int[])        -> Layer<int>(def, data :?> int[], mapping) :> ILayer
+        | :? (int64[])      -> Layer<int64>(def, data :?> int64[], mapping) :> ILayer
+        | :? (float[])      -> Layer<float>(def, data :?> float[], mapping) :> ILayer
+        | :? (float32[])    -> Layer<float32>(def, data :?> float32[], mapping) :> ILayer
+        | :? (V2f[])        -> Layer<V2f>(def, data :?> V2f[], mapping) :> ILayer
+        | :? (V2d[])        -> Layer<V2d>(def, data :?> V2d[], mapping) :> ILayer
+        | :? (V3f[])        -> Layer<V3f>(def, data :?> V3f[], mapping) :> ILayer
+        | :? (V3d[])        -> Layer<V3d>(def, data :?> V3d[], mapping) :> ILayer
+        | :? (V4f[])        -> Layer<V4f>(def, data :?> V4f[], mapping) :> ILayer
+        | :? (V4d[])        -> Layer<V4d>(def, data :?> V4d[], mapping) :> ILayer
+        | :? (C3b[])        -> Layer<C3b>(def, data :?> C3b[], mapping) :> ILayer
+        | :? (C4b[])        -> Layer<C4b>(def, data :?> C4b[], mapping) :> ILayer
+        | :? (C3f[])        -> Layer<C3f>(def, data :?> C3f[], mapping) :> ILayer
+        | :? (C4f[])        -> Layer<C4f>(def, data :?> C4f[], mapping) :> ILayer
+        | _ -> failwith <| sprintf "Unknown type %A. Invariant 4e797062-04a2-445f-9725-79f66823aff8." (data.GetType())
+
 
     let BoundingBox (layer : ILayer) = layer.Mapping.BoundingBox
 
@@ -165,9 +225,15 @@ module Layer =
             | :? Layer<float>   -> ls |> mergeUntyped_<float>
             | :? Layer<float32> -> ls |> mergeUntyped_<float32>
             | :? Layer<V2f>     -> ls |> mergeUntyped_<V2f>
+            | :? Layer<V2d>     -> ls |> mergeUntyped_<V2d>
             | :? Layer<V3f>     -> ls |> mergeUntyped_<V3f>
+            | :? Layer<V3d>     -> ls |> mergeUntyped_<V3d>
+            | :? Layer<V4f>     -> ls |> mergeUntyped_<V4f>
+            | :? Layer<V4d>     -> ls |> mergeUntyped_<V4d>
             | :? Layer<C3b>     -> ls |> mergeUntyped_<C3b>
             | :? Layer<C4b>     -> ls |> mergeUntyped_<C4b>
+            | :? Layer<C3f>     -> ls |> mergeUntyped_<C3f>
+            | :? Layer<C4f>     -> ls |> mergeUntyped_<C4f>
             | _ -> failwith <| sprintf "Unsupported layer type %A. Invariant bfb8d2ec-666d-4878-b612-f46f59dd5e82." ls.[0]
 
             |> Some

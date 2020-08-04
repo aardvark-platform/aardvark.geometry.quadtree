@@ -1,6 +1,7 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
 open Aardvark.Base
+open System
 
 (*
     Merge.
@@ -28,7 +29,7 @@ module Merge =
                 subnodes.[qi.Value] <- Some node
                 let parentLodLayers = Node.GenerateLodLayers subnodes
                 invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent) "7b0fa058-4812-4332-9547-0c33ee7ea7d5."
-                let parentNode = Node(node.Cell.Parent, parentLodLayers, Some subnodes) :> INode |> Some
+                let parentNode = Node(Guid.NewGuid(), node.Cell.Parent, parentLodLayers, Some subnodes) :> INode |> Some
                 extendUpTo root parentNode
 
     let private mergeLayers (a : ILayer[]) (b : ILayer[]) : ILayer[] =
@@ -68,16 +69,16 @@ module Merge =
             | Some xs, Some ys -> // inner/inner
                 let zs = Array.map2 mergeSameRoot xs ys
                 let layers = mergeLayers a.Layers b.Layers
-                Node(cell, layers, Some zs) :> INode |> Some
+                Node(Guid.NewGuid(), cell, layers, Some zs) :> INode |> Some
             | Some xs, None    -> // inner/leaf
                 let lodLayers = Node.GenerateLodLayers xs
-                Node(cell, lodLayers, Some xs) :> INode |> Some
+                Node(Guid.NewGuid(), cell, lodLayers, Some xs) :> INode |> Some
             | None,    Some ys -> // leaf/inner
                 let lodLayers = Node.GenerateLodLayers ys
-                Node(cell, lodLayers, Some ys) :> INode |> Some
+                Node(Guid.NewGuid(), cell, lodLayers, Some ys) :> INode |> Some
             | None,    None    -> // leaf/leaf
                 let layers = mergeLayers a.Layers b.Layers
-                Node(cell, layers, None) :> INode |> Some
+                Node(Guid.NewGuid(), cell, layers, None) :> INode |> Some
         | Some a, None   -> Some a
         | None,   Some b -> Some b
         | None,   None   -> None
@@ -87,7 +88,7 @@ module Merge =
         if newSubnode.IsSome then invariant (node.Cell.GetQuadrant(i) = newSubnode.Value.Cell) "f5b92710-39de-4054-a67d-e2fbb1c9212c"
         let nss = node.SubNodes.Value |> Array.copy
         nss.[i] <- mergeSameRoot nss.[i] newSubnode
-        Node(node.Cell, node.Layers, Some nss) :> INode
+        Node(Guid.NewGuid(), node.Cell, node.Layers, Some nss) :> INode
 
     let rec private mergeIntersecting (a : INode option) (b : INode option) : INode option =
         match a, b with
@@ -102,7 +103,7 @@ module Merge =
                 let qi = a'.Cell.GetQuadrant(b'.Cell).Value
                 let qcell = a'.Cell.GetQuadrant(qi)
 
-                let a'' = if a'.IsLeafNode then Node(a'.Cell, a'.Layers, Some <| Array.create 4 None) :> INode else a'
+                let a'' = if a'.IsLeafNode then Node(Guid.NewGuid(), a'.Cell, a'.Layers, Some <| Array.create 4 None) :> INode else a'
                 b |> extendUpTo qcell |> setOrMergeIthSubnode qi a'' |> Some
 
         | Some _, None   -> a

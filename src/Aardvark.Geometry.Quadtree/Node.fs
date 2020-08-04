@@ -3,12 +3,18 @@
 open Aardvark.Base
 open Aardvark.Data
 open System
+open System.Collections.Generic
 
 (*
     Node.
 *)
 
+type SerializationOptions = {
+    Save : Guid -> byte[] -> unit
+    }
+
 type INode =
+    abstract member Id : Guid
     /// Cell occupied by this node.
     abstract member Cell : Cell2d
     abstract member Layers : ILayer[]
@@ -16,7 +22,8 @@ type INode =
     abstract member SampleExponent : int
     abstract member SubNodes : INode option[] option
     abstract member WithLayers : ILayer[] -> INode
-    abstract member GetLayer<'b> : Durable.Def -> Layer<'b>
+    abstract member GetLayer<'a> : Durable.Def -> Layer<'a>
+    abstract member Serialize : SerializationOptions -> unit
 
 [<AutoOpen>]
 module INodeExtensions = 
@@ -38,9 +45,7 @@ module INodeExtensions =
                     i <- i + 1
             samples
 
-type Node(cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
-
-    
+type Node(id : Guid, cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
 
     do
         if layers.Length = 0 then
@@ -57,35 +62,48 @@ type Node(cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
         if subNodes.IsSome && subNodes.Value.Length <> 4 then 
             invalidArg "subNodes" "Invariant 20baf723-cf32-46a6-9729-3b4e062ceee5."
 
-    new (cell : Cell2d, layers : ILayer[]) = Node(cell, layers, None)
-
-    member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
-        layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
+    new (cell : Cell2d, layers : ILayer[]) = Node(Guid.NewGuid(), cell, layers, None)
 
     interface INode with
+        member _.Id with get() = id
         member _.Cell with get() = cell
         member _.Layers with get() = layers
         member _.SampleWindow with get() = layers.[0].SampleWindow
         member _.SampleExponent with get() = layers.[0].SampleExponent
         member _.SubNodes with get() = subNodes
-        member _.WithLayers (newLayers : ILayer[]) = Node(cell, newLayers, subNodes) :> INode
-        member this.GetLayer<'b> (def : Durable.Def) = this.GetLayer<'b>(def)
+        member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, newLayers, subNodes) :> INode
+        member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
+            layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
+        member this.Serialize options =
+            let map = List<KeyValuePair<Durable.Def, obj>>()
+
+            map.Add(kvp Defs.NodeId id)
+            map.Add(kvp Defs.CellBounds cell)
+
+            match subNodes with
+            | Some xs ->
+                for x in xs do match x with | Some x -> x.Serialize options  | None -> ()
+                let ids = xs |> Array.map (fun x -> match x with | Some x -> x.Id | None -> Guid.Empty)
+                map.Add(kvp Defs.SubnodeIds ids)
+            | None -> ()
+
+            for layer in layers do
+                let layerDef = Defs.GetLayerDef layer.Def
+                let dm = layer.Materialize().ToDurableMap ()
+                map.Add(kvp layerDef dm)
+
+            let buffer = DurableCodec.Serialize(Defs.Node, map)
+            options.Save id buffer
 
 module Node =
-
-    //let internal create (cell : Cell2d) (layers : ILayer[]) (subNodes : INode option[] option) : Map<Durable.Def, obj> =
-    //    [
-    //        (Defs.NodeId, Guid.NewGuid().ToString() :> obj)
-    //    ]
-    //    |> Map.ofList
 
     let internal GenerateLodLayers (subNodes : INode option[]) =
 
         let subNodes = subNodes |> Array.choose id
-        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a."
-
-        let subNodeExponent = subNodes.[0].SampleExponent
-        invariant (subNodes |> Array.forall (fun n -> n.SampleExponent = subNodeExponent)) "0615df58-7c58-4b48-8be4-3f872140bbb2."
+        invariant (subNodes.Length > 0) "Invariant 641ef4b4-65b3-4e76-bbb6-c7046452801a."
+        
+        let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
+        let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
 
         let result =
             subNodes |> Seq.map (fun x -> x.Layers) |> Seq.collect id
@@ -104,8 +122,12 @@ module Node =
             |> Seq.map (fun layer -> layer.ResampleUntyped())
             |> Seq.toArray
 
-        let selfExponent = result.[0].SampleExponent
-        invariant (selfExponent = subNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81."
-        invariant (result |> Array.forall (fun n -> n.SampleExponent = selfExponent)) "5296dbf9-5ab4-4529-a473-39cda2d0eb5f."
+
+        let resultExponents = result |> Array.groupBy (fun x -> x.SampleExponent)
+        if resultExponents.Length <> 1 then
+            failwith "Invariant abbd4b37-d816-4ba4-9427-183458ff6ad1."
+
+        let selfExponent = resultExponents.[0] |> fst
+        invariant (selfExponent = maxSubNodeExponent + 1) "Invariant 4a8cbec0-4e14-4eb4-a21a-0af370cc1d81."
 
         result

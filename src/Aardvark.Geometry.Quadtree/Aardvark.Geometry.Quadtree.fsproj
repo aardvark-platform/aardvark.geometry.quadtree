@@ -21,7 +21,6 @@
     <Compile Include="Merge.fs" />
     <Compile Include="Quadtree.fs" />
     <Compile Include="Query.fs" />
-    <Compile Include="DgmSketch.fs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="paket.references" />

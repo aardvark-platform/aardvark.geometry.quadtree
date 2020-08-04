@@ -1,7 +1,9 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
 open Aardvark.Base
+open Aardvark.Data
 open System
+open System.Collections.Immutable
 
 /// Window is in absolute cell space (level given by bufferOrigin.Exponent),
 /// where window.Min is inclusive and window.Max is exclusive.
@@ -17,7 +19,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         let dy = y - bufferOrigin.Y
         if dx < 0L || dy < 0L || dx >= int64 bufferSize.X || dy >= int64 bufferSize.Y then failwith "Sample position out of range."
         int(dy) * bufferSize.X + int(dx)
-        
+
     new (origin : Cell2d, size : V2i) =
         DataMapping(origin, size, Box2l.FromMinAndSize(origin.XY, V2l(size)))
 
@@ -32,11 +34,12 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
             failwith "Invalid arguments. Invariant a447d0d5-9036-4372-ba22-19e28decbfaa."
         DataMapping(origin, V2i(size), Box2l.FromMinAndSize(origin.XY, size))
 
-    member ____.Origin with get() = bufferOrigin
-    member ____.Size with get() = window.Size
+    member ____.BufferOrigin with get() = bufferOrigin
+    member ____.BufferSize with get() = bufferSize
     member ____.Window with get() = window
-    member ____.Width with get() = window.SizeX
-    member ____.Height with get() = window.SizeY
+    member ____.WindowSize with get() = window.Size
+    member ____.WindowWidth with get() = window.SizeX
+    member ____.WindowHeight with get() = window.SizeY
 
     member this.GetBufferIndex (x : int64, y : int64) = getBufferIndex(x, y)
     member this.GetBufferIndex (x : int, y : int) = getBufferIndex(int64 x, int64 y)

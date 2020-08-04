@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="SerializationTests.fs" />
     <Compile Include="LayerTests.fs" />
     <Compile Include="QuadtreeTests.fs" />
     <Compile Include="QueryTests.fs" />

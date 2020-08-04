@@ -71,17 +71,29 @@ module Quadtree =
 
             let lodLayers = Node.GenerateLodLayers subNodes
 
-            Node(cell, lodLayers, Some subNodes) :> INode
+            Node(Guid.NewGuid(), cell, lodLayers, Some subNodes) :> INode
         
         else
         
             Node(cell, layers) :> INode
 
+    /// At least 1 layer is required, and
+    /// all layers must have the same sample exponent and sample window.
     let Build (config : BuildConfig) ([<ParamArray>] layers : ILayer[]) : INode =
+        
+        if layers.Length = 0 then
+            failwith "Can't build quadtree with 0 layers. Invariant 6216df3f-279c-415f-a435-bdb35d274e39."
+
+        let layerExponents = layers |> Array.groupBy (fun x -> x.SampleExponent)
+        if layerExponents.Length <> 1 then 
+            failwith "All layers must have same resolution. Invariant a25e5f58-c22a-436e-81be-69afb2b37492."
+
+        let layerWindows = layers |> Array.groupBy (fun x -> x.SampleWindow)
+        if layerWindows.Length <> 1 then 
+            failwith "All layers must have same samples window. Invariant 36488503-b5b8-4d80-8992-b713e7552480."
+
         let globalBounds = layers |> Array.map Layer.BoundingBox |> Box2d
         let rootCell = Cell2d(globalBounds)
-        //printfn "global bounds ... %A" globalBounds
-        //printfn "root cell ....... %A" rootCell
         build config rootCell layers
 
     let TryMerge a b = Merge.TryMerge a b

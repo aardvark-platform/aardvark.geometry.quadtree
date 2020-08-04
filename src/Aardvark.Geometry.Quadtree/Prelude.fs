@@ -1,7 +1,9 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
 open Aardvark.Base
+open Aardvark.Data
 open System
+open System.Collections.Generic
 open System.Runtime.CompilerServices
 
 [<AutoOpen>]
@@ -9,6 +11,8 @@ module Prelude =
 
     let inline invariant condition id =
         if not condition then failwith <| sprintf "Invariant %s" id
+
+    let kvp def x = KeyValuePair<Durable.Def, obj>(def, x :> obj)
 
 [<AutoOpen>]
 module Extensions =
