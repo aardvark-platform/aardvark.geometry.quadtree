@@ -79,22 +79,22 @@ By default, `Window` corresponds to `Box2l.FromMinAndSize(Origin.XY, Size)`.
 
 A `Layer` specifies a `DataMapping` and a **semantic** for raw data.
 
-Semantic | Description | Type
--------- | ----------- | --------------
-`Defs.`**`Heights1f`** | Height value per sample. | `float32[]` 
-`Defs.`**`Heights1d`** | Height value per sample. | `float[]` 
-`Defs.`**`Normals3f`** | Normal vector per sample. | `V3f[]`
-`Defs.`**`Normals3d`** | Normal vector per sample. | `V3d[]`
-`Defs.`**`HeightStdDevs1f`** | Standard deviation per height value. | `float32[]`
-`Defs.`**`HeightStdDevs1d`** | Standard deviation per height value. | `float[]`
-`Defs.`**`Colors3b`** | Color value per sample. | `C3b[]`
-`Defs.`**`Colors4b`** | Color value per sample. | `C4b[]`
-`Defs.`**`Colors3f`** | Color value per sample. | `C3f[]`
-`Defs.`**`Colors4f`** | Color value per sample. | `C4f[]`
-`Defs.`**`Intensities1i`** | Intensity value per sample. | `int[]`
-`Defs.`**`Intensities1l`** | Intensity value per sample. | `int64[]`
-`Defs.`**`Intensities1f`** | Intensity value per sample. | `float32[]`
-`Defs.`**`Intensities1d`** | Intensity value per sample. | `float[]`
+Semantic | Description | F# Type | C# Type
+-------- | ----------- | -------------- | ------
+`Defs.`**`Heights1f`** | Height value per sample. | `float32[]` | `float[]` 
+`Defs.`**`Heights1d`** | Height value per sample. | `float[]` | `double[]` 
+`Defs.`**`Normals3f`** | Normal vector per sample. | `V3f[]` | `V3f[]`
+`Defs.`**`Normals3d`** | Normal vector per sample. | `V3d[]` | `V3d[]`
+`Defs.`**`HeightStdDevs1f`** | Std dev per height value. | `float32[]` | `float[]`
+`Defs.`**`HeightStdDevs1d`** | Std dev per height value. | `float[]` | `float[]`
+`Defs.`**`Colors3b`** | Color value per sample. | `C3b[]` | `C3b[]`
+`Defs.`**`Colors4b`** | Color value per sample. | `C4b[]` | `C4b[]`
+`Defs.`**`Colors3f`** | Color value per sample. | `C3f[]` | `C3f[]`
+`Defs.`**`Colors4f`** | Color value per sample. | `C4f[]` | `C4f[]`
+`Defs.`**`Intensities1i`** | Intensity value per sample. | `int[]` | `int[]`
+`Defs.`**`Intensities1l`** | Intensity value per sample. | `int64[]` | `long[]`
+`Defs.`**`Intensities1f`** | Intensity value per sample. | `float32[]` | `float[]`
+`Defs.`**`Intensities1d`** | Intensity value per sample. | `float[]` | `double[]`
 
 ## Quadtrees
 
