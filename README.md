@@ -79,15 +79,22 @@ By default, `Window` corresponds to `Box2l.FromMinAndSize(Origin.XY, Size)`.
 
 A `Layer` specifies a `DataMapping` and a **semantic** for raw data.
 
-Semantic | Description
--------- | -----------
-`Defs.`**`Heights1f`** | Height value per sample. Float32[].
-`Defs.`**`Heights1d`** | Height value per sample. Float64[].
-`Defs.`**`Normals3f`** | Normal vector per sample. V3f[].
-`Defs.`**`HeightStdDevs1f`** | Standard deviation per height value. Float32[].
-`Defs.`**`Colors3b`** | Color value per sample. C3b[].
-`Defs.`**`Colors4b`** | Color value per sample. C4b[].
-`Defs.`**`Intensities1i`** | Intensity value per sample. Int32[].
+Semantic | Description | Type
+-------- | ----------- | --------------
+`Defs.`**`Heights1f`** | Height value per sample. | `float32[]` 
+`Defs.`**`Heights1d`** | Height value per sample. | `float[]` 
+`Defs.`**`Normals3f`** | Normal vector per sample. | `V3f[]`
+`Defs.`**`Normals3d`** | Normal vector per sample. | `V3d[]`
+`Defs.`**`HeightStdDevs1f`** | Standard deviation per height value. | `float32[]`
+`Defs.`**`HeightStdDevs1d`** | Standard deviation per height value. | `float[]`
+`Defs.`**`Colors3b`** | Color value per sample. | `C3b[]`
+`Defs.`**`Colors4b`** | Color value per sample. | `C4b[]`
+`Defs.`**`Colors3f`** | Color value per sample. | `C3f[]`
+`Defs.`**`Colors4f`** | Color value per sample. | `C4f[]`
+`Defs.`**`Intensities1i`** | Intensity value per sample. | `int[]`
+`Defs.`**`Intensities1l`** | Intensity value per sample. | `int64[]`
+`Defs.`**`Intensities1f`** | Intensity value per sample. | `float32[]`
+`Defs.`**`Intensities1d`** | Intensity value per sample. | `float[]`
 
 ## Quadtrees
 
@@ -102,13 +109,16 @@ Currently quadtrees are created in-memory.
 
 ## Queries
 
-```fsharp
-let config = { 
-    MinExponent = 2
-    SampleMode = Query.SampleMode.Center
-    Verbose = false
-    }
-```
+Currently available query functions:
+
+Query | Description
+-------- | -----------
+`Query.`**`InsideCell`** | All samples inside given cell.
+`Query.`**`InsideBox`** | All samples inside given box.
+`Query.`**`InsidePolygon`** | All samples inside given polygon.
+`Query.`**`NearLine`** | All samples within a given distance of a line.
+
+Please see the example above on how to use query functions. 
 
 All queries return a sequence of `Query.Result` objects.
 
@@ -125,9 +135,26 @@ type Result = {
     }
 ```
 
-Query | Description
--------- | -----------
-`Query.`**`InsideCell`** | All samples inside given cell.
-`Query.`**`InsideBox`** | All samples inside given box.
-`Query.`**`InsidePolygon`** | All samples inside given polygon.
-`Query.`**`NearLine`** | All samples within a given distance of a line.
+
+
+
+You can either use the default config `Query.Config.Default`, which returns the most detailed data,
+
+```fsharp
+{ 
+    MinExponent = Int32.MinValue // most detailed data available
+    SampleMode = SampleMode.Center
+    Verbose = false
+}
+```
+
+or create your own custom config
+
+
+```fsharp
+let myCustomConfig = { 
+    MinExponent = 2
+    SampleMode = Query.SampleMode.Center
+    Verbose = false
+    }
+```
