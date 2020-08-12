@@ -86,7 +86,7 @@ Semantic | Description | F# Type | C# Type
 `Defs.`**`Normals3f`** | Normal vector per sample. | `V3f[]` | `V3f[]`
 `Defs.`**`Normals3d`** | Normal vector per sample. | `V3d[]` | `V3d[]`
 `Defs.`**`HeightStdDevs1f`** | Std dev per height value. | `float32[]` | `float[]`
-`Defs.`**`HeightStdDevs1d`** | Std dev per height value. | `float[]` | `float[]`
+`Defs.`**`HeightStdDevs1d`** | Std dev per height value. | `float[]` | `double[]`
 `Defs.`**`Colors3b`** | Color value per sample. | `C3b[]` | `C3b[]`
 `Defs.`**`Colors4b`** | Color value per sample. | `C4b[]` | `C4b[]`
 `Defs.`**`Colors3f`** | Color value per sample. | `C3f[]` | `C3f[]`
