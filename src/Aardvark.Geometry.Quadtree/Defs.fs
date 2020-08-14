@@ -60,6 +60,12 @@ module Defs =
 
     let Intensities1d           = def "acdea865-c4ef-441d-804e-18187548a418" "Quadtree.Intensities1d" "Quadtree. Intensity value per sample. Float64[]." Durable.Primitives.Int64Array
     let Intensities1dLayer      = def "8864088c-c122-4da4-9dcb-14f6b5dd4ccc" "Quadtree.Intensities1d.Layer" "Quadtree. Intensities1d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    
+    let BilinearParams4f        = def "67f0e87d-7ba6-47c9-b443-17e7b835bb4e" "Quadtree.BilinearParams4f" "Quadtree. Bilinear params per sample. V4f[]." Durable.Aardvark.V4fArray
+    let BilinearParams4fLayer   = def "376d01f1-7bfe-4bd5-b459-9a63e81a08d9" "Quadtree.BilinearParams4f.Layer" "Quadtree. BilinearParams4f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+
+    let BilinearParams4d        = def "a9064e6e-f967-4017-8415-08193b77aea0" "Quadtree.BilinearParams4d" "Quadtree. Bilinear params per sample. V4d[]." Durable.Aardvark.V4dArray
+    let BilinearParams4dLayer   = def "49303969-ffa5-4c7e-89ea-8d5ad7dd6d3d" "Quadtree.BilinearParams4d.Layer" "Quadtree. BilinearParams4f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let private def2layer = Map.ofList [
         (Heights1f, Heights1fLayer)
@@ -76,6 +82,8 @@ module Defs =
         (Intensities1l, Intensities1lLayer)
         (Intensities1f, Intensities1fLayer)
         (Intensities1d, Intensities1dLayer)
+        (BilinearParams4f, BilinearParams4fLayer)
+        (BilinearParams4d, BilinearParams4dLayer)
         ]
 
     let GetLayerDef def = def2layer.[def]

@@ -83,6 +83,8 @@ module internal Resamplers =
         (Defs.Intensities1l.Id, resampleInt64 :> obj)
         (Defs.Intensities1f.Id, resampleFloat32 :> obj)
         (Defs.Intensities1d.Id, resampleFloat64 :> obj)
+        (Defs.BilinearParams4f.Id, resampleV4fNorm :> obj)
+        (Defs.BilinearParams4d.Id, resampleV4dNorm :> obj)
     ]
 
     let getResamplerFor (def : Durable.Def) =
