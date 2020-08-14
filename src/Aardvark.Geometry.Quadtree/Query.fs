@@ -97,6 +97,14 @@ module Query =
         let isSampleInside (n : Cell2d) = filter.Contains n
         Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
+    /// Returns all samples inside given cell.
+    let IntersectsCell (config : Config) (filter : Cell2d) (root : INode) : Result seq =
+        let filterBb = filter.BoundingBox
+        let isNodeFullyInside (n : INode) = filterBb.Contains n.SampleWindowBoundingBox
+        let isNodeFullyOutside (n : INode) = not (filterBb.Intersects n.SampleWindowBoundingBox)
+        let isSampleInside (n : Cell2d) = filterBb.Intersects n.BoundingBox
+        Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+
     /// Returns all samples inside given box.
     let InsideBox (config : Config) (filter : Box2d) (root : INode) : Result seq =
         let isNodeFullyInside (n : INode) = filter.Contains n.SampleWindowBoundingBox
