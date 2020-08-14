@@ -95,6 +95,8 @@ Semantic | Description | F# Type | C# Type
 `Defs.`**`Intensities1l`** | Intensity value per sample. | `int64[]` | `long[]`
 `Defs.`**`Intensities1f`** | Intensity value per sample. | `float32[]` | `float[]`
 `Defs.`**`Intensities1d`** | Intensity value per sample. | `float[]` | `double[]`
+`Defs.`**`BilinearParams4f`** | Bilinear params per sample. | `V4f[]` | `V4f[]`
+`Defs.`**`BilinearParams4d`** | Bilinear params per sample. | `V4d[]` | `V4d[]`
 
 ## Quadtrees
 
@@ -113,7 +115,8 @@ Currently available query functions:
 
 Query | Description
 -------- | -----------
-`Query.`**`InsideCell`** | All samples inside given cell.
+`Query.`**`InsideCell`** | All samples fully inside given cell.
+`Query.`**`IntersectsCell`** | All samples with sample cell intersecting given cell. If query cell is smaller than data cells this will also return a data cell surrounding the query cell even if sample position is outside query cell. Sample mode is ignored.
 `Query.`**`InsideBox`** | All samples inside given box.
 `Query.`**`InsidePolygon`** | All samples inside given polygon.
 `Query.`**`NearLine`** | All samples within a given distance of a line.
