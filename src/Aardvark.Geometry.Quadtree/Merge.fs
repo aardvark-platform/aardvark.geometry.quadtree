@@ -61,24 +61,26 @@ module Merge =
         match a, b with
         | Some a, Some b ->
             invariant (a.Cell = b.Cell) "641da2e5-a7ea-4692-a96b-94440453ff1e."
+            let rootCell = a.Cell
             invariant (a.SampleExponent = b.SampleExponent) "c3134d8e-b745-4cfd-81a4-fbe050b32b8f."
-            invariant (a.SampleWindow = b.SampleWindow) "65afdf81-e6a4-4112-ae05-7feb55cffdd7."
+            let windowA = a.SampleWindow
+            let windowB = b.SampleWindow
+            //invariant (windowA = windowB) "65afdf81-e6a4-4112-ae05-7feb55cffdd7."
             invariant (a.Layers.Length = b.Layers.Length) "ef0512a4-a18c-46da-8983-9ed57903854c."
-            let cell = a.Cell
             match a.SubNodes, b.SubNodes with
             | Some xs, Some ys -> // inner/inner
                 let zs = Array.map2 mergeSameRoot xs ys
                 let layers = mergeLayers a.Layers b.Layers
-                Node(Guid.NewGuid(), cell, layers, Some zs) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, layers, Some zs) :> INode |> Some
             | Some xs, None    -> // inner/leaf
                 let lodLayers = Node.GenerateLodLayers xs
-                Node(Guid.NewGuid(), cell, lodLayers, Some xs) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, lodLayers, Some xs) :> INode |> Some
             | None,    Some ys -> // leaf/inner
                 let lodLayers = Node.GenerateLodLayers ys
-                Node(Guid.NewGuid(), cell, lodLayers, Some ys) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, lodLayers, Some ys) :> INode |> Some
             | None,    None    -> // leaf/leaf
                 let layers = mergeLayers a.Layers b.Layers
-                Node(Guid.NewGuid(), cell, layers, None) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, layers, None) :> INode |> Some
         | Some a, None   -> Some a
         | None,   Some b -> Some b
         | None,   None   -> None
@@ -113,10 +115,13 @@ module Merge =
     let private mergeNonIntersecting (a : INode option) (b : INode option) : INode option =
         match a, b with
         | Some a1, Some b1 ->
-            let withCommonRoot = extendUpTo <| Cell2d(Box2d(a1.Cell.BoundingBox, b1.Cell.BoundingBox))
+            let commonRootCell = Cell2d(Box2d(a1.Cell.BoundingBox, b1.Cell.BoundingBox))
+            let withCommonRoot = extendUpTo commonRootCell
             let a2 = (a |> withCommonRoot)
             let b2 = (b |> withCommonRoot)
             invariant (a2.IsSome && b2.IsSome) "cc431d22-9ad4-42bd-9317-015d2f6c520c."
+            invariant (a2.Value.Cell = commonRootCell) "7730eae1-0212-40e5-b114-ff81c0c40762."
+            invariant (b2.Value.Cell = commonRootCell) "00205e51-46c2-451a-bd7c-5dc45f18acc1."
             invariant (a2.Value.SampleExponent = b2.Value.SampleExponent) "178eedaa-89e2-473b-afbb-1beee112225d."
             mergeSameRoot a2 b2
         | Some _,  None    -> a

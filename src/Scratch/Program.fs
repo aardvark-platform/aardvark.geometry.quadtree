@@ -167,8 +167,8 @@ let main argv =
 
     //example ()
 
-    buildQuadtree ()
+    //buildQuadtree ()
 
-    //test ()
+    test ()
 
     0
