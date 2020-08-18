@@ -15,7 +15,7 @@ let private createQuadtree () =
     
     let a = Layer(Defs.Heights1f, xs, DataMapping(V2l.OO, size, exponent = 0))
 
-    let config = { BuildConfig.Default with SplitLimit = 4 }
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
     Quadtree.Build config [| a |]
 
 

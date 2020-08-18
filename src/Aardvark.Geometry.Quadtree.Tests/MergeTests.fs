@@ -5,7 +5,9 @@ open Aardvark.Base
 open System
 open Xunit
 
-let private createQuadtree (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) =
+[<Measure>] type powerOfTwo
+
+let private createQuadtree (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int<powerOfTwo>) =
     let size = V2i(w, h)
     let xs = Array.zeroCreate<float32> (w * h)
     for y = 0 to size.Y - 1 do
@@ -15,10 +17,10 @@ let private createQuadtree (ox : int) (oy : int) (w : int) (h : int) (e : int) (
 
     let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
 
-    let config = { BuildConfig.Default with SplitLimit = splitLimit }
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
     Quadtree.Build config [| a |]
 
-let private createQuadtreeWithRandomValues (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) =
+let private createQuadtreeWithRandomValues (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int<powerOfTwo>) =
     let r = Random()
     let size = V2i(w, h)
     let xs = Array.zeroCreate<float32> (w * h)
@@ -29,10 +31,10 @@ let private createQuadtreeWithRandomValues (ox : int) (oy : int) (w : int) (h : 
 
     let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
 
-    let config = { BuildConfig.Default with SplitLimit = splitLimit }
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
     Quadtree.Build config [| a |]
 
-let private createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (value : float32) =
+let private createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int<powerOfTwo>) (value : float32) =
     let size = V2i(w, h)
     let xs = Array.zeroCreate<float32> (w * h)
     for y = 0 to size.Y - 1 do
@@ -42,16 +44,16 @@ let private createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e
 
     let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
 
-    let config = { BuildConfig.Default with SplitLimit = splitLimit }
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
     Quadtree.Build config [| a |]
 
 [<Fact>]
 let ``Merge_NonOverlapping_Adjacent_SameDepth`` () =
 
-    let q00 = createQuadtree 0 0 8 8 0 4
-    let q10 = createQuadtree 8 0 8 8 0 4
-    let q01 = createQuadtree 0 8 8 8 0 4
-    let q11 = createQuadtree 8 8 8 8 0 4
+    let q00 = createQuadtree 0 0 8 8 0 2<powerOfTwo>
+    let q10 = createQuadtree 8 0 8 8 0 2<powerOfTwo>
+    let q01 = createQuadtree 0 8 8 8 0 2<powerOfTwo>
+    let q11 = createQuadtree 8 8 8 8 0 2<powerOfTwo>
 
     Assert.True(q00.Cell = Cell2d(0L, 0L, 3))
     Assert.True(q10.Cell = Cell2d(1L, 0L, 3))
@@ -76,15 +78,15 @@ let ``Merge_NonOverlapping_Adjacent_SameDepth`` () =
 [<Fact>]
 let ``Merge_NonOverlapping_NonAdjacent_SameDepth`` () =
 
-    let q00 = createQuadtree 0 0 1 1 0 4
-    let q10 = createQuadtree 7 0 1 1 0 4
-    let q01 = createQuadtree 0 6 1 1 0 4
-    let q11 = createQuadtree 5 7 1 1 0 4
+    let q00 = createQuadtree 0 0 1 1 0 2<powerOfTwo>
+    let q10 = createQuadtree 7 0 1 1 0 2<powerOfTwo>
+    let q01 = createQuadtree 0 6 1 1 0 2<powerOfTwo>
+    let q11 = createQuadtree 5 7 1 1 0 2<powerOfTwo>
 
-    Assert.True(q00.Cell = Cell2d(0L, 0L, 0))
-    Assert.True(q10.Cell = Cell2d(7L, 0L, 0))
-    Assert.True(q01.Cell = Cell2d(0L, 6L, 0))
-    Assert.True(q11.Cell = Cell2d(5L, 7L, 0))
+    Assert.True(q00.Cell = Cell2d(0L, 0L, 2))
+    Assert.True(q10.Cell = Cell2d(1L, 0L, 2))
+    Assert.True(q01.Cell = Cell2d(0L, 1L, 2))
+    Assert.True(q11.Cell = Cell2d(1L, 1L, 2))
 
     let m1 = Merge q00 q10
     Assert.True(Quadtree.CountLeafs m1 = 2)
@@ -104,10 +106,10 @@ let ``Merge_NonOverlapping_NonAdjacent_SameDepth`` () =
 [<Fact>]
 let ``Merge_NonOverlapping_Adjacent_DifferentExp`` () =
 
-    let q00 = createQuadtree 0 0 2 2 2 2
-    let q10 = createQuadtree 4 0 4 4 1 2
-    let q01 = createQuadtree 0 8 8 8 0 2
-    let q11 = createQuadtree 16 16 16 16 -1 2
+    let q00 = createQuadtree 0 0 2 2 2 1<powerOfTwo>
+    let q10 = createQuadtree 4 0 4 4 1 1<powerOfTwo>
+    let q01 = createQuadtree 0 8 8 8 0 1<powerOfTwo>
+    let q11 = createQuadtree 16 16 16 16 -1 1<powerOfTwo>
 
     let bb00 = q00.SampleWindowBoundingBox
     let bb10 = q10.SampleWindowBoundingBox
@@ -131,37 +133,11 @@ let ``Merge_NonOverlapping_Adjacent_DifferentExp`` () =
 
     ()
 
-//// different split limits not supported
-//[<Fact>]
-//let ``Merge_NonOverlapping_Adjacent_DifferentSplitLimit`` () =
-
-//    let q00 = createQuadtree 0 0 8 8 0 8
-//    let q10 = createQuadtree 8 0 8 8 0 4
-//    let q01 = createQuadtree 0 8 8 8 0 2
-//    let q11 = createQuadtree 8 8 8 8 0 1
-
-//    Assert.True(Quadtree.CountLeafs q00 = 1)
-//    Assert.True(Quadtree.CountLeafs q10 = 4)
-//    Assert.True(Quadtree.CountLeafs q01 = 16)
-//    Assert.True(Quadtree.CountLeafs q11 = 64)
-
-//    let m1 = Merge q00 q10
-//    Assert.True(Quadtree.CountLeafs m1 = 5)
-
-//    let m2 = Merge m1 q01
-//    Assert.True(Quadtree.CountLeafs m2 = 21)
-
-//    let m = Merge m2 q11
-//    Assert.True(Quadtree.CountLeafs m = 85)
-//    Assert.True(m.Cell = Cell2d(0L,0L,4))
-
-//    ()
-
 [<Fact>]
 let ``Merge_Overlapping_1x1_SameDepth`` () =
 
-    let a = createQuadtree 0 0 1 1 0 1
-    let b = createQuadtree 0 0 1 1 0 1
+    let a = createQuadtree 0 0 1 1 0 0<powerOfTwo>
+    let b = createQuadtree 0 0 1 1 0 0<powerOfTwo>
 
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
@@ -174,8 +150,8 @@ let ``Merge_Overlapping_1x1_SameDepth`` () =
 [<Fact>]
 let ``Merge_Overlapping_1x1_DifferentDepth_SecondMoreDetailed`` () =
 
-    let a = createQuadtreeWithValue 0 0 1 1  0 1 10.0f
-    let b = createQuadtreeWithValue 0 0 2 2 -1 1 20.0f
+    let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 20.0f
 
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 4)
@@ -193,8 +169,8 @@ let ``Merge_Overlapping_1x1_DifferentDepth_SecondMoreDetailed`` () =
 [<Fact>]
 let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
 
-    let a = createQuadtreeWithValue 0 0 2 2 -1 1 10.0f
-    let b = createQuadtreeWithValue 0 0 1 1  0 1 20.0f
+    let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 20.0f
 
     Assert.True(Quadtree.CountLeafs a = 4)
     Assert.True(Quadtree.CountLeafs b = 1)
@@ -211,8 +187,8 @@ let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
 [<Fact>]
 let ``Merge_Overlapping_1x1_SameDetail_1`` () =
 
-    let a = createQuadtreeWithValue 0 0 1 1 0 1 10.0f
-    let b = createQuadtreeWithValue 0 0 1 1 0 1 20.0f
+    let a = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 20.0f
 
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
@@ -229,8 +205,8 @@ let ``Merge_Overlapping_1x1_SameDetail_1`` () =
 [<Fact>]
 let ``Merge_Overlapping_1x1_SameDetail_2`` () =
 
-    let a = createQuadtreeWithValue 0 0 1 1 0 1 10.0f
-    let b = createQuadtreeWithValue 0 0 1 1 0 1 20.0f
+    let a = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 20.0f
 
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
@@ -247,8 +223,8 @@ let ``Merge_Overlapping_1x1_SameDetail_2`` () =
 [<Fact>]
 let ``Merge_LayersWithDifferentResolution_1`` () =
 
-    let a = createQuadtreeWithValue 0 0 1 1  0 1 10.0f
-    let b = createQuadtreeWithValue 1 0 2 1 -1 1 20.0f
+    let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 1 0 2 1 -1 0<powerOfTwo> 20.0f
 
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 2)
@@ -266,26 +242,26 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
 [<Fact>]
 let ``Merge_LayersWithDifferentResolution_256`` () =
 
-    let a = createQuadtreeWithValue 0 0 1 1  0 256 10.0f
-    let b = createQuadtreeWithValue 1 0 2 1 -1 256 20.0f
+    let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 1 0 2 1 -1 8<powerOfTwo> 20.0f
 
     Assert.True(Quadtree.CountLeafs a = 1)
-    Assert.True(Quadtree.CountLeafs b = 2)
+    Assert.True(Quadtree.CountLeafs b = 1)
 
     let m = Merge a b
-    Assert.True(Quadtree.CountLeafs m = 2)
-    Assert.True(m.Cell = Cell2d(0,0,1))
+    Assert.True(Quadtree.CountLeafs m = 1)
+    Assert.True(m.Cell = Cell2d(0,0,8))
 
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,1))
-    Assert.True((x = 20.0f))
+    let x = l.GetSample Fail (Cell2d(0,0,0))
+    Assert.True((x = 10.0f))
 
     ()
 
 [<Fact>]
 let ``Merge_Random_SplitLimit1`` () =
 
-    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 1
+    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 0<powerOfTwo>
 
     let r = Random(0)
     for i = 1 to 100 do
@@ -295,7 +271,7 @@ let ``Merge_Random_SplitLimit1`` () =
         let w  = r.Next(100) + 1
         let h  = r.Next(100) + 1
 
-        let other = createQuadtreeWithRandomValues ox oy w h e 1
+        let other = createQuadtreeWithRandomValues ox oy w h e 0<powerOfTwo>
         let merged = Merge quadtree other
         quadtree <- merged
 
@@ -304,17 +280,17 @@ let ``Merge_Random_SplitLimit1`` () =
 [<Fact>]
 let ``Merge_Random_SplitLimit256`` () =
 
-    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 256
+    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 8<powerOfTwo>
 
     let r = Random(0)
-    for i = 1 to 100 do
+    for i = 1 to 25 do
         let e = r.Next(20) - 10
         let ox = if e >= 0 then (r.Next(2000)) >>> e else (r.Next(2000)) <<< -e
         let oy = if e >= 0 then (r.Next(2000)) >>> e else (r.Next(2000)) <<< -e
-        let w  = r.Next(1000) + 1
-        let h  = r.Next(1000) + 1
+        let w  = r.Next(500) + 1
+        let h  = r.Next(500) + 1
 
-        let other = createQuadtreeWithRandomValues ox oy w h e 256
+        let other = createQuadtreeWithRandomValues ox oy w h e 8<powerOfTwo>
         let merged = Merge quadtree other
         quadtree <- merged
 
@@ -323,7 +299,7 @@ let ``Merge_Random_SplitLimit256`` () =
 [<Fact>]
 let ``Merge_Random_Centered_SplitLimit1`` () =
 
-    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 1
+    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 0<powerOfTwo>
 
     let r = Random(0)
     for i = 1 to 100 do
@@ -333,7 +309,7 @@ let ``Merge_Random_Centered_SplitLimit1`` () =
         let w  = r.Next(100) + 1
         let h  = r.Next(100) + 1
 
-        let other = createQuadtreeWithRandomValues ox oy w h e 1
+        let other = createQuadtreeWithRandomValues ox oy w h e 0<powerOfTwo>
         let merged = Merge quadtree other
         quadtree <- merged
 
@@ -342,17 +318,17 @@ let ``Merge_Random_Centered_SplitLimit1`` () =
 [<Fact>]
 let ``Merge_Random_Centered_SplitLimit256`` () =
 
-    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 256
+    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 8<powerOfTwo>
 
     let r = Random(0)
     for i = 1 to 100 do
         let e = r.Next(20) - 10
         let ox = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
         let oy = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
-        let w  = r.Next(1000) + 1
-        let h  = r.Next(1000) + 1
+        let w  = r.Next(500) + 1
+        let h  = r.Next(500) + 1
 
-        let other = createQuadtreeWithRandomValues ox oy w h e 256
+        let other = createQuadtreeWithRandomValues ox oy w h e 8<powerOfTwo>
         let merged = Merge quadtree other
         quadtree <- merged
 

@@ -8,10 +8,11 @@ open System
 *)
 
 type BuildConfig = {
-    SplitLimit : int
+    /// Node is split if width and/or height is greater than 2^SplitLimitPowerOfTwo.
+    SplitLimitPowerOfTwo : int
 }
 with
-    static member Default = { SplitLimit = 256 }
+    static member Default = { SplitLimitPowerOfTwo = 8 }
 
 [<AutoOpen>]
 module Quadtree =
@@ -44,8 +45,8 @@ module Quadtree =
         //    int box.SizeX > config.SplitLimit || int box.SizeY > config.SplitLimit
         //    )
 
-        let localResolution = 1 <<< (cell.Exponent - minExp)
-        let needToSplit = localResolution > config.SplitLimit
+        let localResolution = cell.Exponent - minExp
+        let needToSplit = localResolution > config.SplitLimitPowerOfTwo
         
         if needToSplit then
                     
@@ -100,9 +101,15 @@ module Quadtree =
         let layerWindows = layers |> Array.groupBy (fun x -> x.SampleWindow)
         if layerWindows.Length <> 1 then 
             failwith "All layers must have same samples window. Invariant 36488503-b5b8-4d80-8992-b713e7552480."
+            
+        let sampleExponent = layers.[0].SampleExponent
+        let minRootExponent = sampleExponent + config.SplitLimitPowerOfTwo
 
         let globalBounds = layers |> Array.map Layer.BoundingBox |> Box2d
-        let rootCell = Cell2d(globalBounds)
+        let mutable rootCell = Cell2d(globalBounds)
+        while rootCell.Exponent < minRootExponent do
+            rootCell <- rootCell.Parent
+
         build config rootCell layers
 
     let TryMerge a b = Merge.TryMerge a b

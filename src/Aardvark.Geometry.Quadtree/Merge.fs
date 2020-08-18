@@ -18,18 +18,22 @@ module Merge =
             invariant (root.Contains(node.Cell))                "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15."
             invariant (root.Exponent >= node.Cell.Exponent)     "cda4b28d-4449-4db2-80b8-40c0617ecf22."
             invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox)) "3eb5c9c4-a78e-4788-b1b2-2727564524ee."
-
-            if root.Exponent = node.Cell.Exponent then
+            
+            if root = node.Cell then
                 Some node
             else
                 invariant (root.Exponent > node.Cell.Exponent)  "56251fd0-5344-4d0a-b76b-815cdd5a7607."
-                let qi = node.Cell.Parent.GetQuadrant(node.Cell)
+
+                let isChildOfCenteredRoot = root.IsCenteredAtOrigin && root.Exponent = node.Cell.Exponent + 1
+
+                let parentCell = if isChildOfCenteredRoot then root else node.Cell.Parent
+                let qi = parentCell.GetQuadrant(node.Cell)
                 invariant qi.HasValue                           "09575aa7-38b3-4afa-bb63-389af3301fc0."
                 let subnodes = Array.create 4 None
                 subnodes.[qi.Value] <- Some node
                 let parentLodLayers = Node.GenerateLodLayers subnodes
                 invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent) "7b0fa058-4812-4332-9547-0c33ee7ea7d5."
-                let parentNode = Node(Guid.NewGuid(), node.Cell.Parent, parentLodLayers, Some subnodes) :> INode |> Some
+                let parentNode = Node(Guid.NewGuid(), parentCell, parentLodLayers, Some subnodes) :> INode |> Some
                 let result = extendUpTo root parentNode
                 invariant (root.Exponent = result.Value.Cell.Exponent) "a0d249da-ed0d-4abe-8751-191ad0ffb9f9."
                 result

@@ -95,6 +95,8 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         let maxIncl = this.SampleMaxIncl.Parent
         let inline getSample x y = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
 
+        let foo = Cell2d(this.BoundingBox)
+
         let w = int(maxIncl.X - min.X)
         let h = int(maxIncl.Y - min.Y)
 

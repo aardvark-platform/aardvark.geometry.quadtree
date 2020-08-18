@@ -116,9 +116,10 @@ module Node =
         let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
 
         let result =
-            subNodes |> Seq.map (fun x -> x.Layers) |> Seq.collect id
+            subNodes 
+            |> Seq.collect (fun x -> x.Layers) 
             |> Seq.groupBy (fun x -> x.Def)
-            |> Seq.map (fun (_, xs) ->
+            |> Seq.choose (fun (_, xs) ->
                 let maxExponent = xs |> Seq.map (fun x -> x.SampleExponent) |> Seq.max
                 xs 
                 |> Seq.map (fun layer ->
@@ -128,7 +129,6 @@ module Node =
                     )
                 |> Layer.Merge
                 )
-            |> Seq.choose id
             |> Seq.map (fun layer -> layer.ResampleUntyped())
             |> Seq.toArray
 
