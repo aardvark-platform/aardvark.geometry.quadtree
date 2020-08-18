@@ -57,7 +57,7 @@ module Quadtree =
                 let subLayers = layers |> Array.map (fun l -> l.WithWindow subBox) |> Array.choose id
                 (subCell, subLayers) 
                 )
-    
+
             let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
                 match subLayers.Length with
                 | 0 -> None
@@ -68,6 +68,12 @@ module Quadtree =
                     //    printfn "          %A with area %A" layer.Box layer.Box.Area
                     
                 )
+
+            let children = cell.Children
+            for i = 0 to 3 do
+                match subNodes.[i] with
+                | Some x -> invariant (x.Cell = children.[i]) "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e."
+                | None -> ()
 
             let lodLayers = Node.GenerateLodLayers subNodes
 

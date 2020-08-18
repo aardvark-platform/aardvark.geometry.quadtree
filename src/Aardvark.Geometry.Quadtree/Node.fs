@@ -59,8 +59,18 @@ type Node(id : Guid, cell : Cell2d, layers : ILayer[], subNodes : INode option[]
             if not(bb.Contains(layer.Mapping.BoundingBox)) then 
                 invalidArg "layers" (sprintf "Layer %A is outside node bounds." layer.Def.Id)
             
-        if subNodes.IsSome && subNodes.Value.Length <> 4 then 
-            invalidArg "subNodes" "Invariant 20baf723-cf32-46a6-9729-3b4e062ceee5."
+        match subNodes with 
+        | Some subNodes ->
+            invariant (subNodes.Length = 4) "20baf723-cf32-46a6-9729-3b4e062ceee5."
+            let children = cell.Children
+            for i = 0 to 3 do
+                let sn = subNodes.[i]
+                match sn with 
+                | None -> () 
+                | Some x ->
+                    invariant (x.Cell = children.[i]) "6243dc09-fae4-47d5-8ea7-834c3265988b."
+                    invariant (cell.Exponent = x.Cell.Exponent + 1) "780d98cc-ecab-43fc-b492-229fb0e208a3."
+         | None -> ()
 
     new (cell : Cell2d, layers : ILayer[]) = Node(Guid.NewGuid(), cell, layers, None)
 
