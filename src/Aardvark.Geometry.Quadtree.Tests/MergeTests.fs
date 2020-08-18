@@ -209,7 +209,7 @@ let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
     ()
 
 [<Fact>]
-let ``Merge_Overlapping_1x1_DifferentDepth_SameDetail_1`` () =
+let ``Merge_Overlapping_1x1_SameDetail_1`` () =
 
     let a = createQuadtreeWithValue 0 0 1 1 0 1 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 0 1 20.0f
@@ -227,7 +227,7 @@ let ``Merge_Overlapping_1x1_DifferentDepth_SameDetail_1`` () =
     ()
 
 [<Fact>]
-let ``Merge_Overlapping_1x1_DifferentDepth_SameDetail_2`` () =
+let ``Merge_Overlapping_1x1_SameDetail_2`` () =
 
     let a = createQuadtreeWithValue 0 0 1 1 0 1 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 0 1 20.0f
@@ -240,6 +240,44 @@ let ``Merge_Overlapping_1x1_DifferentDepth_SameDetail_2`` () =
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample Fail (Cell2d(0,0,0))
+    Assert.True((x = 20.0f))
+
+    ()
+
+[<Fact>]
+let ``Merge_LayersWithDifferentResolution_1`` () =
+
+    let a = createQuadtreeWithValue 0 0 1 1  0 1 10.0f
+    let b = createQuadtreeWithValue 1 0 2 1 -1 1 20.0f
+
+    Assert.True(Quadtree.CountLeafs a = 1)
+    Assert.True(Quadtree.CountLeafs b = 2)
+
+    let m = Merge a b
+    Assert.True(Quadtree.CountLeafs m = 2)
+    Assert.True(m.Cell = Cell2d(0,0,1))
+
+    let l = m.GetLayer<float32> Defs.Heights1f
+    let x = l.GetSample Fail (Cell2d(0,0,1))
+    Assert.True((x = 20.0f))
+
+    ()
+
+[<Fact>]
+let ``Merge_LayersWithDifferentResolution_256`` () =
+
+    let a = createQuadtreeWithValue 0 0 1 1  0 256 10.0f
+    let b = createQuadtreeWithValue 1 0 2 1 -1 256 20.0f
+
+    Assert.True(Quadtree.CountLeafs a = 1)
+    Assert.True(Quadtree.CountLeafs b = 2)
+
+    let m = Merge a b
+    Assert.True(Quadtree.CountLeafs m = 2)
+    Assert.True(m.Cell = Cell2d(0,0,1))
+
+    let l = m.GetLayer<float32> Defs.Heights1f
+    let x = l.GetSample Fail (Cell2d(0,0,1))
     Assert.True((x = 20.0f))
 
     ()

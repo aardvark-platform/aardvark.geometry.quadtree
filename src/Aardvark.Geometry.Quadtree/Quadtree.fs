@@ -40,9 +40,12 @@ module Quadtree =
         
         //printfn "min exp ......... %A" minExp
         
-        let needToSplit = layers |> Array.map Layer.Window |> Array.exists (fun box -> 
-            int box.SizeX > config.SplitLimit || int box.SizeY > config.SplitLimit
-            )
+        //let needToSplit = layers |> Array.map Layer.Window |> Array.exists (fun box -> 
+        //    int box.SizeX > config.SplitLimit || int box.SizeY > config.SplitLimit
+        //    )
+
+        let localResolution = 1 <<< (cell.Exponent - minExp)
+        let needToSplit = localResolution > config.SplitLimit
         
         if needToSplit then
                     
