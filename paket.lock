@@ -2,12 +2,12 @@ STORAGE: NONE
 RESTRICTION: || (== netcoreapp3.1) (== netstandard2.0) (== netstandard2.1)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    Aardvark.Base (5.0.14)
-      Aardvark.Base.Telemetry (5.0.14)
+    Aardvark.Base (5.0.15)
+      Aardvark.Base.Telemetry (5.0.15)
       DevILSharp (>= 0.2.9 < 0.3)
       System.Collections.Immutable (>= 1.7 < 2.0)
       System.Reflection.Metadata (>= 1.8 < 2.0) - restriction: || (&& (== netcoreapp3.1) (< netcoreapp3.0)) (== netstandard2.0) (== netstandard2.1)
-    Aardvark.Base.Telemetry (5.0.14)
+    Aardvark.Base.Telemetry (5.0.15)
     Aardvark.Data.Durable (0.2.3)
     Aardvark.Data.Durable.Codec (0.2.3)
       Aardvark.Base (>= 5.0.14 < 5.1)
