@@ -34,7 +34,7 @@ module Quadtree =
     let rec CountLeafs root = root |> count 1 0
     let rec CountInner root = root |> count 0 1
 
-    let rec private build (config : BuildConfig) (cell : Cell2d) (layers : ILayer[]) : INode =
+    let rec private build (config : BuildConfig) (rootCell : Cell2d) (layers : ILayer[]) : INode =
     
         //printfn "[build] %A" cell
         let minExp = layers |> Array.map (fun l -> l.SampleExponent) |> Array.min
@@ -45,7 +45,7 @@ module Quadtree =
         //    int box.SizeX > config.SplitLimit || int box.SizeY > config.SplitLimit
         //    )
 
-        let localResolution = cell.Exponent - minExp
+        let localResolution = rootCell.Exponent - minExp
         let needToSplit = localResolution > config.SplitLimitPowerOfTwo
         
         if needToSplit then
@@ -56,7 +56,7 @@ module Quadtree =
             //if cell.Exponent = 8 then 
             //    printfn "what?????????????????????????????????????????????????????????????????????????????????????????????????"
 
-            let subLayers = cell.Children |> Array.map (fun subCell ->
+            let subLayers = rootCell.Children |> Array.map (fun subCell ->
                 let subBox = subCell.GetBoundsForExponent(minExp)
                 let subLayers = layers |> Array.map (fun l -> l.WithWindow subBox) |> Array.choose id
                 (subCell, subLayers) 
@@ -73,19 +73,19 @@ module Quadtree =
                     
                 )
 
-            let children = cell.Children
+            let children = rootCell.Children
             for i = 0 to 3 do
                 match subNodes.[i] with
                 | Some x -> invariant (x.Cell = children.[i]) "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e."
                 | None -> ()
 
-            let lodLayers = Node.GenerateLodLayers subNodes
+            let lodLayers = Node.GenerateLodLayers subNodes rootCell
 
-            Node(Guid.NewGuid(), cell, lodLayers, Some subNodes) :> INode
+            Node(Guid.NewGuid(), rootCell, lodLayers, Some subNodes) :> INode
         
         else
         
-            Node(cell, layers) :> INode
+            Node(rootCell, layers) :> INode
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.

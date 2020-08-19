@@ -1,18 +1,20 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
 open Aardvark.Base
-open Aardvark.Data
 open System
-open System.Collections.Immutable
 
 /// Window is in absolute cell space (level given by bufferOrigin.Exponent),
 /// where window.Min is inclusive and window.Max is exclusive.
+/// If bufferOrigin is centered cell, then window is ignored and bufferSize MUST be (1,1).
 type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
 
     do
-        let max = bufferOrigin.XY + V2l(bufferSize)
-        if window.Min.X < bufferOrigin.X || window.Min.Y < bufferOrigin.Y || window.Max.X > max.X || window.Max.Y > max.Y then
-            failwith "Invalid window. Invariant 8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a."
+        if bufferOrigin.IsCenteredAtOrigin then
+            invariant (bufferSize = V2i(1,1)) "e782c751-0c45-4748-a937-c32393692659."
+        else
+            let max = bufferOrigin.XY + V2l(bufferSize)
+            if window.Min.X < bufferOrigin.X || window.Min.Y < bufferOrigin.Y || window.Max.X > max.X || window.Max.Y > max.Y then
+                failwith "Invalid window. Invariant 8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a."
 
     let getBufferIndex (x : int64, y : int64) =
         let dx = x - bufferOrigin.X

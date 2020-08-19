@@ -107,7 +107,7 @@ type Node(id : Guid, cell : Cell2d, layers : ILayer[], subNodes : INode option[]
 
 module Node =
 
-    let internal GenerateLodLayers (subNodes : INode option[]) =
+    let internal GenerateLodLayers (subNodes : INode option[]) (rootCell : Cell2d) =
 
         let subNodes = subNodes |> Array.choose id
         invariant (subNodes.Length > 0) "Invariant 641ef4b4-65b3-4e76-bbb6-c7046452801a."
@@ -124,12 +124,12 @@ module Node =
                 xs 
                 |> Seq.map (fun layer ->
                     let mutable l = layer
-                    while l.SampleExponent < maxExponent do l <- l.ResampleUntyped()
+                    while l.SampleExponent < maxExponent do l <- l.ResampleUntyped rootCell
                     l
                     )
                 |> Layer.Merge
                 )
-            |> Seq.map (fun layer -> layer.ResampleUntyped())
+            |> Seq.map (fun layer -> layer.ResampleUntyped rootCell)
             |> Seq.toArray
 
 

@@ -31,7 +31,7 @@ module Merge =
                 invariant qi.HasValue                           "09575aa7-38b3-4afa-bb63-389af3301fc0."
                 let subnodes = Array.create 4 None
                 subnodes.[qi.Value] <- Some node
-                let parentLodLayers = Node.GenerateLodLayers subnodes
+                let parentLodLayers = Node.GenerateLodLayers subnodes root
                 invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent) "7b0fa058-4812-4332-9547-0c33ee7ea7d5."
                 let parentNode = Node(Guid.NewGuid(), parentCell, parentLodLayers, Some subnodes) :> INode |> Some
                 let result = extendUpTo root parentNode
@@ -102,10 +102,10 @@ module Merge =
 
                 Node(Guid.NewGuid(), rootCell, layers, Some zs) :> INode |> Some
             | Some xs, None    -> // inner/leaf
-                let lodLayers = Node.GenerateLodLayers xs
+                let lodLayers = Node.GenerateLodLayers xs rootCell
                 Node(Guid.NewGuid(), rootCell, lodLayers, Some xs) :> INode |> Some
             | None,    Some ys -> // leaf/inner
-                let lodLayers = Node.GenerateLodLayers ys
+                let lodLayers = Node.GenerateLodLayers ys rootCell
                 Node(Guid.NewGuid(), rootCell, lodLayers, Some ys) :> INode |> Some
             | None,    None    -> // leaf/leaf
                 let layers = mergeLayers a0.Layers b0.Layers
@@ -129,15 +129,22 @@ module Merge =
             if   a'.Cell.Exponent = b'.Cell.Exponent then mergeSameRoot     a b
             elif a'.Cell.Exponent < b'.Cell.Exponent then mergeIntersecting b a
             else
-                invariant (a'.Cell.Exponent > b'.Cell.Exponent) "4b40bc08-b19d-4f49-b6e5-f321bf1e7dd0."
-                invariant (a'.Cell.Contains(b'.Cell))           "9a44a9ea-2996-46ff-9cc6-c9de1992465d."
-                invariant (not(b'.Cell.Contains(a'.Cell)))      "7d3465b9-90c7-4e7d-99aa-67e5383fb124."
 
-                let qi = a'.Cell.GetQuadrant(b'.Cell).Value
-                let qcell = a'.Cell.GetQuadrant(qi)
+                if a'.Cell.IsCenteredAtOrigin || b'.Cell.IsCenteredAtOrigin then
 
-                let a'' = if a'.IsLeafNode then Node(Guid.NewGuid(), a'.Cell, a'.Layers, Some <| Array.create 4 None) :> INode else a'
-                b |> extendUpTo qcell |> setOrMergeIthSubnode qi a'' |> Some
+                    failwith "Merging intersecting centered cells is not implemented."
+
+                else
+
+                    invariant (a'.Cell.Exponent > b'.Cell.Exponent) "4b40bc08-b19d-4f49-b6e5-f321bf1e7dd0."
+                    invariant (a'.Cell.Contains(b'.Cell))           "9a44a9ea-2996-46ff-9cc6-c9de1992465d."
+                    invariant (not(b'.Cell.Contains(a'.Cell)))      "7d3465b9-90c7-4e7d-99aa-67e5383fb124."
+
+                    let qi = a'.Cell.GetQuadrant(b'.Cell).Value
+                    let qcell = a'.Cell.GetQuadrant(qi)
+
+                    let a'' = if a'.IsLeafNode then Node(Guid.NewGuid(), a'.Cell, a'.Layers, Some <| Array.create 4 None) :> INode else a'
+                    b |> extendUpTo qcell |> setOrMergeIthSubnode qi a'' |> Some
 
         | Some _, None   -> a
         | None,   Some _ -> b

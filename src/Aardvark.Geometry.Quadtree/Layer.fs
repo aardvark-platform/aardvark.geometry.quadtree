@@ -9,7 +9,7 @@ type ILayer =
     abstract member Def : Durable.Def
     abstract member Mapping : DataMapping
     abstract member WithWindow : Box2l -> ILayer option
-    abstract member ResampleUntyped : unit -> ILayer
+    abstract member ResampleUntyped : Cell2d -> ILayer
     abstract member Materialize : unit -> ILayer
     abstract member ToDurableMap : unit -> seq<KeyValuePair<Durable.Def, obj>>
 
@@ -21,7 +21,14 @@ module ILayerExtensions =
         member this.SampleMaxExcl     with get() = Cell2d(this.Mapping.Window.Max, this.SampleExponent)
         member this.SampleMaxIncl     with get() = Cell2d(this.Mapping.Window.Max - V2l.II, this.SampleExponent)
         member this.SampleWindow      with get() = this.Mapping.Window
-        member this.BoundingBox       with get() = Box2d(this.SampleMin.BoundingBox, this.SampleMaxIncl.BoundingBox)
+        member this.BoundingBox       with get() = if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
+                                                     this.Mapping.BufferOrigin.BoundingBox
+                                                   else
+                                                     Box2d(this.SampleMin.BoundingBox, this.SampleMaxIncl.BoundingBox)
+        member this.CellBounds        with get() = if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
+                                                     this.Mapping.BufferOrigin
+                                                   else
+                                                     Cell2d(this.BoundingBox)
 
 type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
    
@@ -31,9 +38,9 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         member this.WithWindow (w : Box2l) =
             mapping.WithWindow(w) 
             |> Option.map (fun m -> Layer(def, data, m) :> ILayer)
-        member this.ResampleUntyped () =
+        member this.ResampleUntyped (resampleRoot : Cell2d) =
             let f = Resamplers.getResamplerFor def 
-            let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a))
+            let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a)) resampleRoot
             r :> ILayer
 
         member this.Materialize () =
@@ -64,6 +71,7 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
     member this.Mapping with get() = mapping
     member this.Data with get() = data
     member this.WithWindow = (this :> ILayer).WithWindow
+    member this.CellBounds with get() = (this :> ILayer).CellBounds
 
     member this.GetSample (mode : BorderMode<'a>) (s : Cell2d) : 'a =
         let min = this.SampleMin
@@ -89,31 +97,35 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             let i = mapping.GetBufferIndex(x, y)
             data.[i]
 
-    member this.Resample (mode : BorderMode<'a>) (f : 'a*'a*'a*'a -> 'a) : Layer<'a> =
+    member this.Resample (mode : BorderMode<'a>) (f : 'a*'a*'a*'a -> 'a) (resampleRoot : Cell2d) : Layer<'a> =
 
-        let min = this.SampleMin.Parent
-        let maxIncl = this.SampleMaxIncl.Parent
-        let inline getSample x y = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
+        if resampleRoot.IsCenteredAtOrigin && this.SampleExponent + 1 = resampleRoot.Exponent then
 
-        let foo = Cell2d(this.BoundingBox)
+            failwith "Resample to centered cell not implemented."
 
-        let w = int(maxIncl.X - min.X)
-        let h = int(maxIncl.Y - min.Y)
+        else
 
-        let buffer = Array.zeroCreate ((w + 1) * (h + 1))
+            let min = this.SampleMin.Parent
+            let maxIncl = this.SampleMaxIncl.Parent
+            let inline getSample x y = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
 
-        let getSample = this.GetSample mode
-        let mutable i = 0
-        for y = 0 to h do
-            for x = 0 to w do
-                let s = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
-                let xs = s.Children |> Array.map getSample
-                let v = f (xs.[0], xs.[1], xs.[2], xs.[3])
-                buffer.[i] <- v
-                i <- i + 1
+            let w = int(maxIncl.X - min.X)
+            let h = int(maxIncl.Y - min.Y)
+
+            let buffer = Array.zeroCreate ((w + 1) * (h + 1))
+
+            let getSample = this.GetSample mode
+            let mutable i = 0
+            for y = 0 to h do
+                for x = 0 to w do
+                    let s = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
+                    let xs = s.Children |> Array.map getSample
+                    let v = f (xs.[0], xs.[1], xs.[2], xs.[3])
+                    buffer.[i] <- v
+                    i <- i + 1
                 
-        let newMapping = DataMapping(min, maxIncl)
-        Layer(def, buffer, newMapping)
+            let newMapping = DataMapping(min, maxIncl)
+            Layer(def, buffer, newMapping)
 
     
 

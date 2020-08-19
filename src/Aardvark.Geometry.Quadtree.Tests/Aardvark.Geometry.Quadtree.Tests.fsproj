@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="SerializationTests.fs" />
+    <Compile Include="DataMappingTests.fs" />
     <Compile Include="LayerTests.fs" />
     <Compile Include="QuadtreeTests.fs" />
     <Compile Include="MergeTests.fs" />
