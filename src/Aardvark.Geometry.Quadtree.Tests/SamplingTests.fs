@@ -109,9 +109,9 @@ let ``Resample4`` () =
 
     let b = a.Resample ClampToEdge (fun (a,b,c,d) -> (a+b+c+d)/4.0) a.CellBounds
     Assert.True(b.Data.Length      = 1)
+    Assert.True(b.Mapping.BufferOrigin.IsCenteredAtOrigin)
     Assert.True(b.SampleExponent   = 1)
-    Assert.True(b.SampleWindow.Min = V2l.MaxValue)
-    Assert.True(b.SampleWindow.Max = V2l.MaxValue)
+    Assert.True(b.SampleWindow.IsInvalid)
     Assert.True(b.GetSample Fail (Cell2d(1)) = 25.0)
 
     ()
@@ -144,9 +144,9 @@ let ``Resample5`` () =
 
     let c = b.Resample ClampToEdge (fun (a,b,c,d) -> (a+b+c+d)/4.0) b.CellBounds
     Assert.True(c.Data.Length      = 1)
+    Assert.True(c.Mapping.BufferOrigin.IsCenteredAtOrigin)
     Assert.True(c.SampleExponent   = 2)
-    Assert.True(c.SampleWindow.Min = V2l.MaxValue)
-    Assert.True(c.SampleWindow.Max = V2l.MaxValue)
+    Assert.True(c.SampleWindow.IsInvalid)
     Assert.True(c.GetSample Fail (Cell2d(2)) = 25.0)
 
     ()

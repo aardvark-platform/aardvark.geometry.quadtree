@@ -114,6 +114,6 @@ module Quadtree =
 
     let TryMerge a b = Merge.TryMerge a b
 
-    let Merge a b = (TryMerge (Some a) (Some b)).Value
+    let Merge domination a b = (TryMerge domination (Some a) (Some b)).Value
 
     ()

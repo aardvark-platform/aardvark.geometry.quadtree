@@ -36,6 +36,10 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
             failwith "Invalid arguments. Invariant a447d0d5-9036-4372-ba22-19e28decbfaa."
         DataMapping(origin, V2i(size), Box2l.FromMinAndSize(origin.XY, size))
 
+    new (origin : Cell2d) =
+        if not origin.IsCenteredAtOrigin then failwith "Invariant 3bd119fe-ec23-40a8-9287-9c8d7abe49ce."
+        DataMapping(origin, V2i.II, Box2l.Invalid)
+
     member ____.BufferOrigin with get() = bufferOrigin
     member ____.BufferSize with get() = bufferSize
     member ____.Window with get() = window

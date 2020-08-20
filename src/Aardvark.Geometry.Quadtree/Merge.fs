@@ -7,7 +7,15 @@ open System
     Merge.
 *)
 
+type Dominance = FirstDominates | SecondDominates | MoreDetailedDominates
+
 module Merge =
+
+    let flipDomination d =
+        match d with
+        | FirstDominates        -> SecondDominates
+        | SecondDominates       -> FirstDominates
+        | MoreDetailedDominates -> MoreDetailedDominates
 
     let inline private intersecting (a : INode) (b : INode) = a.Cell.Intersects(b.Cell)
 
@@ -66,7 +74,7 @@ module Merge =
         for y in b do merge y
         merged |> Map.toArray |> Array.map (fun (_, v) -> v)
 
-    let rec private mergeSameRoot (a : INode option) (b : INode option) : INode option =
+    let rec private mergeSameRoot (domination : Dominance) (a : INode option) (b : INode option) : INode option =
         match a, b with
         | Some a0, Some b0 ->
             invariant (a0.Cell = b0.Cell) "641da2e5-a7ea-4692-a96b-94440453ff1e."
@@ -94,7 +102,7 @@ module Merge =
                     | None, None ->
                         ()
                         
-                let zs = Array.map2 mergeSameRoot xs ys
+                let zs = Array.map2 (mergeSameRoot domination) xs ys
                 
                 invariant (xs.Length = 4) "84392aaf-cf49-4afc-9d6e-923d13ecd8d8."
                 invariant (ys.Length = 4) "087924cb-b42e-4f03-9385-26744c702b04."
@@ -116,26 +124,40 @@ module Merge =
         | None,   Some b -> Some b
         | None,   None   -> None
     
-    let private setOrMergeIthSubnode (i : int) (node : INode) (newSubnode : INode option) : INode =
+    let private setOrMergeIthSubnode (domination : Dominance) (i : int) (node : INode) (newSubnode : INode option) : INode =
         invariant node.SubNodes.IsSome "f74ba958-cf53-4336-944f-46ef2c2b8893"
         if newSubnode.IsSome then invariant (node.Cell.GetQuadrant(i) = newSubnode.Value.Cell) "f5b92710-39de-4054-a67d-e2fbb1c9212c"
         let nss = node.SubNodes.Value |> Array.copy
-        nss.[i] <- mergeSameRoot nss.[i] newSubnode
+        nss.[i] <- mergeSameRoot domination nss.[i] newSubnode
         Node(Guid.NewGuid(), node.Cell, node.Layers, Some nss) :> INode
 
-    let rec private mergeIntersecting (a : INode option) (b : INode option) : INode option =
+    let rec private mergeIntersectingBothCentered (a : INode) (b : INode) : INode =
+        invariant a.Cell.IsCenteredAtOrigin "41380857-b8c9-4f68-88d1-e279af0667b1"
+        invariant b.Cell.IsCenteredAtOrigin "670db503-29bd-495e-b565-d1a0e45b3c08"
+        failwith "Merging intersecting centered cells is not implemented (both)."
+
+    let rec private mergeIntersectingFirstCentered (a : INode) (b : INode) : INode =
+        invariant a.Cell.IsCenteredAtOrigin "d8bf0eb6-7368-4c92-99b4-b7eafa6567f8"
+        invariant (not b.Cell.IsCenteredAtOrigin) "39c66587-2f0f-48b4-9823-24d77df925c5"
+        failwith "Merging intersecting centered cells is not implemented (first)."
+
+    let rec private mergeIntersecting (domination : Dominance) (a : INode option) (b : INode option) : INode option =
         match a, b with
         | Some a', Some b' ->
-            if   a'.Cell.Exponent = b'.Cell.Exponent then mergeSameRoot     a b
-            elif a'.Cell.Exponent < b'.Cell.Exponent then mergeIntersecting b a
+
+            if   a'.Cell.Exponent = b'.Cell.Exponent then
+                mergeSameRoot     domination a b
+
+            elif a'.Cell.Exponent < b'.Cell.Exponent then
+                mergeIntersecting (flipDomination domination) b a
+
             else
 
-                if a'.Cell.IsCenteredAtOrigin || b'.Cell.IsCenteredAtOrigin then
-
-                    failwith "Merging intersecting centered cells is not implemented."
-
-                else
-
+                match a'.Cell.IsCenteredAtOrigin, b'.Cell.IsCenteredAtOrigin with
+                | true, true -> mergeIntersectingBothCentered a' b' |> Some
+                | true, false -> mergeIntersectingFirstCentered a' b' |> Some
+                | false, true -> mergeIntersectingFirstCentered b' a' |> Some
+                | false, false ->
                     invariant (a'.Cell.Exponent > b'.Cell.Exponent) "4b40bc08-b19d-4f49-b6e5-f321bf1e7dd0."
                     invariant (a'.Cell.Contains(b'.Cell))           "9a44a9ea-2996-46ff-9cc6-c9de1992465d."
                     invariant (not(b'.Cell.Contains(a'.Cell)))      "7d3465b9-90c7-4e7d-99aa-67e5383fb124."
@@ -144,13 +166,13 @@ module Merge =
                     let qcell = a'.Cell.GetQuadrant(qi)
 
                     let a'' = if a'.IsLeafNode then Node(Guid.NewGuid(), a'.Cell, a'.Layers, Some <| Array.create 4 None) :> INode else a'
-                    b |> extendUpTo qcell |> setOrMergeIthSubnode qi a'' |> Some
+                    b |> extendUpTo qcell |> setOrMergeIthSubnode domination qi a'' |> Some
 
         | Some _, None   -> a
         | None,   Some _ -> b
         | None,   None   -> None
 
-    let private mergeNonIntersecting (a : INode option) (b : INode option) : INode option =
+    let private mergeNonIntersecting (domination : Dominance) (a : INode option) (b : INode option) : INode option =
         match a, b with
         | Some a1, Some b1 ->
             let commonRootCell = Cell2d(Box2d(a1.Cell.BoundingBox, b1.Cell.BoundingBox))
@@ -161,14 +183,14 @@ module Merge =
             invariant (a2.Value.Cell = commonRootCell) "7730eae1-0212-40e5-b114-ff81c0c40762."
             invariant (b2.Value.Cell = commonRootCell) "00205e51-46c2-451a-bd7c-5dc45f18acc1."
             invariant (a2.Value.SampleExponent = b2.Value.SampleExponent) "178eedaa-89e2-473b-afbb-1beee112225d."
-            mergeSameRoot a2 b2
+            mergeSameRoot domination a2 b2
         | Some _,  None    -> a
         | None,    Some _  -> b
         | None,    None    -> None
 
-    let TryMerge (a : INode option) ( b : INode option) : INode option =
+    let TryMerge (domination : Dominance) (a : INode option) ( b : INode option) : INode option =
         match a, b with
-        | Some a', Some b' -> (if intersecting a' b' then mergeIntersecting else mergeNonIntersecting) a b
+        | Some a', Some b' -> (if intersecting a' b' then mergeIntersecting else mergeNonIntersecting) domination a b
         | Some _,  None    -> a
         | None,    Some _  -> b
         | None,    None    -> None
