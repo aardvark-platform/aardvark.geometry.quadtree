@@ -22,6 +22,21 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         if dx < 0L || dy < 0L || dx >= int64 bufferSize.X || dy >= int64 bufferSize.Y then failwith "Sample position out of range."
         int(dy) * bufferSize.X + int(dx)
 
+    override this.GetHashCode() =
+        hash (bufferOrigin, bufferSize, window)
+
+    override this.Equals(thatObj) =
+        match thatObj with
+        | :? DataMapping as that -> 
+            this.BufferOrigin = that.BufferOrigin
+            && this.BufferSize = that.BufferSize 
+            && this.Window = that.Window       
+        | _ -> false
+
+    interface IEquatable<DataMapping> with
+        member this.Equals(that : DataMapping) =
+            this.Equals(that)   
+
     new (origin : Cell2d, size : V2i) =
         DataMapping(origin, size, Box2l.FromMinAndSize(origin.XY, V2l(size)))
 

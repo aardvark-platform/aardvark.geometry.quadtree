@@ -6,6 +6,12 @@ open System
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 
+/// Which data dominates in merge operations.
+type Dominance = 
+    | FirstDominates 
+    | SecondDominates 
+    | MoreDetailedDominates
+
 [<AutoOpen>]
 module Prelude =
 
@@ -13,6 +19,14 @@ module Prelude =
         if not condition then failwith <| sprintf "Invariant %s" id
 
     let kvp def x = KeyValuePair<Durable.Def, obj>(def, x :> obj)
+
+    let flipDomination d =
+           match d with
+           | FirstDominates        -> SecondDominates
+           | SecondDominates       -> FirstDominates
+           | MoreDetailedDominates -> MoreDetailedDominates
+
+
 
 [<AutoOpen>]
 module Extensions =

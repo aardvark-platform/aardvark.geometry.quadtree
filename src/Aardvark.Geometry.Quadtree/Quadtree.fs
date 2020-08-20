@@ -34,7 +34,7 @@ module Quadtree =
     let rec CountLeafs root = root |> count 1 0
     let rec CountInner root = root |> count 0 1
 
-    let rec private build (config : BuildConfig) (rootCell : Cell2d) (layers : ILayer[]) : INode =
+    let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : INode =
     
         //printfn "[build] %A" cell
         let minExp = layers |> Array.map (fun l -> l.SampleExponent) |> Array.min
@@ -65,7 +65,7 @@ module Quadtree =
             let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
                 match subLayers.Length with
                 | 0 -> None
-                | _ -> Some <| build config subCell subLayers
+                | _ -> Some <| build config subCell originalSampleExponent subLayers
                     //printfn "  sub cell %A"  subCell
                     //for layer in subLayers do
                     //    printfn "    layer %-20s" layer.Def.Name
@@ -81,11 +81,11 @@ module Quadtree =
 
             let lodLayers = Node.GenerateLodLayers subNodes rootCell
 
-            Node(Guid.NewGuid(), rootCell, lodLayers, Some subNodes) :> INode
+            Node(Guid.NewGuid(), rootCell, originalSampleExponent, lodLayers, Some subNodes) :> INode
         
         else
         
-            Node(rootCell, layers) :> INode
+            Node(rootCell, originalSampleExponent, layers) :> INode
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.
@@ -110,7 +110,7 @@ module Quadtree =
         while rootCell.Exponent < minRootExponent do
             rootCell <- rootCell.Parent
 
-        build config rootCell layers
+        build config rootCell sampleExponent layers
 
     let TryMerge a b = Merge.TryMerge a b
 

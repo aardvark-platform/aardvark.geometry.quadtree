@@ -7,15 +7,7 @@ open System
     Merge.
 *)
 
-type Dominance = FirstDominates | SecondDominates | MoreDetailedDominates
-
 module Merge =
-
-    let flipDomination d =
-        match d with
-        | FirstDominates        -> SecondDominates
-        | SecondDominates       -> FirstDominates
-        | MoreDetailedDominates -> MoreDetailedDominates
 
     let inline private intersecting (a : INode) (b : INode) = a.Cell.Intersects(b.Cell)
 
@@ -41,12 +33,12 @@ module Merge =
                 subnodes.[qi.Value] <- Some node
                 let parentLodLayers = Node.GenerateLodLayers subnodes root
                 invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent) "7b0fa058-4812-4332-9547-0c33ee7ea7d5."
-                let parentNode = Node(Guid.NewGuid(), parentCell, parentLodLayers, Some subnodes) :> INode |> Some
+                let parentNode = Node(Guid.NewGuid(), parentCell, node.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
                 let result = extendUpTo root parentNode
                 invariant (root.Exponent = result.Value.Cell.Exponent) "a0d249da-ed0d-4abe-8751-191ad0ffb9f9."
                 result
 
-    let private mergeLayers (a : ILayer[]) (b : ILayer[]) : ILayer[] =
+    let private mergeLayers (domination : Dominance) (a : ILayer[]) (b : ILayer[]) : ILayer[] =
 
         invariant (a.Length = b.Length) "Mismatch number of layers. d034fed2-aaa8-4e95-851d-48cc364943e9."
 
@@ -54,17 +46,24 @@ module Merge =
         let merge (x : ILayer) : unit =
             match Map.tryFind x.Def.Id merged with
 
-            | Some (y : ILayer) ->
+            | Some (first : ILayer) ->
+                let second = x
 
                 let handleCollision () =
-                    match seq {x;y} |> Layer.Merge with
+                    match seq {second;first} |> Layer.Merge with
                     | Some z -> merged <- merged |> Map.add z.Def.Id z
                     | None -> ()
 
-                if x.Mapping = y.Mapping then
-                    if   x.SampleExponent < y.SampleExponent then merged <- merged |> Map.add x.Def.Id x
-                    elif y.SampleExponent < x.SampleExponent then merged <- merged |> Map.add y.Def.Id y
-                    else handleCollision()
+                if second.Mapping = first.Mapping then
+                    if second.SampleExponent <> first.SampleExponent then
+                        match domination, second.SampleExponent < first.SampleExponent with
+                        | FirstDominates, _ | MoreDetailedDominates, true  -> merged <- merged |> Map.add second.Def.Id first
+                        | SecondDominates, _ | MoreDetailedDominates, false -> merged <- merged |> Map.add first.Def.Id second
+                    else
+                        match domination with
+                        | FirstDominates -> merged <- merged |> Map.add second.Def.Id first
+                        | SecondDominates -> merged <- merged |> Map.add first.Def.Id second
+                        | MoreDetailedDominates -> handleCollision()
                 else
                     handleCollision()
 
@@ -83,10 +82,17 @@ module Merge =
             let rootCell = a0.Cell
             let windowA = a0.SampleWindow
             let windowB = b0.SampleWindow
+            let ose = min a0.OriginalSampleExponent b0.OriginalSampleExponent
+            let domination = match domination with
+                             | MoreDetailedDominates ->
+                                if a0.OriginalSampleExponent < b0.OriginalSampleExponent then FirstDominates
+                                elif a0.OriginalSampleExponent > b0.OriginalSampleExponent then SecondDominates
+                                else MoreDetailedDominates
+                             | _ -> domination
 
             match a0.SubNodes, b0.SubNodes with
             | Some xs, Some ys -> // inner/inner
-                let layers = mergeLayers a0.Layers b0.Layers
+                let layers = mergeLayers domination a0.Layers b0.Layers
                 invariant (a0.Layers.Length = layers.Length) "384e9a83-4c5d-4dfc-92eb-2ebc8084dd60."
                 let rootCellChildren = rootCell.Children
                 for i = 0 to 3 do
@@ -108,17 +114,17 @@ module Merge =
                 invariant (ys.Length = 4) "087924cb-b42e-4f03-9385-26744c702b04."
                 invariant (zs.Length = 4) "d972f5f1-5c2d-460c-9d98-5e6fc1fade99."
 
-                Node(Guid.NewGuid(), rootCell, layers, Some zs) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, ose, layers, Some zs) :> INode |> Some
             | Some xs, None    -> // inner/leaf
                 let lodLayers = Node.GenerateLodLayers xs rootCell
-                Node(Guid.NewGuid(), rootCell, lodLayers, Some xs) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, ose, lodLayers, Some xs) :> INode |> Some
             | None,    Some ys -> // leaf/inner
                 let lodLayers = Node.GenerateLodLayers ys rootCell
-                Node(Guid.NewGuid(), rootCell, lodLayers, Some ys) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, ose, lodLayers, Some ys) :> INode |> Some
             | None,    None    -> // leaf/leaf
-                let layers = mergeLayers a0.Layers b0.Layers
+                let layers = mergeLayers domination a0.Layers b0.Layers
                 invariant (a0.Layers.Length = layers.Length) "10d73a3d-ce2b-4bf8-a8a5-9123011477c4."
-                Node(Guid.NewGuid(), rootCell, layers, None) :> INode |> Some
+                Node(Guid.NewGuid(), rootCell, ose, layers, None) :> INode |> Some
 
         | Some a, None   -> Some a
         | None,   Some b -> Some b
@@ -129,7 +135,10 @@ module Merge =
         if newSubnode.IsSome then invariant (node.Cell.GetQuadrant(i) = newSubnode.Value.Cell) "f5b92710-39de-4054-a67d-e2fbb1c9212c"
         let nss = node.SubNodes.Value |> Array.copy
         nss.[i] <- mergeSameRoot domination nss.[i] newSubnode
-        Node(Guid.NewGuid(), node.Cell, node.Layers, Some nss) :> INode
+        let ose = match newSubnode with
+                  | Some x -> min node.OriginalSampleExponent x.OriginalSampleExponent
+                  | None   -> node.OriginalSampleExponent
+        Node(Guid.NewGuid(), node.Cell, ose, node.Layers, Some nss) :> INode
 
     let rec private mergeIntersectingBothCentered (a : INode) (b : INode) : INode =
         invariant a.Cell.IsCenteredAtOrigin "41380857-b8c9-4f68-88d1-e279af0667b1"
@@ -149,9 +158,22 @@ module Merge =
                 mergeSameRoot     domination a b
 
             elif a'.Cell.Exponent < b'.Cell.Exponent then
+
                 mergeIntersecting (flipDomination domination) b a
 
             else
+
+                let domination =
+                    if domination = MoreDetailedDominates then
+                        if a'.SampleExponent <> b'.SampleExponent then
+                            if a'.SampleExponent < b'.SampleExponent then
+                                FirstDominates
+                            else
+                                SecondDominates
+                        else
+                            failwith "Cannot merge data with same resolution. Invariant f74cbaf3-04f6-49d1-bf0f-c6395b887619."
+                    else
+                        domination
 
                 match a'.Cell.IsCenteredAtOrigin, b'.Cell.IsCenteredAtOrigin with
                 | true, true -> mergeIntersectingBothCentered a' b' |> Some
@@ -165,7 +187,10 @@ module Merge =
                     let qi = a'.Cell.GetQuadrant(b'.Cell).Value
                     let qcell = a'.Cell.GetQuadrant(qi)
 
-                    let a'' = if a'.IsLeafNode then Node(Guid.NewGuid(), a'.Cell, a'.Layers, Some <| Array.create 4 None) :> INode else a'
+                    let a'' = if a'.IsLeafNode then 
+                                Node(Guid.NewGuid(), a'.Cell, a'.OriginalSampleExponent, a'.Layers, Some <| Array.create 4 None) :> INode
+                              else 
+                                a'
                     b |> extendUpTo qcell |> setOrMergeIthSubnode domination qi a'' |> Some
 
         | Some _, None   -> a

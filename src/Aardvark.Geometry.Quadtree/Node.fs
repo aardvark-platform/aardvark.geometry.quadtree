@@ -17,6 +17,7 @@ type INode =
     abstract member Id : Guid
     /// Cell occupied by this node.
     abstract member Cell : Cell2d
+    abstract member OriginalSampleExponent : int
     abstract member Layers : ILayer[]
     abstract member SampleWindow : Box2l
     abstract member SampleExponent : int
@@ -45,7 +46,7 @@ module INodeExtensions =
                     i <- i + 1
             samples
 
-type Node(id : Guid, cell : Cell2d, layers : ILayer[], subNodes : INode option[] option) =
+type Node(id : Guid, cell : Cell2d, originalSampleExponent : int, layers : ILayer[], subNodes : INode option[] option) =
 
     do
         if layers.Length = 0 then
@@ -72,16 +73,18 @@ type Node(id : Guid, cell : Cell2d, layers : ILayer[], subNodes : INode option[]
                     invariant (cell.Exponent = x.Cell.Exponent + 1) "780d98cc-ecab-43fc-b492-229fb0e208a3."
          | None -> ()
 
-    new (cell : Cell2d, layers : ILayer[]) = Node(Guid.NewGuid(), cell, layers, None)
+    new (cell : Cell2d, originalSampleExponent : int, layers : ILayer[]) =
+        Node(Guid.NewGuid(), cell, originalSampleExponent, layers, None)
 
     interface INode with
         member _.Id with get() = id
         member _.Cell with get() = cell
+        member _.OriginalSampleExponent with get() = originalSampleExponent
         member _.Layers with get() = layers
         member _.SampleWindow with get() = layers.[0].SampleWindow
         member _.SampleExponent with get() = layers.[0].SampleExponent
         member _.SubNodes with get() = subNodes
-        member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, newLayers, subNodes) :> INode
+        member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, originalSampleExponent, newLayers, subNodes) :> INode
         member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
             layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
         member this.Serialize options =
