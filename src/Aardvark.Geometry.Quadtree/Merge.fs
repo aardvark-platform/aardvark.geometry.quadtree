@@ -132,6 +132,7 @@ module Merge =
     
     let private setOrMergeIthSubnode (domination : Dominance) (i : int) (node : INode) (newSubnode : INode option) : INode =
         invariant node.SubNodes.IsSome "f74ba958-cf53-4336-944f-46ef2c2b8893"
+        invariant (node.Cell.Exponent = newSubnode.Value.Cell.Exponent + 1) "7bb19442-9c94-42ed-b7c7-5c2929c349f5"
         if newSubnode.IsSome then invariant (node.Cell.GetQuadrant(i) = newSubnode.Value.Cell) "f5b92710-39de-4054-a67d-e2fbb1c9212c"
         let nss = node.SubNodes.Value |> Array.copy
         nss.[i] <- mergeSameRoot domination nss.[i] newSubnode
@@ -140,15 +141,49 @@ module Merge =
                   | None   -> node.OriginalSampleExponent
         Node(Guid.NewGuid(), node.Cell, ose, node.Layers, Some nss) :> INode
 
-    let rec private mergeIntersectingBothCentered (a : INode) (b : INode) : INode =
+    let rec private mergeIntersectingBothCentered (domination : Dominance) (a : INode) (b : INode) : INode =
         invariant a.Cell.IsCenteredAtOrigin "41380857-b8c9-4f68-88d1-e279af0667b1"
         invariant b.Cell.IsCenteredAtOrigin "670db503-29bd-495e-b565-d1a0e45b3c08"
         failwith "Merging intersecting centered cells is not implemented (both)."
 
-    let rec private mergeIntersectingFirstCentered (a : INode) (b : INode) : INode =
+    let rec private mergeIntersectingFirstCentered (domination : Dominance) (a : INode) (b : INode) : INode =
         invariant a.Cell.IsCenteredAtOrigin "d8bf0eb6-7368-4c92-99b4-b7eafa6567f8"
         invariant (not b.Cell.IsCenteredAtOrigin) "39c66587-2f0f-48b4-9823-24d77df925c5"
-        failwith "Merging intersecting centered cells is not implemented (first)."
+
+        if a.Cell.Contains(b.Cell) then
+            let qi = a.Cell.GetQuadrant(b.Cell).Value
+            match a.SubNodes with
+            | Some xs ->
+                let subRootCell = a.Cell.GetQuadrant(qi)
+                let bExtended = extendUpTo subRootCell (Some b)
+                invariant bExtended.IsSome "87e552e4-0a5d-495c-8a43-90e0f8aba60c"
+                match xs.[qi] with
+                | Some qa ->
+                    invariant (qa.Cell.Exponent = bExtended.Value.Cell.Exponent) "5efd17cd-0d45-47cd-be5e-255c4a4576e7"
+                    let m = mergeSameRoot domination (Some qa) bExtended
+                    invariant m.IsSome "886fc65b-4b88-4ac9-80dd-467a83031535"
+                    let newA = setOrMergeIthSubnode domination qi a m
+                    newA
+                | None ->
+                    let newA = setOrMergeIthSubnode domination qi a bExtended
+                    newA
+            | None ->
+                failwith "not implemented"
+        else
+            match a.SubNodes with
+            | None ->
+                failwith "not implemented"
+            | Some xs ->
+                let subnodes = xs |> Array.map (fun sn -> 
+                    match sn with 
+                    | None -> None 
+                    | Some sn -> extendUpTo sn.Cell.Parent (Some sn)
+                    )
+                let parentCell = a.Cell.Parent
+                let parentLodLayers = Node.GenerateLodLayers subnodes parentCell
+                let aNew = Node(Guid.NewGuid(), parentCell, a.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
+                invariant aNew.IsSome "ee364985-7daa-4837-b6cb-7bcbc21a314f"
+                mergeIntersectingFirstCentered domination aNew.Value b
 
     let rec private mergeIntersecting (domination : Dominance) (a : INode option) (b : INode option) : INode option =
         match a, b with
@@ -176,9 +211,9 @@ module Merge =
                         domination
 
                 match a'.Cell.IsCenteredAtOrigin, b'.Cell.IsCenteredAtOrigin with
-                | true, true -> mergeIntersectingBothCentered a' b' |> Some
-                | true, false -> mergeIntersectingFirstCentered a' b' |> Some
-                | false, true -> mergeIntersectingFirstCentered b' a' |> Some
+                | true, true -> mergeIntersectingBothCentered domination a' b' |> Some
+                | true, false -> mergeIntersectingFirstCentered domination a' b' |> Some
+                | false, true -> mergeIntersectingFirstCentered (flipDomination domination) b' a' |> Some
                 | false, false ->
                     invariant (a'.Cell.Exponent > b'.Cell.Exponent) "4b40bc08-b19d-4f49-b6e5-f321bf1e7dd0."
                     invariant (a'.Cell.Contains(b'.Cell))           "9a44a9ea-2996-46ff-9cc6-c9de1992465d."
