@@ -17,6 +17,7 @@ type INode =
     abstract member Id : Guid
     /// Cell occupied by this node.
     abstract member Cell : Cell2d
+    abstract member SplitLimitExponent : int
     abstract member OriginalSampleExponent : int
     abstract member Layers : ILayer[]
     abstract member SampleWindow : Box2l
@@ -46,11 +47,15 @@ module INodeExtensions =
                     i <- i + 1
             samples
 
-type Node(id : Guid, cell : Cell2d, originalSampleExponent : int, layers : ILayer[], subNodes : INode option[] option) =
+type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : INode option[] option) =
 
     do
         if layers.Length = 0 then
             failwith "No layers. Invariant fe0e56d7-9bc2-4f61-8b36-0ed7fcc4bc56."
+
+        if cell.Exponent - splitLimitExp <> layers.[0].SampleExponent then
+            failwith "Sample exponent does not match split limit and node cell. Invariant 1ec76eaa-534b-4339-b63b-8e0399562bb1."
+
         let w = layers.[0].SampleWindow
         let e = layers.[0].SampleExponent
         let bb = cell.BoundingBox
@@ -73,18 +78,19 @@ type Node(id : Guid, cell : Cell2d, originalSampleExponent : int, layers : ILaye
                     invariant (cell.Exponent = x.Cell.Exponent + 1) "780d98cc-ecab-43fc-b492-229fb0e208a3."
          | None -> ()
 
-    new (cell : Cell2d, originalSampleExponent : int, layers : ILayer[]) =
-        Node(Guid.NewGuid(), cell, originalSampleExponent, layers, None)
+    new (cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[]) =
+        Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, None)
 
     interface INode with
         member _.Id with get() = id
         member _.Cell with get() = cell
+        member _.SplitLimitExponent with get() = splitLimitExp
         member _.OriginalSampleExponent with get() = originalSampleExponent
         member _.Layers with get() = layers
         member _.SampleWindow with get() = layers.[0].SampleWindow
         member _.SampleExponent with get() = layers.[0].SampleExponent
         member _.SubNodes with get() = subNodes
-        member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, originalSampleExponent, newLayers, subNodes) :> INode
+        member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes) :> INode
         member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
             layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
         member this.Serialize options =

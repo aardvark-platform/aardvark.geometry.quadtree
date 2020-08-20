@@ -364,8 +364,9 @@ let ``Merge_LayersWithDifferentResolution_256`` () =
 
     ()
 
-[<Fact>]
-let ``Merge_Random_SplitLimit1`` () =
+
+
+let ``Merge_Random_SplitLimit1`` dominance =
 
     let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 0<powerOfTwo>
 
@@ -378,13 +379,26 @@ let ``Merge_Random_SplitLimit1`` () =
         let h  = r.Next(100) + 1
 
         let other = createQuadtreeWithRandomValues ox oy w h e 0<powerOfTwo>
-        let merged = Merge SecondDominates quadtree other
+        let merged = Merge dominance quadtree other
         quadtree <- merged
 
     ()
 
 [<Fact>]
-let ``Merge_Random_SplitLimit256`` () =
+let ``Merge_Random_SplitLimit1_FirstDominates`` () =
+    Merge_Random_SplitLimit1 FirstDominates
+
+[<Fact>]
+let ``Merge_Random_SplitLimit1_SecondDominates`` () =
+    Merge_Random_SplitLimit1 SecondDominates
+
+[<Fact>]
+let ``Merge_Random_SplitLimit1_MoreDetailedDominates`` () =
+    Merge_Random_SplitLimit1 MoreDetailedDominates
+
+
+
+let ``Merge_Random_SplitLimit256`` dominance =
 
     let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 8<powerOfTwo>
 
@@ -397,13 +411,26 @@ let ``Merge_Random_SplitLimit256`` () =
         let h  = r.Next(500) + 1
 
         let other = createQuadtreeWithRandomValues ox oy w h e 8<powerOfTwo>
-        let merged = Merge SecondDominates quadtree other
+        let merged = Merge dominance quadtree other
         quadtree <- merged
 
     ()
 
 [<Fact>]
-let ``Merge_Random_Centered_SplitLimit1`` () =
+let ``Merge_Random_SplitLimit256_FirstDominates`` () =
+    Merge_Random_SplitLimit256 FirstDominates
+
+[<Fact>]
+let ``Merge_Random_SplitLimit256_SecondDominates`` () =
+    Merge_Random_SplitLimit256 SecondDominates
+
+[<Fact>]
+let ``Merge_Random_SplitLimit256_MoreDetailedDominates`` () =
+    Merge_Random_SplitLimit256 MoreDetailedDominates
+
+
+
+let ``Merge_Random_Centered_SplitLimit1`` dominance =
 
     let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 0<powerOfTwo>
 
@@ -412,30 +439,55 @@ let ``Merge_Random_Centered_SplitLimit1`` () =
         let e = r.Next(20) - 10
         let ox = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
         let oy = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
-        let w  = r.Next(100) + 1
-        let h  = r.Next(100) + 1
+        let w  = r.Next(50) + 1
+        let h  = r.Next(50) + 1
 
         let other = createQuadtreeWithRandomValues ox oy w h e 0<powerOfTwo>
-        let merged = Merge SecondDominates quadtree other
+        let merged = Merge dominance quadtree other
         quadtree <- merged
 
     ()
 
 [<Fact>]
-let ``Merge_Random_Centered_SplitLimit256`` () =
+let ``Merge_Random_Centered_SplitLimit1_FirstDominates`` () =
+    Merge_Random_Centered_SplitLimit1 FirstDominates
 
-    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 8<powerOfTwo>
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit1_SecondDominates`` () =
+    Merge_Random_Centered_SplitLimit1 SecondDominates
+
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit1_MoreDetailedDominates`` () =
+    Merge_Random_Centered_SplitLimit1 MoreDetailedDominates
+
+
+
+let ``Merge_Random_Centered_SplitLimit64`` dominance =
+
+    let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 6<powerOfTwo>
 
     let r = Random(0)
-    for i = 1 to 100 do
+    for i = 1 to 200 do
         let e = r.Next(20) - 10
         let ox = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
         let oy = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
-        let w  = r.Next(500) + 1
-        let h  = r.Next(500) + 1
+        let w  = r.Next(100) + 1
+        let h  = r.Next(100) + 1
 
-        let other = createQuadtreeWithRandomValues ox oy w h e 8<powerOfTwo>
-        let merged = Merge SecondDominates quadtree other
+        let other = createQuadtreeWithRandomValues ox oy w h e 6<powerOfTwo>
+        let merged = Merge dominance quadtree other
         quadtree <- merged
 
     ()
+
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit64_FirstDominates`` () =
+    Merge_Random_Centered_SplitLimit64 FirstDominates
+
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit64_SecondDominates`` () =
+    Merge_Random_Centered_SplitLimit64 SecondDominates
+
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit64_MoreDetailedDominates`` () =
+    Merge_Random_Centered_SplitLimit64 MoreDetailedDominates

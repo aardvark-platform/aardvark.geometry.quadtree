@@ -36,8 +36,11 @@ module Quadtree =
 
     let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : INode =
     
+        invariant (layers.Length > 0) "dccf4ce3-b163-41b7-9bd9-0a3e7b76e3a5"
+        invariant (layers |> Array.groupBy (fun l -> l.SampleExponent) |> Array.length = 1) "4071f97e-1809-422a-90df-29c774cedc7b"
+
         //printfn "[build] %A" cell
-        let minExp = layers |> Array.map (fun l -> l.SampleExponent) |> Array.min
+        let layerExponent = layers.[0].SampleExponent
         
         //printfn "min exp ......... %A" minExp
         
@@ -45,7 +48,7 @@ module Quadtree =
         //    int box.SizeX > config.SplitLimit || int box.SizeY > config.SplitLimit
         //    )
 
-        let localResolution = rootCell.Exponent - minExp
+        let localResolution = rootCell.Exponent - layerExponent
         let needToSplit = localResolution > config.SplitLimitPowerOfTwo
         
         if needToSplit then
@@ -57,7 +60,7 @@ module Quadtree =
             //    printfn "what?????????????????????????????????????????????????????????????????????????????????????????????????"
 
             let subLayers = rootCell.Children |> Array.map (fun subCell ->
-                let subBox = subCell.GetBoundsForExponent(minExp)
+                let subBox = subCell.GetBoundsForExponent(layerExponent)
                 let subLayers = layers |> Array.map (fun l -> l.WithWindow subBox) |> Array.choose id
                 (subCell, subLayers) 
                 )
@@ -81,11 +84,11 @@ module Quadtree =
 
             let lodLayers = Node.GenerateLodLayers subNodes rootCell
 
-            Node(Guid.NewGuid(), rootCell, originalSampleExponent, lodLayers, Some subNodes) :> INode
+            Node(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, lodLayers, Some subNodes) :> INode
         
         else
         
-            Node(rootCell, originalSampleExponent, layers) :> INode
+            Node(rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, layers) :> INode
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.
