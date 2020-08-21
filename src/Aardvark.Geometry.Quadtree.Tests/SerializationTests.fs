@@ -54,14 +54,9 @@ let ``Quadtree serialization single node`` () =
     // build the quadtree (incl. levels-of-detail)
     let qtree = Quadtree.Build BuildConfig.Default [| heightsLayer; colorLayer |]
 
-    let store = Dictionary<Guid, byte[]>()
-    let options = { 
-        Save = fun id buffer ->
-            store.[id] <- buffer
-            printfn "[SAVE] %A %d" id buffer.Length
-        }
-
-    let buffer = qtree.Serialize options
+    // serialize
+    let options = SerializationOptions.Default.WithNewInMemoryStore(verbose = true)
+    let id = qtree.Save options
 
     //Assert.True(a.Mapping.BufferOrigin = b.Mapping.BufferOrigin)
     //Assert.True(a.Mapping.BufferSize   = b.Mapping.BufferSize)
@@ -77,14 +72,9 @@ let ``Quadtree serialization multiple nodes`` () =
     let layer = Layer(Defs.Heights1f, data, mapping)
     let qtree = Quadtree.Build BuildConfig.Default [| layer |]
 
-    let store = Dictionary<Guid, byte[]>()
-    let options = { 
-        Save = fun id buffer ->
-            store.[id] <- buffer
-            printfn "[SAVE] %A %d" id buffer.Length
-        }
-
-    qtree.Serialize options
+    
+    let options = SerializationOptions.Default.WithNewInMemoryStore(verbose = true)
+    let id = qtree.Save options
 
     //Assert.True(a.Mapping.BufferOrigin = b.Mapping.BufferOrigin)
     //Assert.True(a.Mapping.BufferSize   = b.Mapping.BufferSize)

@@ -119,4 +119,8 @@ module Quadtree =
 
     let Merge (domination : Dominance) (a : INode) (b : INode) = (TryMerge domination (Some a) (Some b)).Value
 
-    ()
+    let Save (options : SerializationOptions) (qtree : INode) : Guid =
+        qtree.Save options
+
+    let Load (options : SerializationOptions) (id : Guid) : INode option =
+        Node.Load options id

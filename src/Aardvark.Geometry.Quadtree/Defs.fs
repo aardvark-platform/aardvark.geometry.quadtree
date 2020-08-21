@@ -16,6 +16,8 @@ module Defs =
     let Node                    = def "e497f9c1-c903-41c4-91de-32bf76e009da" "Quadtree.Node" "A quadtree node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let NodeId                  = def "e46c4163-dd28-43a4-8254-bc21dc3f766b" "Quadtree.NodeId" "Quadtree. Unique id of a node. Guid." Durable.Primitives.GuidDef
     let CellBounds              = def "59258849-5765-4d11-b760-538282063a55" "Quadtree.CellBounds" "Quadtree. Node bounds in cell space. Cell2d." Durable.Aardvark.Cell2d
+    let SplitLimitExponent      = def "472cf20a-e917-4aed-8379-7661cd880511" "Quadtree.SplitLimitExponent" "Quadtree. Power-of-two split limit exponent. Int32." Durable.Primitives.Int32
+    let OriginalSampleExponent  = def "16c41f1d-0c31-4ef8-b22b-36276d2f2e45" "Quadtree.OriginalSampleExponent" "Quadtree. Power-of-two original sample exponent. Int32." Durable.Primitives.Int32
     let Layers                  = def "c39a978b-00f5-485f-b0b3-d2cf9599016b" "Quadtree.Layers" "A quadtree node's layers. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let SubnodeIds              = def "a2841629-e4e2-4b90-bdd1-7a1a5a41bded" "Quadtree.SubnodeIds" "Quadtree. Subnodes as array of guids. Array length is 4 for inner nodes (where Guid.Empty means no subnode) and no array for leaf nodes. Guid[]." Durable.Primitives.GuidArray
         

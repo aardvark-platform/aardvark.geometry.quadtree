@@ -4,6 +4,8 @@ open Aardvark.Base
 open Aardvark.Data
 open System
 open System.Collections.Generic
+open System.Threading
+open System.Collections.Immutable
 
 (*
     Node.
@@ -11,7 +13,41 @@ open System.Collections.Generic
 
 type SerializationOptions = {
     Save : Guid -> byte[] -> unit
+    TryLoad : Guid -> byte[] option
+    Exists : Guid -> bool
     }
+with
+
+    static member Default = {
+        Save    = fun id buffer -> failwith "No store defined. Invariant b6a5c282-55c9-4a1d-8672-c600b82d3969."
+        TryLoad = fun id        -> failwith "No store defined. Invariant fd1748c0-6eff-4e08-822a-3d708e54e393."
+        Exists  = fun id        -> failwith "No store defined. Invariant 0f9c8cfd-21dd-4973-b88d-97629a5d2804."
+        }
+
+    static member private inMemoryStoreCount : int = 0
+
+    member this.WithNewInMemoryStore (verbose : bool) =
+        let store = Dictionary<Guid, byte[]>()
+        let storeNumber = Interlocked.Increment(ref SerializationOptions.inMemoryStoreCount)
+        { this with
+            Save = fun id buffer ->
+                store.[id] <- buffer
+                if verbose then printfn "[InMemoryStore %d] SAVE %A <- %d bytes" storeNumber id buffer.Length
+            TryLoad = fun id ->
+                match store.TryGetValue(id) with
+                | (false, _) ->
+                    if verbose then printfn "[InMemoryStore %d] TRYLOAD %A -> None" storeNumber id
+                    None
+                | (true, buffer) ->
+                    if verbose then printfn "[InMemoryStore %d] TRYLOAD %A -> Some %d bytes" storeNumber id buffer.Length
+                    Some buffer
+            Exists = fun id ->
+                let result = store.ContainsKey(id)
+                if verbose then printfn "[InMemoryStore %d] EXISTS %A -> %A" storeNumber id result
+                result
+        }
+
+    member this.WithNewInMemoryStore () = this.WithNewInMemoryStore(verbose = false)
 
 type INode =
     abstract member Id : Guid
@@ -25,7 +61,7 @@ type INode =
     abstract member SubNodes : INode option[] option
     abstract member WithLayers : ILayer[] -> INode
     abstract member GetLayer<'a> : Durable.Def -> Layer<'a>
-    abstract member Serialize : SerializationOptions -> unit
+    abstract member Save : SerializationOptions -> Guid
 
 [<AutoOpen>]
 module INodeExtensions = 
@@ -93,15 +129,20 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
         member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes) :> INode
         member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
             layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
-        member this.Serialize options =
+        member this.Save options =
             let map = List<KeyValuePair<Durable.Def, obj>>()
 
             map.Add(kvp Defs.NodeId id)
             map.Add(kvp Defs.CellBounds cell)
+            map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
+            map.Add(kvp Defs.OriginalSampleExponent originalSampleExponent)
 
             match subNodes with
             | Some xs ->
-                for x in xs do match x with | Some x -> x.Serialize options  | None -> ()
+                for x in xs do 
+                    match x with 
+                    | Some x -> x.Save options |> ignore  
+                    | None -> ()
                 let ids = xs |> Array.map (fun x -> match x with | Some x -> x.Id | None -> Guid.Empty)
                 map.Add(kvp Defs.SubnodeIds ids)
             | None -> ()
@@ -113,6 +154,36 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
 
             let buffer = DurableCodec.Serialize(Defs.Node, map)
             options.Save id buffer
+            id
+
+    static member Load (options: SerializationOptions) (id : Guid) : INode option =
+        if id = Guid.Empty then
+            None
+        else
+            match options.TryLoad id with
+            | None -> None
+            | Some buffer ->
+                let struct (def, o) = DurableCodec.Deserialize(buffer)
+                if def = Defs.Node then
+                    let map = o :?> ImmutableDictionary<Durable.Def, obj>
+                    let id                  = map.Get(Defs.NodeId)                  :?> Guid
+                    let cell                = map.Get(Defs.CellBounds)              :?> Cell2d
+                    let splitLimitExp       = map.Get(Defs.SplitLimitExponent)      :?> int
+                    let originalSampleExp   = map.Get(Defs.OriginalSampleExponent)  :?> int
+                
+                    let subNodes =
+                        match map.TryGetValue(Defs.SubnodeIds) with
+                        | (false, _)   -> None
+                        | (true, o) ->
+                            let keys = o :?> Guid[]
+                            let xs = keys |> Array.map (Node.Load options)
+                            Some xs
+
+                    failwith "not implemented"
+                    //invariant (root.Id = id) "42bee854-116a-4c44-8fc1-b0ef861a3d11"
+                    //Some root
+                else
+                    failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
 module Node =
 

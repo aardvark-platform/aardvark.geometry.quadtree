@@ -88,6 +88,16 @@ let merge () =
     let allSamples = chunks |> Seq.collect (fun chunk -> chunk.GetSamples<float> Defs.Heights1d)
     for cell, x in allSamples do printfn "%A -> %f" cell x
 
+    // save
+    let options = SerializationOptions.Default.WithNewInMemoryStore(verbose = true)
+    let id = mergedQtree |> Quadtree.Save options
+    printfn "saved quadtree %A" id
+
+    // load
+    match id |> Quadtree.Load options with
+    | Some loadedQtree -> printfn "loaded quadtree %A" loadedQtree.Id
+    | None             -> printfn "quadtree %A does not exist" id
+
     ()
    
 let buildQuadtree () =
