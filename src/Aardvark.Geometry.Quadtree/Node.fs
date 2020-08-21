@@ -148,7 +148,7 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
             | None -> ()
 
             for layer in layers do
-                let layerDef = Defs.GetLayerDef layer.Def
+                let layerDef = Defs.GetLayerFromDef layer.Def
                 let dm = layer.Materialize().ToDurableMap ()
                 map.Add(kvp layerDef dm)
 
@@ -171,6 +171,19 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                     let splitLimitExp       = map.Get(Defs.SplitLimitExponent)      :?> int
                     let originalSampleExp   = map.Get(Defs.OriginalSampleExponent)  :?> int
                 
+                    let layers : ILayer[] =  
+                        map 
+                        |> Seq.choose (fun kv ->
+                            match Defs.TryGetDefFromLayer kv.Key with
+                            | Some def -> 
+                                let m = kv.Value :?> ImmutableDictionary<Durable.Def, obj>
+                                Layer.FromDurableMap def m |> Some
+                            | None -> None
+                            )
+                        |> Seq.toArray
+
+                    invariant (layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
+
                     let subNodes =
                         match map.TryGetValue(Defs.SubnodeIds) with
                         | (false, _)   -> None
@@ -179,9 +192,8 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                             let xs = keys |> Array.map (Node.Load options)
                             Some xs
 
-                    failwith "not implemented"
-                    //invariant (root.Id = id) "42bee854-116a-4c44-8fc1-b0ef861a3d11"
-                    //Some root
+                    let n = Node(id, cell, splitLimitExp, originalSampleExp, layers, subNodes) :> INode
+                    Some n
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 

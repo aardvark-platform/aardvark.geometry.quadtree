@@ -8,6 +8,7 @@ module Defs =
     let def id name description (typ : Durable.Def) = Durable.Def(Guid.Parse(id), name, description, typ.Id, false)
 
     module Layer =
+        let DefId               = def "88b91a68-861b-4b04-84b4-a9db0ab024f3" "Aardvark.Geometry.Quadtree.Def.Id" "Guid." Durable.Primitives.GuidDef
         let DataMapping         = def "6ad967a5-5464-422a-b3f3-873050a42586" "Aardvark.Geometry.Quadtree.DataMapping" "DurableMap." Durable.Primitives.DurableMap
         let BufferOrigin        = def "78e9a99b-5255-42ed-9272-732074710c29" "Aardvark.Geometry.Quadtree.DataMapping.BufferOrigin" "Cell2d." Durable.Aardvark.Cell2d
         let BufferSize          = def "6aa5d96c-4f89-4b01-bd16-f39239d8be4e" "Aardvark.Geometry.Quadtree.DataMapping.BufferSize" "V2i." Durable.Aardvark.V2i
@@ -70,22 +71,43 @@ module Defs =
     let BilinearParams4dLayer   = def "49303969-ffa5-4c7e-89ea-8d5ad7dd6d3d" "Quadtree.BilinearParams4d.Layer" "Quadtree. BilinearParams4f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let private def2layer = Map.ofList [
-        (Heights1f, Heights1fLayer)
-        (Heights1d, Heights1dLayer)
-        (Normals3f, Normals3fLayer)
-        (Normals3d, Normals3dLayer)
-        (HeightStdDevs1f, HeightStdDevs1fLayer)
-        (HeightStdDevs1d, HeightStdDevs1dLayer)
-        (Colors3b, Colors3bLayer)
-        (Colors4b, Colors4bLayer)
-        (Colors3f, Colors3fLayer)
-        (Colors4f, Colors4fLayer)
-        (Intensities1i, Intensities1iLayer)
-        (Intensities1l, Intensities1lLayer)
-        (Intensities1f, Intensities1fLayer)
-        (Intensities1d, Intensities1dLayer)
-        (BilinearParams4f, BilinearParams4fLayer)
-        (BilinearParams4d, BilinearParams4dLayer)
+        (Heights1f        , Heights1fLayer        )
+        (Heights1d        , Heights1dLayer        )
+        (Normals3f        , Normals3fLayer        )
+        (Normals3d        , Normals3dLayer        )
+        (HeightStdDevs1f  , HeightStdDevs1fLayer  )
+        (HeightStdDevs1d  , HeightStdDevs1dLayer  )
+        (Colors3b         , Colors3bLayer         )
+        (Colors4b         , Colors4bLayer         )
+        (Colors3f         , Colors3fLayer         )
+        (Colors4f         , Colors4fLayer         )
+        (Intensities1i    , Intensities1iLayer    )
+        (Intensities1l    , Intensities1lLayer    )
+        (Intensities1f    , Intensities1fLayer    )
+        (Intensities1d    , Intensities1dLayer    )
+        (BilinearParams4f , BilinearParams4fLayer )
+        (BilinearParams4d , BilinearParams4dLayer )
         ]
 
-    let GetLayerDef def = def2layer.[def]
+    let GetLayerFromDef def = def2layer.[def]
+
+    let private layer2def = Map.ofList [
+        (Heights1fLayer       , Heights1f        )
+        (Heights1dLayer       , Heights1d        )
+        (Normals3fLayer       , Normals3f        )
+        (Normals3dLayer       , Normals3d        )
+        (HeightStdDevs1fLayer , HeightStdDevs1f  )
+        (HeightStdDevs1dLayer , HeightStdDevs1d  )
+        (Colors3bLayer        , Colors3b         )
+        (Colors4bLayer        , Colors4b         )
+        (Colors3fLayer        , Colors3f         )
+        (Colors4fLayer        , Colors4f         )
+        (Intensities1iLayer   , Intensities1i    )
+        (Intensities1lLayer   , Intensities1l    )
+        (Intensities1fLayer   , Intensities1f    )
+        (Intensities1dLayer   , Intensities1d    )
+        (BilinearParams4fLayer, BilinearParams4f )
+        (BilinearParams4dLayer, BilinearParams4d )
+        ]
+
+    let TryGetDefFromLayer layerDef = layer2def |> Map.tryFind layerDef

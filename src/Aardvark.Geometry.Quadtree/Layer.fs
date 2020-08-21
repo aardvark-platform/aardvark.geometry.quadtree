@@ -61,6 +61,7 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
                 Layer<'a>(def, newdata, m) :> ILayer
 
         member this.ToDurableMap () = seq {
+            kvp Defs.Layer.DefId def.Id
             kvp Defs.Layer.BufferOrigin mapping.BufferOrigin
             kvp Defs.Layer.BufferSize mapping.BufferSize
             kvp Defs.Layer.Window mapping.Window
@@ -172,6 +173,39 @@ module Layer =
         | :? (C3f[])        -> Layer<C3f>(def, data :?> C3f[], mapping) :> ILayer
         | :? (C4f[])        -> Layer<C4f>(def, data :?> C4f[], mapping) :> ILayer
         | _ -> failwith <| sprintf "Unknown type %A. Invariant 4e797062-04a2-445f-9725-79f66823aff8." (data.GetType())
+
+    let defineBuilder<'a> def = (def, fun mapping (data : obj) -> Layer<'a>(def, data :?> 'a[], mapping) :> ILayer)
+    let private builders = Map.ofList [
+        defineBuilder<float32>  Defs.Heights1f
+        defineBuilder<float>    Defs.Heights1d
+        defineBuilder<V3f>      Defs.Normals3f
+        defineBuilder<V3d>      Defs.Normals3d
+        defineBuilder<float32>  Defs.HeightStdDevs1f
+        defineBuilder<float>    Defs.HeightStdDevs1d
+        defineBuilder<C3b>      Defs.Colors3b
+        defineBuilder<C4b>      Defs.Colors4b
+        defineBuilder<C3f>      Defs.Colors3f
+        defineBuilder<C4f>      Defs.Colors4f
+        defineBuilder<int>      Defs.Intensities1i
+        defineBuilder<int64>    Defs.Intensities1l
+        defineBuilder<float32>  Defs.Intensities1f
+        defineBuilder<float>    Defs.Intensities1d
+        defineBuilder<V4f>      Defs.BilinearParams4f
+        defineBuilder<V4d>      Defs.BilinearParams4d
+        ]
+    
+    let FromDurableMap (def : Durable.Def) (map : ImmutableDictionary<Durable.Def, obj>) : ILayer =
+
+        let mapping = DataMapping(
+                        map.[Defs.Layer.BufferOrigin] :?> Cell2d,
+                        map.[Defs.Layer.BufferSize]   :?> V2i,
+                        map.[Defs.Layer.Window]       :?> Box2l
+                        )
+
+        match builders |> Map.tryFind def with
+        | Some builder -> builder mapping (map.[def])
+        | None -> sprintf "Unknown layer type %A. 8c90faa2-de10-4938-b8ee-3034bd9bdea0." def |> failwith
+
 
 
     let BoundingBox (layer : ILayer) = layer.Mapping.BoundingBox
