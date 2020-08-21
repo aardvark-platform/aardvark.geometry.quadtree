@@ -72,6 +72,7 @@ module Query =
                 ()
             else
                 if n.IsLeafNode || n.Cell.Exponent = config.MinExponent then
+                // reached leaf or max depth
                     if isNodeFullyInside n then
                         // fully inside
                         yield { Node = n; Selection = FullySelected }
@@ -81,11 +82,29 @@ module Query =
                         if xs.Length > 0 then
                             yield { Node = n; Selection = PartiallySelected xs }
                 else
+                // at inner node with children to recursively traverse
+
+                    // return samples from inner node, which are not covered by children
+                    let w = n.SampleWindow
+                    let v = Box2l(w.Min * 2L, w.Max * 2L)
+                    let subWindows = n.SubNodes.Value |> Array.choose (Option.map (fun x -> x.SampleWindow))
+                    let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2l) =
+                        let sampleWindow = Box2l.FromMinAndSize(sample.XY * 2L, V2l(2, 2))
+                        subWindow.Intersects sampleWindow
+
+                    let xs = 
+                        n.AllSamples
+                        |> Array.filter (fun sample -> not (Array.exists (subWindowContainsSample sample) subWindows) )
+                        |> Array.filter isSampleInside
+                    if xs.Length > 0 then
+                        yield { Node = n; Selection = PartiallySelected xs }
+
+                    // recursively return samples from children
                     match n.SubNodes with
                     | None -> failwith "Invariant 4f33151d-e387-40a1-a1b7-c04e2335bd91."
-                    | Some sns ->
-                        for sn in sns |> Seq.choose id do
-                            let r = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside sn
+                    | Some subnodes ->
+                        for subnode in subnodes |> Seq.choose id do
+                            let r = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside subnode
                             yield! r
         }
     

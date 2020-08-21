@@ -88,10 +88,10 @@ module Merge =
     let rec private mergeSameRoot (domination : Dominance) (a : INode option) (b : INode option) : INode option =
         match a, b with
         | Some a0, Some b0 ->
-            invariant (a0.SplitLimitExponent = b0.SplitLimitExponent) "cb56129b-089f-4f9e-a174-bf9575247277"
-            invariant (a0.Cell = b0.Cell) "641da2e5-a7ea-4692-a96b-94440453ff1e."
-            invariant (a0.SampleExponent = b0.SampleExponent) "ccf5f5cc-5039-4b3d-aeba-31d0f88be037"
-            invariant (a0.Layers.Length = b0.Layers.Length) "ef0512a4-a18c-46da-8983-9ed57903854c."
+            invariant (a0.SplitLimitExponent = b0.SplitLimitExponent)   "cb56129b-089f-4f9e-a174-bf9575247277"
+            invariant (a0.Cell = b0.Cell)                               "641da2e5-a7ea-4692-a96b-94440453ff1e."
+            invariant (a0.SampleExponent = b0.SampleExponent)           "ccf5f5cc-5039-4b3d-aeba-31d0f88be037"
+            invariant (a0.Layers.Length = b0.Layers.Length)             "ef0512a4-a18c-46da-8983-9ed57903854c."
 
             let rootCell = a0.Cell
             let windowA = a0.SampleWindow
@@ -107,26 +107,26 @@ module Merge =
             match a0.SubNodes, b0.SubNodes with
             | Some xs, Some ys -> // inner/inner
                 let layers = mergeLayers domination a0.Layers b0.Layers
-                invariant (a0.Layers.Length = layers.Length) "384e9a83-4c5d-4dfc-92eb-2ebc8084dd60."
+                invariant (a0.Layers.Length = layers.Length)            "384e9a83-4c5d-4dfc-92eb-2ebc8084dd60."
                 let rootCellChildren = rootCell.Children
                 for i = 0 to 3 do
                     match xs.[i], ys.[i] with
                     | Some x, Some y ->
-                        invariant (rootCellChildren.[i] = x.Cell) "9d0333e3-5839-4354-a7d5-e9ed446b4e6c."
-                        invariant (rootCellChildren.[i] = y.Cell) "431e8feb-7810-479a-bb68-22c0f33a77c4."
-                        invariant (x.Cell = y.Cell)               "dfd994a6-f34a-4110-8b2e-752beeb1e031."
+                        invariant (rootCellChildren.[i] = x.Cell)       "9d0333e3-5839-4354-a7d5-e9ed446b4e6c."
+                        invariant (rootCellChildren.[i] = y.Cell)       "431e8feb-7810-479a-bb68-22c0f33a77c4."
+                        invariant (x.Cell = y.Cell)                     "dfd994a6-f34a-4110-8b2e-752beeb1e031."
                     | Some x, None ->
-                        invariant (rootCellChildren.[i] = x.Cell) "1f453ad2-9fe3-4dcb-ba97-4811d9c0c67e."
+                        invariant (rootCellChildren.[i] = x.Cell)       "1f453ad2-9fe3-4dcb-ba97-4811d9c0c67e."
                     | None, Some y ->
-                        invariant (rootCellChildren.[i] = y.Cell) "71957893-06df-41e7-b2f7-09d3274e85c7."
+                        invariant (rootCellChildren.[i] = y.Cell)       "71957893-06df-41e7-b2f7-09d3274e85c7."
                     | None, None ->
                         ()
                         
                 let zs = Array.map2 (mergeSameRoot domination) xs ys
                 
-                invariant (xs.Length = 4) "84392aaf-cf49-4afc-9d6e-923d13ecd8d8."
-                invariant (ys.Length = 4) "087924cb-b42e-4f03-9385-26744c702b04."
-                invariant (zs.Length = 4) "d972f5f1-5c2d-460c-9d98-5e6fc1fade99."
+                invariant (xs.Length = 4)                               "84392aaf-cf49-4afc-9d6e-923d13ecd8d8."
+                invariant (ys.Length = 4)                               "087924cb-b42e-4f03-9385-26744c702b04."
+                invariant (zs.Length = 4)                               "d972f5f1-5c2d-460c-9d98-5e6fc1fade99."
 
                 Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, Some zs) :> INode |> Some
             | Some xs, None    -> // inner/leaf
@@ -137,7 +137,7 @@ module Merge =
                 Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, lodLayers, Some ys) :> INode |> Some
             | None,    None    -> // leaf/leaf
                 let layers = mergeLayers domination a0.Layers b0.Layers
-                invariant (a0.Layers.Length = layers.Length) "10d73a3d-ce2b-4bf8-a8a5-9123011477c4."
+                invariant (a0.Layers.Length = layers.Length)            "10d73a3d-ce2b-4bf8-a8a5-9123011477c4."
                 Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, None) :> INode |> Some
 
         | Some a, None   -> Some a
@@ -161,9 +161,9 @@ module Merge =
         Node(Guid.NewGuid(), node.Cell, node.SplitLimitExponent, ose, node.Layers, Some nss) :> INode
 
     let rec private mergeIntersectingBothCentered (domination : Dominance) (a : INode) (b : INode) : INode =
-        invariant a.Cell.IsCenteredAtOrigin "41380857-b8c9-4f68-88d1-e279af0667b1"
-        invariant b.Cell.IsCenteredAtOrigin "670db503-29bd-495e-b565-d1a0e45b3c08"
-        invariant (a.SplitLimitExponent = b.SplitLimitExponent) "942abce1-ac80-42d4-90e5-4ad0979c1797"
+        invariant a.Cell.IsCenteredAtOrigin                                         "41380857-b8c9-4f68-88d1-e279af0667b1"
+        invariant b.Cell.IsCenteredAtOrigin                                         "670db503-29bd-495e-b565-d1a0e45b3c08"
+        invariant (a.SplitLimitExponent = b.SplitLimitExponent)                     "942abce1-ac80-42d4-90e5-4ad0979c1797"
         
         let ose = min a.OriginalSampleExponent b.OriginalSampleExponent
 
@@ -179,20 +179,23 @@ module Merge =
                         | _ -> domination
                     
                 let layers = mergeLayers d a.Layers b.Layers
-                invariant (a.Layers.Length = layers.Length) "6a496764-8e7e-4250-a3d9-88ad049cd2ef."
+                invariant (a.Layers.Length = layers.Length)                         "6a496764-8e7e-4250-a3d9-88ad049cd2ef."
 
                 let zs = Array.map2 (mergeSameRoot d) xs ys
-                invariant (xs.Length = 4) "984c957d-9e34-48f6-9cef-fa8ad0b10de9."
-                invariant (ys.Length = 4) "86617f6e-9527-40b0-ace5-7aab0b22bc25."
-                invariant (zs.Length = 4) "068e6f2e-cf1f-46f9-8a26-cc8c2e0697ec."
+                invariant (xs.Length = 4)                                           "984c957d-9e34-48f6-9cef-fa8ad0b10de9."
+                invariant (ys.Length = 4)                                           "86617f6e-9527-40b0-ace5-7aab0b22bc25."
+                invariant (zs.Length = 4)                                           "068e6f2e-cf1f-46f9-8a26-cc8c2e0697ec."
                 Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some zs) :> INode
 
             | Some aSubNodes, None ->
-                failwith "not implemented"
+                // not implemented
+                failwith "No subnodes on the right. Invariant 1ee89901-ccc1-499b-a686-5c137d676bf9."
             | None, Some bSubNodes ->
-                failwith "not implemented"
+                // not implemented
+                failwith "No subnodes on the left. Invariant 5da47ceb-5e79-477e-8c3d-b8f567480b46."
             | None, None ->
-                failwith "not implemented"
+                // not implemented
+                failwith "Both leaf nodes. Invariant 6e0012fe-0af8-4efe-85eb-2476ada185be."
                 
         else
             // grow centered node a upwards to eventually contain node b
@@ -209,9 +212,9 @@ module Merge =
                         )
                     let parentLodLayers = Node.GenerateLodLayers subnodes parentCell
                     let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
-                    invariant aNew.IsSome "eed625d8-976e-4dc1-8548-70e4c3285dc1"
-                    invariant (aNew.Value.Cell.Exponent = a.Cell.Exponent + 1) "eec56ca0-39a4-4ef6-950e-2eb25a4b4420"
-                    invariant (aNew.Value.SampleExponent = a.SampleExponent + 1) "c4e097db-9e91-4d11-b41d-a99db892a8f4"
+                    invariant aNew.IsSome                                           "eed625d8-976e-4dc1-8548-70e4c3285dc1"
+                    invariant (aNew.Value.Cell.Exponent = a.Cell.Exponent + 1)      "eec56ca0-39a4-4ef6-950e-2eb25a4b4420"
+                    invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)    "c4e097db-9e91-4d11-b41d-a99db892a8f4"
                     mergeIntersectingBothCentered domination aNew.Value b
                 | None ->
                     let subnodes = 
@@ -229,7 +232,7 @@ module Merge =
                     let parentLodLayers = Node.GenerateLodLayers subnodes parentCell
                     let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
 
-                    invariant (aNew.Value.SampleExponent = a.SampleExponent + 1) "f2c20900-a00b-41c7-a04c-fc7e3da2ce30"
+                    invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)    "f2c20900-a00b-41c7-a04c-fc7e3da2ce30"
 
                     mergeIntersectingBothCentered domination aNew.Value b
             else
@@ -237,9 +240,9 @@ module Merge =
                 
 
     let rec private mergeIntersectingFirstCentered (domination : Dominance) (a : INode) (b : INode) : INode =
-        invariant a.Cell.IsCenteredAtOrigin "d8bf0eb6-7368-4c92-99b4-b7eafa6567f8"
-        invariant (not b.Cell.IsCenteredAtOrigin) "39c66587-2f0f-48b4-9823-24d77df925c5"
-        invariant (a.SplitLimitExponent = b.SplitLimitExponent) "183c56a6-0194-4648-b3e6-2a968ec8685a"
+        invariant a.Cell.IsCenteredAtOrigin                                         "d8bf0eb6-7368-4c92-99b4-b7eafa6567f8"
+        invariant (not b.Cell.IsCenteredAtOrigin)                                   "39c66587-2f0f-48b4-9823-24d77df925c5"
+        invariant (a.SplitLimitExponent = b.SplitLimitExponent)                     "183c56a6-0194-4648-b3e6-2a968ec8685a"
 
         if a.Cell.Contains(b.Cell) then
             let qi = a.Cell.GetQuadrant(b.Cell).Value
@@ -247,23 +250,22 @@ module Merge =
             | Some xs ->
                 let subRootCell = a.Cell.GetQuadrant(qi)
                 let bExtended = extendUpTo subRootCell (Some b)
-                invariant bExtended.IsSome "87e552e4-0a5d-495c-8a43-90e0f8aba60c"
+                invariant bExtended.IsSome                                          "87e552e4-0a5d-495c-8a43-90e0f8aba60c"
                 match xs.[qi] with
                 | Some qa ->
-                    invariant (qa.Cell.Exponent = bExtended.Value.Cell.Exponent) "5efd17cd-0d45-47cd-be5e-255c4a4576e7"
+                    invariant (qa.Cell.Exponent = bExtended.Value.Cell.Exponent)    "5efd17cd-0d45-47cd-be5e-255c4a4576e7"
                     let m = mergeSameRoot domination (Some qa) bExtended
-                    invariant m.IsSome "886fc65b-4b88-4ac9-80dd-467a83031535"
+                    invariant m.IsSome                                              "886fc65b-4b88-4ac9-80dd-467a83031535"
                     let newA = setOrMergeIthSubnode domination qi a m
                     newA
                 | None ->
                     let newA = setOrMergeIthSubnode domination qi a bExtended
                     newA
             | None ->
-                failwith "not implemented"
+                // not implemented
+                failwith "No subnode. Invariant 3e9c74b3-813a-4cdb-85f8-50ca689e0fc1."
         else
             match a.SubNodes with
-            | None ->
-                failwith "not implemented"
             | Some xs ->
                 let subnodes = xs |> Array.map (fun sn -> 
                     match sn with 
@@ -273,9 +275,12 @@ module Merge =
                 let parentCell = a.Cell.Parent
                 let parentLodLayers = Node.GenerateLodLayers subnodes parentCell
                 let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
-                invariant aNew.IsSome "ee364985-7daa-4837-b6cb-7bcbc21a314f"
-                invariant (aNew.Value.SampleExponent = a.SampleExponent + 1) "a6919ff2-07ee-4c6e-a350-b9de29953460"
+                invariant aNew.IsSome                                               "ee364985-7daa-4837-b6cb-7bcbc21a314f"
+                invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)        "a6919ff2-07ee-4c6e-a350-b9de29953460"
                 mergeIntersectingFirstCentered domination aNew.Value b
+            | None ->
+                // not implemented
+                failwith "No subnode. Invariant 65d23a56-f000-4989-8498-29a15d8ca85d."
 
     let rec private mergeIntersecting (domination : Dominance) (a : INode option) (b : INode option) : INode option =
         match a, b with
@@ -354,10 +359,10 @@ module Merge =
             let withCommonRoot = extendUpTo commonRootCell
             let a2 = (a |> withCommonRoot)
             let b2 = (b |> withCommonRoot)
-            invariant (a2.IsSome && b2.IsSome) "cc431d22-9ad4-42bd-9317-015d2f6c520c."
-            invariant (a2.Value.Cell = commonRootCell) "7730eae1-0212-40e5-b114-ff81c0c40762."
-            invariant (b2.Value.Cell = commonRootCell) "00205e51-46c2-451a-bd7c-5dc45f18acc1."
-            invariant (a2.Value.SampleExponent = b2.Value.SampleExponent) "178eedaa-89e2-473b-afbb-1beee112225d."
+            invariant (a2.IsSome && b2.IsSome)                              "cc431d22-9ad4-42bd-9317-015d2f6c520c."
+            invariant (a2.Value.Cell = commonRootCell)                      "7730eae1-0212-40e5-b114-ff81c0c40762."
+            invariant (b2.Value.Cell = commonRootCell)                      "00205e51-46c2-451a-bd7c-5dc45f18acc1."
+            invariant (a2.Value.SampleExponent = b2.Value.SampleExponent)   "178eedaa-89e2-473b-afbb-1beee112225d."
             mergeSameRoot domination a2 b2
         | Some _,  None    -> a
         | None,    Some _  -> b

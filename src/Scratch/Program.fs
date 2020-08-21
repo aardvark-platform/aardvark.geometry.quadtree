@@ -55,6 +55,41 @@ let example () =
 
     ()
 
+let merge () =
+
+    // create first quadtree
+    let heights1 = [| 
+        1.0; 1.0; 2.0; 2.0
+        1.5; 1.6; 1.7; 1.8
+        1.6; 1.7; 2.0; 2.2
+        |]
+    let mapping1 = DataMapping(origin = Cell2d(0, 0, 0), size = V2i(4, 3))
+    let heightsLayer1 = Layer(Defs.Heights1d, heights1, mapping1)
+    let firstQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer1 |]
+    printfn "%A" firstQuadtree.Cell
+
+    // create second quadtree
+    let heights2 = [| 
+        3.1; 3.2
+        3.3; 3.4
+        |]
+    let mapping2 = DataMapping(origin = Cell2d(4, 2, -1), size = V2i(2, 2))
+    let heightsLayer2 = Layer(Defs.Heights1d, heights2, mapping2)
+    let secondQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer2 |]
+    printfn "%A" secondQuadtree.Cell
+
+    // merge both octrees
+    let mergedQtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
+    printfn "%A" mergedQtree.Cell
+
+    // enumerate all samples
+    let chunks = mergedQtree |> Query.InsideCell Query.Config.Default mergedQtree.Cell
+    
+    let allSamples = chunks |> Seq.collect (fun chunk -> chunk.GetSamples<float> Defs.Heights1d)
+    for cell, x in allSamples do printfn "%A -> %f" cell x
+
+    ()
+   
 let buildQuadtree () =
 
     let size = V2i(15000,10000)
@@ -167,8 +202,10 @@ let main argv =
 
     //example ()
 
+    merge ()
+
     //buildQuadtree ()
 
-    test ()
+    //test ()
 
     0

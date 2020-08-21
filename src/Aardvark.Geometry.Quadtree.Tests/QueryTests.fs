@@ -12,7 +12,6 @@ let private createQuadtree () =
             let i = y * size.X + x
             xs.[i] <- float32 x + float32 y / 100.0f
 
-    
     let a = Layer(Defs.Heights1f, xs, DataMapping(V2l.OO, size, exponent = 0))
 
     let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
