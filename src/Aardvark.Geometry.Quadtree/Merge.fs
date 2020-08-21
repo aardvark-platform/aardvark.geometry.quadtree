@@ -178,36 +178,38 @@ module Merge =
         
         let ose = min a.OriginalSampleExponent b.OriginalSampleExponent
 
+        let domination = 
+            match domination with
+            | MoreDetailedDominates ->
+                if a.OriginalSampleExponent = b.OriginalSampleExponent then MoreDetailedDominates
+                else
+                    if a.OriginalSampleExponent < b.OriginalSampleExponent then FirstDominates
+                    else SecondDominates
+            | _ -> domination
+
         if a.Cell.Exponent = b.Cell.Exponent then
             match a.SubNodes, b.SubNodes with
             | Some xs, Some ys ->
                 invariant (xs.Length = 4)                                           "984c957d-9e34-48f6-9cef-fa8ad0b10de9"
                 invariant (ys.Length = 4)                                           "86617f6e-9527-40b0-ace5-7aab0b22bc25"
 
-                let d = match domination with
-                        | MoreDetailedDominates ->
-                            if a.OriginalSampleExponent = b.OriginalSampleExponent then MoreDetailedDominates
-                            else
-                                if a.OriginalSampleExponent < b.OriginalSampleExponent then FirstDominates
-                                else SecondDominates
-                        | _ -> domination
-                    
-                let layers = mergeLayers d a.Layers b.Layers
+                let layers = mergeLayers domination a.Layers b.Layers
                 invariant (a.Layers.Length = layers.Length)                         "6a496764-8e7e-4250-a3d9-88ad049cd2ef"
 
-                let zs = Array.map2 (mergeSameRoot d) xs ys
+                let zs = Array.map2 (mergeSameRoot domination) xs ys
                 invariant (zs.Length = 4)                                           "068e6f2e-cf1f-46f9-8a26-cc8c2e0697ec"
 
                 Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some zs) :> INode
 
             | Some aSubNodes, None ->
-                // not implemented
-                failwith "No subnodes on the right. Invariant 1ee89901-ccc1-499b-a686-5c137d676bf9."
+                mergeIntersectingBothCentered (flipDomination domination) b a
+
             | None, Some bSubNodes ->
-                // not implemented
+                // TODO: not implemented
                 failwith "No subnodes on the left. Invariant 5da47ceb-5e79-477e-8c3d-b8f567480b46."
+
             | None, None ->
-                // not implemented
+                // TODO: not implemented
                 failwith "Both leaf nodes. Invariant 6e0012fe-0af8-4efe-85eb-2476ada185be."
                 
         else
@@ -277,7 +279,7 @@ module Merge =
                     let newA = setOrMergeIthSubnode domination qi a (InMemoryNode bExtended)
                     newA
             | None ->
-                // not implemented
+                // TODO: not implemented
                 failwith "No subnode. Invariant 3e9c74b3-813a-4cdb-85f8-50ca689e0fc1."
         else
             match a.SubNodes with
@@ -296,7 +298,7 @@ module Merge =
                 invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)        "a6919ff2-07ee-4c6e-a350-b9de29953460"
                 mergeIntersectingFirstCentered domination aNew.Value b
             | None ->
-                // not implemented
+                // TODO: not implemented
                 failwith "No subnode. Invariant 65d23a56-f000-4989-8498-29a15d8ca85d."
 
     let rec private mergeIntersecting (domination : Dominance) (a : NodeRef) (b : NodeRef) : NodeRef =
