@@ -94,9 +94,13 @@ let merge () =
     printfn "saved quadtree %A" id
 
     // load
-    match id |> Quadtree.Load options with
-    | Some loadedQtree -> printfn "loaded quadtree %A" loadedQtree.Id
-    | None             -> printfn "quadtree %A does not exist" id
+    let loadedQtree = Quadtree.Load options id
+    match loadedQtree with
+    | InMemoryNode loadedQtree -> printfn "loaded quadtree %A" loadedQtree.Id
+    | NoNode                   -> printfn "quadtree %A does not exist" id
+    | OutOfCoreNode _          -> printfn "quadtree %A came back is OutOfCoreNode - strange!" id
+
+    printfn "count nodes: %d" (Quadtree.CountNodes loadedQtree)
 
     ()
    
@@ -207,15 +211,55 @@ let test () =
 
     ()
 
+let performanceTest () =
+
+    let createQuadtreeWithRandomValues (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) =
+        let r = Random()
+        let size = V2i(w, h)
+        let xs = Array.zeroCreate<float32> (w * h)
+        for y = 0 to size.Y - 1 do
+            for x = 0 to size.X - 1 do
+                let i = y * size.X + x
+                xs.[i] <- -100.0f + float32(r.NextDouble()) * 200.0f
+    
+        let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
+    
+        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
+        Quadtree.Build config [| a |]
+
+    let merge_Random_Centered_SplitLimit1 dominance =
+
+        let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 0
+
+        let r = Random(0)
+        for i = 1 to 50 do
+            let e = r.Next(20) - 10
+            let ox = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
+            let oy = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
+            let w  = r.Next(50) + 1
+            let h  = r.Next(50) + 1
+
+            let other = createQuadtreeWithRandomValues ox oy w h e 0
+            let merged = Merge dominance quadtree other
+            quadtree <- merged
+
+        ()
+
+    merge_Random_Centered_SplitLimit1 FirstDominates
+
+    ()
+
 [<EntryPoint>]
 let main argv =
 
     //example ()
 
-    merge ()
+    //merge ()
 
     //buildQuadtree ()
 
     //test ()
+
+    performanceTest ()
 
     0

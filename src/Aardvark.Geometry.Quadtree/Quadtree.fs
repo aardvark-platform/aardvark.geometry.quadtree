@@ -110,11 +110,12 @@ module Quadtree =
 
     let Merge (domination : Dominance) (a : NodeRef) (b : NodeRef) = Merge.Merge domination a b
 
+    /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : NodeRef) : Guid =
         match qtree with
         | InMemoryNode n -> n.Save options
-        | OutOfCoreNode load -> load().Id
+        | OutOfCoreNode (id, _) -> id
         | NoNode -> Guid.Empty
 
-    let Load (options : SerializationOptions) (id : Guid) : INode option =
+    let Load (options : SerializationOptions) (id : Guid) : NodeRef =
         Node.Load options id

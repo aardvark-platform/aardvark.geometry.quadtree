@@ -66,7 +66,7 @@ and
     NodeRef =
     | NoNode
     | InMemoryNode of INode
-    | OutOfCoreNode of (unit -> INode)
+    | OutOfCoreNode of Guid * (unit -> INode)
 
 [<AutoOpen>]
 module INodeExtensions = 
@@ -95,7 +95,10 @@ type NodeRef with
         match this with
         | NoNode -> None
         | InMemoryNode n -> Some n
-        | OutOfCoreNode load -> load() |> Some
+        | OutOfCoreNode (_, load) -> load() |> Some
+
+    /// Forces property Id. Throws exception if NoNode.
+    member this.Id with get() = match this.TryGetInMemory() with | Some n -> n.Id | None -> Guid.Empty
 
     /// Forces property Cell. Throws exception if NoNode.
     member this.Cell with get() = this.TryGetInMemory().Value.Cell
@@ -189,8 +192,12 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                     | OutOfCoreNode _   -> () // already stored
 
                 // collect subnode IDs 
-                // (TODO: node should have Guid[] with subnode IDs, so we do not have to load out-of-core nodes for saving)
-                let ids = xs |> Array.map (fun x -> match x.TryGetInMemory() with | Some x -> x.Id | None -> Guid.Empty)
+                let ids = xs |> Array.map (fun x -> 
+                    match x with 
+                    | NoNode -> Guid.Empty
+                    | InMemoryNode n -> n.Id
+                    | OutOfCoreNode (id, _) -> id
+                    )
                 map.Add(kvp Defs.SubnodeIds ids)
             | None -> ()
 
@@ -198,12 +205,12 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
             options.Save id buffer
             id
 
-    static member Load (options: SerializationOptions) (id : Guid) : INode option =
+    static member Load (options: SerializationOptions) (id : Guid) : NodeRef =
         if id = Guid.Empty then
-            None
+            NoNode
         else
             match options.TryLoad id with
-            | None -> None
+            | None -> NoNode
             | Some buffer ->
                 let struct (def, o) = DurableCodec.Deserialize(buffer)
                 if def = Defs.Node then
@@ -226,21 +233,26 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
 
                     invariant (layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
 
-                    // TODO: remove forced load to memory, replace with OutOfCoreNode values
                     let subNodes =
                         match map.TryGetValue(Defs.SubnodeIds) with
                         | (false, _)   -> None
                         | (true, o) ->
                             let keys = o :?> Guid[]
-                            let xs = keys |> Array.map (fun k -> 
-                                match Node.Load options k with
-                                | None -> NoNode
-                                | Some n -> InMemoryNode n
+                            let xs = keys |> Array.map (fun k ->
+                                if k = Guid.Empty then
+                                    NoNode
+                                else
+                                    OutOfCoreNode (k, (fun () ->
+                                        match Node.Load options k with
+                                        | InMemoryNode n        -> n
+                                        | NoNode                -> failwith "Invariant de92e0d9-0dd2-4fc1-b4c7-0ace2910ce24."
+                                        | OutOfCoreNode (_, _)  -> failwith "Invariant 59c84c71-9043-41d4-abc0-4e1f49b8e2ba."
+                                        ))
                                 )
                             Some xs
 
                     let n = Node(id, cell, splitLimitExp, originalSampleExp, layers, subNodes) :> INode
-                    Some n
+                    InMemoryNode n
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
