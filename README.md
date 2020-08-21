@@ -100,6 +100,10 @@ Semantic | Description | F# Type | C# Type
 
 ## Quadtrees
 
+Quadtrees are a persistent (immutable) data structure.
+This means, that existing quadtrees will never be mutated.
+All operations that mutate a quadtree will return a new (mutated) copy of the original quadtree. Of course no literal "copy" is made, but original parts will be re-used where possible.
+
 ```fsharp
 BuildConfig = {
     SplitLimit = 256 // splits tile if width or height is greater than 256
@@ -138,9 +142,6 @@ type Result = {
     }
 ```
 
-
-
-
 You can either use the default config `Query.Config.Default`, which returns the most detailed data,
 
 ```fsharp
@@ -160,4 +161,30 @@ let myCustomConfig = {
     SampleMode = Query.SampleMode.Center
     Verbose = false
     }
+```
+
+
+## Merge
+
+You can use `Quadtree.Merge` or `Quadtree.TryMerge` to create a new octree from two existing octrees. An immutable merge is performed, meaning the original octrees remain untouched.
+
+```fsharp
+Quadtree.Merge (d : Dominance) (first : INode) (second : INode) : INode
+
+Quadtree.TryMerge (d : Dominance) (first : INode option) (second : INode option) : INode option
+```
+
+The `dominance` parameter is used to control which samples will be used in overlapping areas, where both the first and second quadtree contain samples:
+
+Dominance               | Description
+----------------------- | -----------
+`MoreDetailedDominates` | Finer resolution wins. If the same, than it is undefined if  data from the first or second quadtree is used.   
+`FirstDominates`        | First quadtree always wins.
+`SecondDominates`       | Second quadtree always wins.
+
+```fsharp
+let firstQuadtree = ...
+let secondQuadtree = ...
+
+let mergedQuadtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
 ```
