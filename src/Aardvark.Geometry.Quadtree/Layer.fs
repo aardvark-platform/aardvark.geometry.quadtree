@@ -218,8 +218,7 @@ module Layer =
         | 1 -> layers.[0].Def
         | _ -> 
             let def = layers.[0].Def
-            if not (layers |> Array.forall (fun l -> l.Def = def)) then 
-                failwith "Invariant 49514f12-b4f9-4708-9108-94a6dcc5d217."
+            invariant (layers |> Array.forall (fun l -> l.Def = def)) "49514f12-b4f9-4708-9108-94a6dcc5d217"
             def
 
     let private mergeTyped (layers : Layer<'a>[]) : Layer<'a> =

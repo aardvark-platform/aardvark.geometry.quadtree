@@ -16,7 +16,10 @@ type Dominance =
 module Prelude =
 
     let inline invariant condition id =
-        if not condition then failwith <| sprintf "Invariant %s" id
+        if not condition then failwith <| sprintf "Invariant %s." id
+
+    let inline invariantm condition msg id =
+        if not condition then failwith <| sprintf "%s Invariant %s." msg id
 
     let kvp def x = KeyValuePair<Durable.Def, obj>(def, x :> obj)
 

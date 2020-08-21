@@ -56,7 +56,7 @@ let ``Quadtree serialization single node`` () =
 
     // serialize
     let options = SerializationOptions.Default.WithNewInMemoryStore(verbose = true)
-    let id = qtree.Save options
+    let id = qtree |> Quadtree.Save options
 
     //Assert.True(a.Mapping.BufferOrigin = b.Mapping.BufferOrigin)
     //Assert.True(a.Mapping.BufferSize   = b.Mapping.BufferSize)
@@ -74,7 +74,7 @@ let ``Quadtree serialization multiple nodes`` () =
 
     
     let options = SerializationOptions.Default.WithNewInMemoryStore(verbose = true)
-    let id = qtree.Save options
+    let id = qtree |> Quadtree.Save options
 
     //Assert.True(a.Mapping.BufferOrigin = b.Mapping.BufferOrigin)
     //Assert.True(a.Mapping.BufferSize   = b.Mapping.BufferSize)

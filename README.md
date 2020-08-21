@@ -166,12 +166,11 @@ let myCustomConfig = {
 
 ## Merge
 
-You can use `Quadtree.Merge` or `Quadtree.TryMerge` to create a new octree from two existing octrees. An immutable merge is performed, meaning the original octrees remain untouched.
+You can use `Quadtree.Merge` to create a new quadtree from two existing quadtree.
+An immutable merge is performed, meaning the original quadtrees remain untouched.
 
 ```fsharp
-Quadtree.Merge (d : Dominance) (first : INode) (second : INode) : INode
-
-Quadtree.TryMerge (d : Dominance) (first : INode option) (second : INode option) : INode option
+Quadtree.Merge (d : Dominance) (first : NodeRef) (second : NodeRef) : NodeRef
 ```
 
 The `dominance` parameter is used to control which samples will be used in overlapping areas, where both the first and second quadtree contain samples:

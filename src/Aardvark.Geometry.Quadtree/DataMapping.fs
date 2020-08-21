@@ -10,7 +10,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
 
     do
         if bufferOrigin.IsCenteredAtOrigin then
-            invariant (bufferSize = V2i(1,1)) "e782c751-0c45-4748-a937-c32393692659."
+            invariant (bufferSize = V2i(1,1)) "e782c751-0c45-4748-a937-c32393692659"
         else
             let max = bufferOrigin.XY + V2l(bufferSize)
             if window.Min.X < bufferOrigin.X || window.Min.Y < bufferOrigin.Y || window.Max.X > max.X || window.Max.Y > max.Y then
@@ -52,7 +52,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         DataMapping(origin, V2i(size), Box2l.FromMinAndSize(origin.XY, size))
 
     new (origin : Cell2d) =
-        if not origin.IsCenteredAtOrigin then failwith "Invariant 3bd119fe-ec23-40a8-9287-9c8d7abe49ce."
+        invariant origin.IsCenteredAtOrigin "3bd119fe-ec23-40a8-9287-9c8d7abe49ce"
         DataMapping(origin, V2i.II, Box2l.Invalid)
 
     member ____.BufferOrigin with get() = bufferOrigin

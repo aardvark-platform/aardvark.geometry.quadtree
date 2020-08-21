@@ -29,7 +29,7 @@ let example () =
 
     // build the quadtree (incl. levels-of-detail)
     let qtree = Quadtree.Build BuildConfig.Default [| heightsLayer; colorLayer |]
-    printfn "%A" qtree.Cell
+    printfn "%A" (qtree.TryGetInMemory().Value.Cell)
 
     // query
     let config = Query.Config.Default
@@ -66,7 +66,7 @@ let merge () =
     let mapping1 = DataMapping(origin = Cell2d(0, 0, 0), size = V2i(4, 3))
     let heightsLayer1 = Layer(Defs.Heights1d, heights1, mapping1)
     let firstQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer1 |]
-    printfn "%A" firstQuadtree.Cell
+    printfn "%A" (firstQuadtree.TryGetInMemory().Value.Cell)
 
     // create second quadtree
     let heights2 = [| 
@@ -76,14 +76,14 @@ let merge () =
     let mapping2 = DataMapping(origin = Cell2d(4, 2, -1), size = V2i(2, 2))
     let heightsLayer2 = Layer(Defs.Heights1d, heights2, mapping2)
     let secondQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer2 |]
-    printfn "%A" secondQuadtree.Cell
+    printfn "%A" (secondQuadtree.TryGetInMemory().Value.Cell)
 
     // merge both octrees
     let mergedQtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
-    printfn "%A" mergedQtree.Cell
+    printfn "%A" (mergedQtree.TryGetInMemory().Value.Cell)
 
     // enumerate all samples
-    let chunks = mergedQtree |> Query.InsideCell Query.Config.Default mergedQtree.Cell
+    let chunks = mergedQtree |> Query.InsideCell Query.Config.Default (mergedQtree.TryGetInMemory().Value.Cell)
     
     let allSamples = chunks |> Seq.collect (fun chunk -> chunk.GetSamples<float> Defs.Heights1d)
     for cell, x in allSamples do printfn "%A -> %f" cell x
@@ -182,7 +182,7 @@ let test () =
 
     // build the quadtree (incl. levels-of-detail)
     let qtree = Quadtree.Build BuildConfig.Default [| heightsLayer; normalsLayer |]
-    printfn "qtree root cell: %A" qtree.Cell
+    printfn "qtree root cell: %A" (qtree.TryGetInMemory().Value.Cell)
 
     // query
     let config = { Query.Config.Default with Query.SampleMode = Query.Center }

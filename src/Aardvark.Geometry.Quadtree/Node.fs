@@ -58,10 +58,15 @@ type INode =
     abstract member Layers : ILayer[]
     abstract member SampleWindow : Box2l
     abstract member SampleExponent : int
-    abstract member SubNodes : INode option[] option
+    abstract member SubNodes : NodeRef[] option
     abstract member WithLayers : ILayer[] -> INode
     abstract member GetLayer<'a> : Durable.Def -> Layer<'a>
     abstract member Save : SerializationOptions -> Guid
+and
+    NodeRef =
+    | NoNode
+    | InMemoryNode of INode
+    | OutOfCoreNode of (unit -> INode)
 
 [<AutoOpen>]
 module INodeExtensions = 
@@ -83,37 +88,65 @@ module INodeExtensions =
                     i <- i + 1
             samples
 
-type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : INode option[] option) =
+type NodeRef with
+
+    /// Get referenced node (from memory or load out-of-core), or None if NoNode.
+    member this.TryGetInMemory () : INode option =
+        match this with
+        | NoNode -> None
+        | InMemoryNode n -> Some n
+        | OutOfCoreNode load -> load() |> Some
+
+    /// Forces property Cell. Throws exception if NoNode.
+    member this.Cell with get() = this.TryGetInMemory().Value.Cell
+
+    /// Forces property SampleWindowBoundingBox. Throws exception if NoNode.
+    member this.SampleWindowBoundingBox with get() = this.TryGetInMemory().Value.SampleWindowBoundingBox
+
+    /// Forces GetLayer. Throws exception if NoNode.
+    member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
+
+
+type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : NodeRef[] option) =
 
     do
-        if layers.Length = 0 then
-            failwith "No layers. Invariant fe0e56d7-9bc2-4f61-8b36-0ed7fcc4bc56."
+        invariantm (layers.Length > 0) "No layers." "fe0e56d7-9bc2-4f61-8b36-0ed7fcc4bc56"
 
-        if cell.Exponent - splitLimitExp <> layers.[0].SampleExponent then
-            failwith "Sample exponent does not match split limit and node cell. Invariant 1ec76eaa-534b-4339-b63b-8e0399562bb1."
+        invariantm (cell.Exponent - splitLimitExp = layers.[0].SampleExponent) 
+            "Sample exponent does not match split limit and node cell."
+            "1ec76eaa-534b-4339-b63b-8e0399562bb1"
 
         let w = layers.[0].SampleWindow
         let e = layers.[0].SampleExponent
         let bb = cell.BoundingBox
         for layer in layers do
-            if layer.SampleExponent <> e then failwith "Layers exponent mismatch."
-            if layer.SampleWindow <> w then failwith "Layers window mismatch."
-            if not(bb.Contains(layer.Mapping.BoundingBox)) then 
-                invalidArg "layers" (sprintf "Layer %A is outside node bounds." layer.Def.Id)
+            invariantm (layer.SampleExponent = e) "Layers exponent mismatch."   "7adc422c-effc-4a86-b493-ff1cd0f9e991"
+            invariantm (layer.SampleWindow = w) "Layers window mismatch."       "74a57d1d-6a7f-4f9e-b26c-41a1e79cb989"
+            invariantm (bb.Contains(layer.Mapping.BoundingBox)) 
+                (sprintf "Layer %A is outside node bounds." layer.Def.Id)       "dbe069cc-df5c-42c1-bb58-59c5a061ee15"
             
-        match subNodes with 
+        match subNodes with
+        | None -> ()
         | Some subNodes ->
-            invariant (subNodes.Length = 4) "20baf723-cf32-46a6-9729-3b4e062ceee5."
+            invariant (subNodes.Length = 4)                                     "20baf723-cf32-46a6-9729-3b4e062ceee5"
             let children = cell.Children
             for i = 0 to 3 do
                 let sn = subNodes.[i]
                 match sn with 
-                | None -> () 
-                | Some x ->
-                    invariant (x.Cell = children.[i]) "6243dc09-fae4-47d5-8ea7-834c3265988b."
-                    invariant (cell.Exponent = x.Cell.Exponent + 1) "780d98cc-ecab-43fc-b492-229fb0e208a3."
-         | None -> ()
+                | NoNode -> ()
+                | InMemoryNode x ->
+                    invariant (x.Cell = children.[i])                           "6243dc09-fae4-47d5-8ea7-834c3265988b"
+                    invariant (cell.Exponent = x.Cell.Exponent + 1)             "780d98cc-ecab-43fc-b492-229fb0e208a3"
+                | OutOfCoreNode _ -> ()
 
+    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : INode option[]) =
+        let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
+        Node(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
+
+    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : NodeRef[]) =
+        Node(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
+
+    /// Create leaf node.
     new (cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[]) =
         Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, None)
 
@@ -132,25 +165,34 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
         member this.Save options =
             let map = List<KeyValuePair<Durable.Def, obj>>()
 
+            // node properties
             map.Add(kvp Defs.NodeId id)
             map.Add(kvp Defs.CellBounds cell)
             map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
             map.Add(kvp Defs.OriginalSampleExponent originalSampleExponent)
-
-            match subNodes with
-            | Some xs ->
-                for x in xs do 
-                    match x with 
-                    | Some x -> x.Save options |> ignore  
-                    | None -> ()
-                let ids = xs |> Array.map (fun x -> match x with | Some x -> x.Id | None -> Guid.Empty)
-                map.Add(kvp Defs.SubnodeIds ids)
-            | None -> ()
-
+            
+            // layers
             for layer in layers do
                 let layerDef = Defs.GetLayerFromDef layer.Def
                 let dm = layer.Materialize().ToDurableMap ()
                 map.Add(kvp layerDef dm)
+
+            // children
+            match subNodes with
+            | Some xs ->
+
+                // recursively store subnodes (where necessary)
+                for x in xs do 
+                    match x with 
+                    | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
+                    | NoNode            -> () // nothing to store
+                    | OutOfCoreNode _   -> () // already stored
+
+                // collect subnode IDs 
+                // (TODO: node should have Guid[] with subnode IDs, so we do not have to load out-of-core nodes for saving)
+                let ids = xs |> Array.map (fun x -> match x.TryGetInMemory() with | Some x -> x.Id | None -> Guid.Empty)
+                map.Add(kvp Defs.SubnodeIds ids)
+            | None -> ()
 
             let buffer = DurableCodec.Serialize(Defs.Node, map)
             options.Save id buffer
@@ -184,12 +226,17 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
 
                     invariant (layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
 
+                    // TODO: remove forced load to memory, replace with OutOfCoreNode values
                     let subNodes =
                         match map.TryGetValue(Defs.SubnodeIds) with
                         | (false, _)   -> None
                         | (true, o) ->
                             let keys = o :?> Guid[]
-                            let xs = keys |> Array.map (Node.Load options)
+                            let xs = keys |> Array.map (fun k -> 
+                                match Node.Load options k with
+                                | None -> NoNode
+                                | Some n -> InMemoryNode n
+                                )
                             Some xs
 
                     let n = Node(id, cell, splitLimitExp, originalSampleExp, layers, subNodes) :> INode
@@ -199,10 +246,17 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
 
 module Node =
 
-    let internal GenerateLodLayers (subNodes : INode option[]) (rootCell : Cell2d) =
+    let ToRef (n : INode option) =
+        match n with
+        | Some n -> InMemoryNode n
+        | None -> NoNode
 
-        let subNodes = subNodes |> Array.choose id
-        invariant (subNodes.Length > 0) "Invariant 641ef4b4-65b3-4e76-bbb6-c7046452801a."
+    let TryGetInMemory (n : NodeRef) = n.TryGetInMemory()
+
+    let internal GenerateLodLayers (subNodes : NodeRef[]) (rootCell : Cell2d) =
+
+        let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
+        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
         
         let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
         let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
@@ -230,6 +284,6 @@ module Node =
             failwith "Invariant abbd4b37-d816-4ba4-9427-183458ff6ad1."
 
         let selfExponent = resultExponents.[0] |> fst
-        invariant (selfExponent = maxSubNodeExponent + 1) "Invariant 4a8cbec0-4e14-4eb4-a21a-0af370cc1d81."
+        invariant (selfExponent = maxSubNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81"
 
         result

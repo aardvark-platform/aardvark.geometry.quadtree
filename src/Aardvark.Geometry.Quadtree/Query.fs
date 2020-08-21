@@ -56,6 +56,7 @@ module Query =
                 | FullySelected -> this.Node.AllSamples
             ps |> Array.map (fun p -> (p, layer.GetSample Fail p))
 
+    /// The generic query function.
     let rec Generic 
             (config : Config) 
             (isNodeFullyInside : INode -> bool) 
@@ -64,9 +65,10 @@ module Query =
             (n : INode) 
             : Result seq =
         seq {
-            if n.Cell.Exponent < config.MinExponent then
-                failwith ("Query cannot start at node with exponent smaller than configured minExponent. " + 
-                         "Invariant bd20d469-970c-4c9c-b99c-6694dc90923d.")
+
+            invariantm (n.Cell.Exponent >= config.MinExponent)
+                "Query cannot start at node with exponent smaller than configured minExponent."
+                "bd20d469-970c-4c9c-b99c-6694dc90923d."
 
             if isNodeFullyOutside n then
                 ()
@@ -84,10 +86,13 @@ module Query =
                 else
                 // at inner node with children to recursively traverse
 
+                    invariant n.SubNodes.IsSome "0baa1ede-dde1-489b-ba3c-28a7e7a5bd3a"
+
                     // return samples from inner node, which are not covered by children
                     let w = n.SampleWindow
                     let v = Box2l(w.Min * 2L, w.Max * 2L)
-                    let subWindows = n.SubNodes.Value |> Array.choose (Option.map (fun x -> x.SampleWindow))
+
+                    let subWindows = n.SubNodes.Value  |> Array.map Node.TryGetInMemory |> Array.choose (Option.map (fun x -> x.SampleWindow))
                     let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2l) =
                         let sampleWindow = Box2l.FromMinAndSize(sample.XY * 2L, V2l(2, 2))
                         subWindow.Intersects sampleWindow
@@ -103,36 +108,42 @@ module Query =
                     match n.SubNodes with
                     | None -> failwith "Invariant 4f33151d-e387-40a1-a1b7-c04e2335bd91."
                     | Some subnodes ->
-                        for subnode in subnodes |> Seq.choose id do
+                        for subnode in subnodes |> Seq.choose Node.TryGetInMemory do
                             let r = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside subnode
                             yield! r
         }
     
     /// Returns all samples inside given cell.
-    let InsideCell (config : Config) (filter : Cell2d) (root : INode) : Result seq =
+    let InsideCell (config : Config) (filter : Cell2d) (root : NodeRef) : Result seq =
         let filterBb = filter.BoundingBox
         let isNodeFullyInside (n : INode) = filterBb.Contains n.SampleWindowBoundingBox
         let isNodeFullyOutside (n : INode) = not (filterBb.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n
-        Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
     /// Returns all samples inside given cell.
-    let IntersectsCell (config : Config) (filter : Cell2d) (root : INode) : Result seq =
+    let IntersectsCell (config : Config) (filter : Cell2d) (root : NodeRef) : Result seq =
         let filterBb = filter.BoundingBox
         let isNodeFullyInside (n : INode) = filterBb.Contains n.SampleWindowBoundingBox
         let isNodeFullyOutside (n : INode) = not (filterBb.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filterBb.Intersects n.BoundingBox
-        Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
     /// Returns all samples inside given box.
-    let InsideBox (config : Config) (filter : Box2d) (root : INode) : Result seq =
+    let InsideBox (config : Config) (filter : Box2d) (root : NodeRef) : Result seq =
         let isNodeFullyInside (n : INode) = filter.Contains n.SampleWindowBoundingBox
         let isNodeFullyOutside (n : INode) = not (filter.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n.BoundingBox
-        Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
     /// Returns all samples inside given polygon.
-    let InsidePolygon (config : Config) (filter : Polygon2d) (root : INode) : Result seq =
+    let InsidePolygon (config : Config) (filter : Polygon2d) (root : NodeRef) : Result seq =
         let filter = if filter.IsCcw() then filter else filter.Reversed
         let rpos = V2d(config.SampleMode.RelativePosition)
         let isNodeFullyInside (n : INode) =
@@ -143,10 +154,12 @@ module Query =
             let bb = n.BoundingBox
             let p = V2d(bb.Min.X + bb.SizeX * rpos.X, bb.Min.Y + bb.SizeY * rpos.Y)
             filter.Contains(p)
-        Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
     /// Returns all samples within a given distance of a line.
-    let NearLine (config : Config) (filter : Ray2d) (withinDistance : float) (root : INode) : Result seq =
+    let NearLine (config : Config) (filter : Ray2d) (withinDistance : float) (root : NodeRef) : Result seq =
         let filter = Ray2d(filter.Origin, filter.Direction.Normalized)
         let rpos = V2d(config.SampleMode.RelativePosition)
         let isNodeFullyInside (n : INode) =
@@ -164,7 +177,9 @@ module Query =
             let p = V2d(bb.Min.X + bb.SizeX * rpos.X, bb.Min.Y + bb.SizeY * rpos.Y)
             let dist = filter.GetDistanceToRay(p)
             dist <= withinDistance
-        Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
 
     ()

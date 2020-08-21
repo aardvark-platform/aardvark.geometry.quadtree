@@ -17,26 +17,21 @@ with
 [<AutoOpen>]
 module Quadtree =
 
-    let rec private tryCount a b (root : INode option) =
-        match root with 
+    let rec private tryCount a b (root : NodeRef) =
+        match root.TryGetInMemory() with 
         | None -> 0 
-        | Some r -> match r.SubNodes with 
-                    | None -> a 
-                    | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
+        | Some n -> 
+            match n.SubNodes with 
+            | None -> a 
+            | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
 
-    let rec TryCountNodes root = root |> tryCount 1 1
-    let rec TryCountLeafs root = root |> tryCount 1 0
-    let rec TryCountInner root = root |> tryCount 0 1
-
-    let private count a b root = tryCount a b (Some root)
-    
-    let rec CountNodes root = root |> count 1 1
-    let rec CountLeafs root = root |> count 1 0
-    let rec CountInner root = root |> count 0 1
+    let rec CountNodes root = root |> tryCount 1 1
+    let rec CountLeafs root = root |> tryCount 1 0
+    let rec CountInner root = root |> tryCount 0 1
 
     let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : INode =
     
-        invariant (layers.Length > 0) "dccf4ce3-b163-41b7-9bd9-0a3e7b76e3a5"
+        invariant (layers.Length > 0)                                                       "dccf4ce3-b163-41b7-9bd9-0a3e7b76e3a5"
         invariant (layers |> Array.groupBy (fun l -> l.SampleExponent) |> Array.length = 1) "4071f97e-1809-422a-90df-29c774cedc7b"
 
         //printfn "[build] %A" cell
@@ -67,8 +62,9 @@ module Quadtree =
 
             let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
                 match subLayers.Length with
-                | 0 -> None
-                | _ -> Some <| build config subCell originalSampleExponent subLayers
+                | 0 -> NoNode
+                | _ -> let n = build config subCell originalSampleExponent subLayers
+                       InMemoryNode n
                     //printfn "  sub cell %A"  subCell
                     //for layer in subLayers do
                     //    printfn "    layer %-20s" layer.Def.Name
@@ -78,8 +74,8 @@ module Quadtree =
 
             let children = rootCell.Children
             for i = 0 to 3 do
-                match subNodes.[i] with
-                | Some x -> invariant (x.Cell = children.[i]) "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e."
+                match subNodes.[i].TryGetInMemory() with
+                | Some x -> invariant (x.Cell = children.[i])                               "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e"
                 | None -> ()
 
             let lodLayers = Node.GenerateLodLayers subNodes rootCell
@@ -92,18 +88,15 @@ module Quadtree =
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.
-    let Build (config : BuildConfig) ([<ParamArray>] layers : ILayer[]) : INode =
+    let Build (config : BuildConfig) ([<ParamArray>] layers : ILayer[]) : NodeRef =
         
-        if layers.Length = 0 then
-            failwith "Can't build quadtree with 0 layers. Invariant 6216df3f-279c-415f-a435-bdb35d274e39."
+        invariantm (layers.Length > 0) "Can't build quadtree with 0 layers."                "6216df3f-279c-415f-a435-bdb35d274e39"
 
         let layerExponents = layers |> Array.groupBy (fun x -> x.SampleExponent)
-        if layerExponents.Length <> 1 then 
-            failwith "All layers must have same resolution. Invariant a25e5f58-c22a-436e-81be-69afb2b37492."
+        invariantm (layerExponents.Length = 1) "All layers must have same resolution."      "a25e5f58-c22a-436e-81be-69afb2b37492"
 
         let layerWindows = layers |> Array.groupBy (fun x -> x.SampleWindow)
-        if layerWindows.Length <> 1 then 
-            failwith "All layers must have same samples window. Invariant 36488503-b5b8-4d80-8992-b713e7552480."
+        invariantm (layerWindows.Length = 1) "All layers must have same samples window."    "36488503-b5b8-4d80-8992-b713e7552480"
             
         let sampleExponent = layers.[0].SampleExponent
         let minRootExponent = sampleExponent + config.SplitLimitPowerOfTwo
@@ -113,14 +106,15 @@ module Quadtree =
         while rootCell.Exponent < minRootExponent do
             rootCell <- rootCell.Parent
 
-        build config rootCell sampleExponent layers
+        build config rootCell sampleExponent layers |> InMemoryNode
 
-    let TryMerge a b = Merge.TryMerge a b
+    let Merge (domination : Dominance) (a : NodeRef) (b : NodeRef) = Merge.Merge domination a b
 
-    let Merge (domination : Dominance) (a : INode) (b : INode) = (TryMerge domination (Some a) (Some b)).Value
-
-    let Save (options : SerializationOptions) (qtree : INode) : Guid =
-        qtree.Save options
+    let Save (options : SerializationOptions) (qtree : NodeRef) : Guid =
+        match qtree with
+        | InMemoryNode n -> n.Save options
+        | OutOfCoreNode load -> load().Id
+        | NoNode -> Guid.Empty
 
     let Load (options : SerializationOptions) (id : Guid) : INode option =
         Node.Load options id
