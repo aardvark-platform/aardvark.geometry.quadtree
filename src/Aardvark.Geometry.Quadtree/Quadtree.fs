@@ -56,7 +56,7 @@ module Quadtree =
 
             let subLayers = rootCell.Children |> Array.map (fun subCell ->
                 let subBox = subCell.GetBoundsForExponent(layerExponent)
-                let subLayers = layers |> Array.map (fun l -> l.WithWindow subBox) |> Array.choose id
+                let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
                 (subCell, subLayers) 
                 )
 

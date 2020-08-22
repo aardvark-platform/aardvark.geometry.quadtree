@@ -15,45 +15,56 @@ module Merge =
         match node.TryGetInMemory() with
         | None -> NoNode
         | Some node ->
-            invariant (root.Contains(node.Cell))                                            "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
-            invariant (root.Exponent >= node.Cell.Exponent)                                 "cda4b28d-4449-4db2-80b8-40c0617ecf22"
-            invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))             "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
+            invariant (root.Contains(node.Cell))                                                "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
+            invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
+            invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
             
             if root = node.Cell then
                 InMemoryNode node
             else
-                invariant (root.Exponent > node.Cell.Exponent)                              "56251fd0-5344-4d0a-b76b-815cdd5a7607"
+                invariant (root.Exponent > node.Cell.Exponent)                                  "b652d9bc-340a-4312-8407-9fdee62ffcaa"
 
-                let isChildOfCenteredRoot = root.IsCenteredAtOrigin && root.Exponent = node.Cell.Exponent + 1
+                if root.IsCenteredAtOrigin && node.Cell.IsCenteredAtOrigin then
 
-                let parentCell = if isChildOfCenteredRoot then root else node.Cell.Parent
-                let qi = parentCell.GetQuadrant(node.Cell)
+                    let roots = root.Children
+                    let nodes = match node.SubNodes with
+                                | Some xs -> xs
+                                | None    -> node.Split() |> Array.map InMemoryNode
+                    let rootSubNodes = Array.map2 extendUpTo roots nodes
+                    let rootLodLayers = Node.GenerateLodLayers rootSubNodes root
+
+                    let n = Node(Guid.NewGuid(), root, node.SplitLimitExponent,
+                                 node.OriginalSampleExponent, rootLodLayers,
+                                 rootSubNodes) :> INode
+
+                    InMemoryNode n
+
+                else
+                    let isChildOfCenteredRoot = root.IsCenteredAtOrigin && root.Exponent = node.Cell.Exponent + 1
+
+                    let parentCell = if isChildOfCenteredRoot then root else node.Cell.Parent
+                    let qi = parentCell.GetQuadrant(node.Cell)
                 
-                invariant qi.HasValue                                                       "09575aa7-38b3-4afa-bb63-389af3301fc0"
+                    invariantm qi.HasValue                                                      "09575aa7-38b3-4afa-bb63-389af3301fc0"
+                        (sprintf "Parent cell: %A; node cell: %A." parentCell node.Cell)
                 
-                let parentSubNodes = Array.create 4 NoNode
-                parentSubNodes.[qi.Value] <- InMemoryNode node
-                let parentLodLayers = Node.GenerateLodLayers parentSubNodes root
+                    let parentSubNodes = Array.create 4 NoNode
+                    parentSubNodes.[qi.Value] <- InMemoryNode node
+                    let parentLodLayers = Node.GenerateLodLayers parentSubNodes root
                 
-                invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent)    "7b0fa058-4812-4332-9547-0c33ee7ea7d5"
+                    invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent)    "7b0fa058-4812-4332-9547-0c33ee7ea7d5"
                 
-                let parentNode = 
-                  Node(
-                    Guid.NewGuid(),
-                    parentCell,
-                    node.SplitLimitExponent,
-                    node.OriginalSampleExponent,
-                    parentLodLayers,
-                    parentSubNodes
-                    ) :> INode
+                    let parentNode = Node(Guid.NewGuid(), parentCell, node.SplitLimitExponent,
+                                          node.OriginalSampleExponent, parentLodLayers,
+                                          parentSubNodes) :> INode
                 
-                invariant (parentNode.Cell.Exponent = node.Cell.Exponent + 1)               "27b263d3-7fe5-49fd-96ca-422c37f9a31a"
-                invariant (parentNode.SampleExponent = node.SampleExponent + 1)             "6076b045-9bee-4285-b583-1d3d49bb259a"
+                    invariant (parentNode.Cell.Exponent = node.Cell.Exponent + 1)               "27b263d3-7fe5-49fd-96ca-422c37f9a31a"
+                    invariant (parentNode.SampleExponent = node.SampleExponent + 1)             "6076b045-9bee-4285-b583-1d3d49bb259a"
                 
-                match extendUpTo root (InMemoryNode parentNode) with
-                | InMemoryNode result -> invariant (root.Exponent = result.Cell.Exponent)   "a0d249da-ed0d-4abe-8751-191ad0ffb9f9"
-                                         InMemoryNode result
-                | _ -> failwith "Invariant 991571a4-ea05-4142-bd38-a6964319ba97."
+                    match extendUpTo root (InMemoryNode parentNode) with
+                    | InMemoryNode result -> invariant (root.Exponent = result.Cell.Exponent)   "a0d249da-ed0d-4abe-8751-191ad0ffb9f9"
+                                             InMemoryNode result
+                    | _ -> failwith "Invariant 991571a4-ea05-4142-bd38-a6964319ba97."
 
     let private mergeLayers (domination : Dominance) (a : ILayer[]) (b : ILayer[]) : ILayer[] =
 
@@ -201,16 +212,23 @@ module Merge =
 
                 Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some zs) :> INode
 
-            | Some aSubNodes, None ->
+            | Some _, None ->
                 mergeIntersectingBothCentered (flipDomination domination) b a
 
-            | None, Some bSubNodes ->
-                // TODO: not implemented
-                failwith "No subnodes on the left. Invariant 5da47ceb-5e79-477e-8c3d-b8f567480b46."
+            | None, Some ys ->
+                invariant (ys.Length = 4)                                           "e57a9e39-5cdd-4620-98cd-83c7c8885c6a"
+
+                let layers = mergeLayers domination a.Layers b.Layers
+                invariant (a.Layers.Length = layers.Length)                         "dcfcf992-7444-47f4-97f1-0cbf1b0672e2"
+
+                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some ys) :> INode
 
             | None, None ->
-                // TODO: not implemented
-                failwith "Both leaf nodes. Invariant 6e0012fe-0af8-4efe-85eb-2476ada185be."
+                
+                let layers = mergeLayers domination a.Layers b.Layers
+                invariant (a.Layers.Length = layers.Length)                         "b45a8c18-2184-4a8d-b0f1-18c9baa5d372"
+
+                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, None) :> INode
                 
         else
             // grow centered node a upwards to eventually contain node b
@@ -381,9 +399,9 @@ module Merge =
                                    | _              -> failwith "Invariant cefba0df-3631-4da9-a19a-742e844ca8d4."
             let a2 = (a |> withCommonRoot)
             let b2 = (b |> withCommonRoot)
-            invariant (a2.Cell = commonRootCell)                      "7730eae1-0212-40e5-b114-ff81c0c40762"
-            invariant (b2.Cell = commonRootCell)                      "00205e51-46c2-451a-bd7c-5dc45f18acc1"
-            invariant (a2.SampleExponent = b2.SampleExponent)   "178eedaa-89e2-473b-afbb-1beee112225d"
+            invariant (a2.Cell = commonRootCell)                          "7730eae1-0212-40e5-b114-ff81c0c40762"
+            invariant (b2.Cell = commonRootCell)                          "00205e51-46c2-451a-bd7c-5dc45f18acc1"
+            invariant (a2.SampleExponent = b2.SampleExponent)             "178eedaa-89e2-473b-afbb-1beee112225d"
             mergeSameRoot domination (InMemoryNode a2) (InMemoryNode b2)
         | Some _,  None    -> a
         | None,    Some _  -> b

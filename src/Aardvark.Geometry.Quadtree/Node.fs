@@ -62,6 +62,7 @@ type INode =
     abstract member WithLayers : ILayer[] -> INode
     abstract member GetLayer<'a> : Durable.Def -> Layer<'a>
     abstract member Save : SerializationOptions -> Guid
+    abstract member Split : unit -> INode[]
 and
     NodeRef =
     | NoNode
@@ -109,6 +110,49 @@ type NodeRef with
     /// Forces GetLayer. Throws exception if NoNode.
     member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
 
+module Node =
+
+    let ToRef (n : INode option) =
+        match n with
+        | Some n -> InMemoryNode n
+        | None -> NoNode
+
+    let TryGetInMemory (n : NodeRef) = n.TryGetInMemory()
+
+    let internal GenerateLodLayers (subNodes : NodeRef[]) (rootCell : Cell2d) =
+
+        let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
+        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
+        
+        let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
+        let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
+
+        let result =
+            subNodes 
+            |> Seq.collect (fun x -> x.Layers) 
+            |> Seq.groupBy (fun x -> x.Def)
+            |> Seq.choose (fun (_, xs) ->
+                let maxExponent = xs |> Seq.map (fun x -> x.SampleExponent) |> Seq.max
+                xs 
+                |> Seq.map (fun layer ->
+                    let mutable l = layer
+                    while l.SampleExponent < maxExponent do l <- l.ResampleUntyped rootCell
+                    l
+                    )
+                |> Layer.Merge
+                )
+            |> Seq.map (fun layer -> layer.ResampleUntyped rootCell)
+            |> Seq.toArray
+
+
+        let resultExponents = result |> Array.groupBy (fun x -> x.SampleExponent)
+        if resultExponents.Length <> 1 then
+            failwith "Invariant abbd4b37-d816-4ba4-9427-183458ff6ad1."
+
+        let selfExponent = resultExponents.[0] |> fst
+        invariant (selfExponent = maxSubNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81"
+
+        result
 
 type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : NodeRef[] option) =
 
@@ -204,6 +248,19 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
             let buffer = DurableCodec.Serialize(Defs.Node, map)
             options.Save id buffer
             id
+        member this.Split () : INode[] =
+
+            let subLayers = cell.Children |> Array.map (fun subCell ->
+                let subBox = subCell.GetBoundsForExponent(layers.[0].SampleExponent)
+                let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
+                (subCell, subLayers) 
+                )
+
+            let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
+                Node(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None) :> INode
+                )
+
+            subNodes
 
     static member Load (options: SerializationOptions) (id : Guid) : NodeRef =
         if id = Guid.Empty then
@@ -256,46 +313,3 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
-module Node =
-
-    let ToRef (n : INode option) =
-        match n with
-        | Some n -> InMemoryNode n
-        | None -> NoNode
-
-    let TryGetInMemory (n : NodeRef) = n.TryGetInMemory()
-
-    let internal GenerateLodLayers (subNodes : NodeRef[]) (rootCell : Cell2d) =
-
-        let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
-        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
-        
-        let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
-        let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
-
-        let result =
-            subNodes 
-            |> Seq.collect (fun x -> x.Layers) 
-            |> Seq.groupBy (fun x -> x.Def)
-            |> Seq.choose (fun (_, xs) ->
-                let maxExponent = xs |> Seq.map (fun x -> x.SampleExponent) |> Seq.max
-                xs 
-                |> Seq.map (fun layer ->
-                    let mutable l = layer
-                    while l.SampleExponent < maxExponent do l <- l.ResampleUntyped rootCell
-                    l
-                    )
-                |> Layer.Merge
-                )
-            |> Seq.map (fun layer -> layer.ResampleUntyped rootCell)
-            |> Seq.toArray
-
-
-        let resultExponents = result |> Array.groupBy (fun x -> x.SampleExponent)
-        if resultExponents.Length <> 1 then
-            failwith "Invariant abbd4b37-d816-4ba4-9427-183458ff6ad1."
-
-        let selfExponent = resultExponents.[0] |> fst
-        invariant (selfExponent = maxSubNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81"
-
-        result
