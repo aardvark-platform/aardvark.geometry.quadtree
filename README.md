@@ -104,14 +104,98 @@ Quadtrees are a persistent (immutable) data structure.
 This means, that existing quadtrees will never be mutated.
 All operations that mutate a quadtree will return a new (mutated) copy of the original quadtree. Of course no literal "copy" is made, but original parts will be re-used where possible.
 
+### Build
+
+```fsharp
+/// At least 1 layer is required, and
+/// all layers must have the same sample exponent and sample window.
+Quadtree.Build (config : BuildConfig) (layers : ILayer[]) : QNodeRef
+```
+where `BuildConfig.Default` is defined as
+
 ```fsharp
 BuildConfig = {
-    SplitLimit = 256 // splits tile if width or height is greater than 256
+    SplitLimitPowerOfTwo = 8 // splits tile if width or height is greater than 256
 }
 ```
+.
 
-In a future version, it will be possible to configure out-of-core storage of quadtrees.
-Currently quadtrees are created in-memory.
+As the layer data is already in memory, the `Quadtree.Build` function will construct the quadtree **in memory** as well. This results in optimal performance and the memory overhead is slightly more than 1/3 of layer data size and mostly used for storing levels-of-detail.
+
+In order to handle large data sets, that do not fit into memory, you can split up your data set into chunks, create and save a quadtree for each chunk, and finally merge all the chunks into a single quadtree.
+
+See the following sections how to save, load and merge quadtrees.
+
+### Save/Load
+
+Quadtrees can be saved to disk using an arbitrary key/value store.
+The store is configured using a `SerializationOptions` record.
+
+```fsharp
+/// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
+Quadtree.Save (options : SerializationOptions) (qtree : QNodeRef) : Guid
+```
+
+You can load a quadtree using
+
+```fsharp
+/// Load quadtree with given id.
+/// Returns the tree's root node, with children being loaded lazily.
+/// If id does not exist, then `NoNode` is returned.
+Quadtree.Load (options : SerializationOptions) (id : Guid) : QNodeRef
+```
+
+A `SerializationOptions` record specifies a few functions allowing to interact
+with the underlying key/value store.
+
+```fsharp
+type SerializationOptions = {
+    Save : Guid -> byte[] -> unit
+    TryLoad : Guid -> byte[] option
+    Exists : Guid -> bool
+    }
+```
+
+`Aardvark.Geometry.Quadtree' provides the following out-of-the-box serialization bindings:
+
+```fsharp
+/// Create an in-memory store for testing purposes.
+/// This does NOT solve the out-of-core problem. ;-)
+let inMemoryStore = SerializationOptions.NewInMemoryStore ()
+```
+
+```fsharp
+/// Create a disk store using the Uncodium.SimpleStore package.
+let simpleDiskStore = SerializationOptions.SimpleDiskStore (path : string)
+```
+
+Additional bindings may be available if you use this library in conjunction with some larger project. Or, you can quite easily create your own, by providing a few simple functions to interact with your favourite key/value blob store.
+
+### Merge
+
+You can use `Quadtree.Merge` to create a new quadtree from two existing quadtree.
+An immutable merge is performed, meaning the original quadtrees remain untouched.
+
+```fsharp
+Quadtree.Merge (d : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef
+```
+
+The `dominance` parameter is used to control which samples will be used in overlapping areas, where both the first and second quadtree contain samples:
+
+Dominance               | Description
+----------------------- | -----------
+`MoreDetailedDominates` | Finer resolution wins. If the same, than it is undefined if  data from the first or second quadtree is used.   
+`FirstDominates`        | First quadtree always wins.
+`SecondDominates`       | Second quadtree always wins.
+
+```fsharp
+let firstQuadtree = ...
+let secondQuadtree = ...
+
+let mergedQuadtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
+```
+
+
 
 ## Queries
 
@@ -161,29 +245,4 @@ let myCustomConfig = {
     SampleMode = Query.SampleMode.Center
     Verbose = false
     }
-```
-
-
-## Merge
-
-You can use `Quadtree.Merge` to create a new quadtree from two existing quadtree.
-An immutable merge is performed, meaning the original quadtrees remain untouched.
-
-```fsharp
-Quadtree.Merge (d : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef
-```
-
-The `dominance` parameter is used to control which samples will be used in overlapping areas, where both the first and second quadtree contain samples:
-
-Dominance               | Description
------------------------ | -----------
-`MoreDetailedDominates` | Finer resolution wins. If the same, than it is undefined if  data from the first or second quadtree is used.   
-`FirstDominates`        | First quadtree always wins.
-`SecondDominates`       | Second quadtree always wins.
-
-```fsharp
-let firstQuadtree = ...
-let secondQuadtree = ...
-
-let mergedQuadtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
 ```
