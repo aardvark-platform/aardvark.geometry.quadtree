@@ -9,7 +9,7 @@ open System
 
 module Merge =
 
-    let inline private intersecting (a : INode) (b : INode) = a.Cell.Intersects(b.Cell)
+    let inline private intersecting (a : Node) (b : Node) = a.Cell.Intersects(b.Cell)
 
     let rec private extendUpTo (root : Cell2d) (node : NodeRef) : NodeRef =
         match node.TryGetInMemory() with
@@ -35,7 +35,7 @@ module Merge =
 
                     let n = Node(Guid.NewGuid(), root, node.SplitLimitExponent,
                                  node.OriginalSampleExponent, rootLodLayers,
-                                 rootSubNodes) :> INode
+                                 rootSubNodes)
 
                     InMemoryNode n
 
@@ -56,7 +56,7 @@ module Merge =
                 
                     let parentNode = Node(Guid.NewGuid(), parentCell, node.SplitLimitExponent,
                                           node.OriginalSampleExponent, parentLodLayers,
-                                          parentSubNodes) :> INode
+                                          parentSubNodes)
                 
                     invariant (parentNode.Cell.Exponent = node.Cell.Exponent + 1)               "27b263d3-7fe5-49fd-96ca-422c37f9a31a"
                     invariant (parentNode.SampleExponent = node.SampleExponent + 1)             "6076b045-9bee-4285-b583-1d3d49bb259a"
@@ -145,23 +145,23 @@ module Merge =
                 invariant (ys.Length = 4)                               "087924cb-b42e-4f03-9385-26744c702b04"
                 invariant (zs.Length = 4)                               "d972f5f1-5c2d-460c-9d98-5e6fc1fade99"
 
-                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, zs) :> INode |> InMemoryNode
+                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, zs) |> InMemoryNode
             | Some xs, None    -> // inner/leaf
                 let lodLayers = Node.GenerateLodLayers xs rootCell
-                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, lodLayers, xs) :> INode |> InMemoryNode
+                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, lodLayers, xs) |> InMemoryNode
             | None,    Some ys -> // leaf/inner
                 let lodLayers = Node.GenerateLodLayers ys rootCell
-                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, lodLayers, ys) :> INode |> InMemoryNode
+                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, lodLayers, ys) |> InMemoryNode
             | None,    None    -> // leaf/leaf
                 let layers = mergeLayers domination a0.Layers b0.Layers
                 invariant (a0.Layers.Length = layers.Length)            "10d73a3d-ce2b-4bf8-a8a5-9123011477c4"
-                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, None) :> INode |> InMemoryNode
+                Node(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, None) |> InMemoryNode
 
         | Some a, None   -> InMemoryNode a
         | None,   Some b -> InMemoryNode b
         | None,   None   -> NoNode
     
-    let private setOrMergeIthSubnode (domination : Dominance) (i : int) (node : INode) (newSubNodeRef : NodeRef) : INode =
+    let private setOrMergeIthSubnode (domination : Dominance) (i : int) (node : Node) (newSubNodeRef : NodeRef) : Node =
 
         let newSubnode = newSubNodeRef.TryGetInMemory()
 
@@ -180,9 +180,9 @@ module Merge =
         let ose = match newSubnode with
                   | Some x -> min node.OriginalSampleExponent x.OriginalSampleExponent
                   | None   -> node.OriginalSampleExponent
-        Node(Guid.NewGuid(), node.Cell, node.SplitLimitExponent, ose, node.Layers, Some nss) :> INode
+        Node(Guid.NewGuid(), node.Cell, node.SplitLimitExponent, ose, node.Layers, Some nss)
 
-    let rec private mergeIntersectingBothCentered (domination : Dominance) (a : INode) (b : INode) : INode =
+    let rec private mergeIntersectingBothCentered (domination : Dominance) (a : Node) (b : Node) : Node =
         invariant a.Cell.IsCenteredAtOrigin                                         "41380857-b8c9-4f68-88d1-e279af0667b1"
         invariant b.Cell.IsCenteredAtOrigin                                         "670db503-29bd-495e-b565-d1a0e45b3c08"
         invariant (a.SplitLimitExponent = b.SplitLimitExponent)                     "942abce1-ac80-42d4-90e5-4ad0979c1797"
@@ -210,7 +210,7 @@ module Merge =
                 let zs = Array.map2 (mergeSameRoot domination) xs ys
                 invariant (zs.Length = 4)                                           "068e6f2e-cf1f-46f9-8a26-cc8c2e0697ec"
 
-                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some zs) :> INode
+                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some zs)
 
             | Some _, None ->
                 mergeIntersectingBothCentered (flipDomination domination) b a
@@ -221,14 +221,14 @@ module Merge =
                 let layers = mergeLayers domination a.Layers b.Layers
                 invariant (a.Layers.Length = layers.Length)                         "dcfcf992-7444-47f4-97f1-0cbf1b0672e2"
 
-                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some ys) :> INode
+                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some ys)
 
             | None, None ->
                 
                 let layers = mergeLayers domination a.Layers b.Layers
                 invariant (a.Layers.Length = layers.Length)                         "b45a8c18-2184-4a8d-b0f1-18c9baa5d372"
 
-                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, None) :> INode
+                Node(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, None)
                 
         else
             // grow centered node a upwards to eventually contain node b
@@ -244,7 +244,7 @@ module Merge =
                         | Some sn -> extendUpTo sn.Cell.Parent (InMemoryNode sn)
                         )
                     let parentLodLayers = Node.GenerateLodLayers subnodes parentCell
-                    let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
+                    let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) |> Some
                     invariant aNew.IsSome                                           "eed625d8-976e-4dc1-8548-70e4c3285dc1"
                     invariant (aNew.Value.Cell.Exponent = a.Cell.Exponent + 1)      "eec56ca0-39a4-4ef6-950e-2eb25a4b4420"
                     invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)    "c4e097db-9e91-4d11-b41d-a99db892a8f4"
@@ -257,13 +257,13 @@ module Merge =
                             let subLayers = a.Layers |> Array.map (fun l -> l.WithWindow subBox) |> Array.choose id
                             if subLayers.Length > 0 then
                                 let c = Cell2d(subCell.X, subCell.Y, subCell.Exponent + 1)
-                                let n = Node(Guid.NewGuid(), c, a.SplitLimitExponent, a.OriginalSampleExponent, subLayers, None) :> INode
+                                let n = Node(Guid.NewGuid(), c, a.SplitLimitExponent, a.OriginalSampleExponent, subLayers, None)
                                 InMemoryNode n
                             else
                                 NoNode
                             )
                     let parentLodLayers = Node.GenerateLodLayers subnodes parentCell
-                    let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
+                    let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) |> Some
 
                     invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)    "f2c20900-a00b-41c7-a04c-fc7e3da2ce30"
 
@@ -271,7 +271,7 @@ module Merge =
             else
                 mergeIntersectingBothCentered (flipDomination domination) b a
                 
-    let rec private mergeIntersectingFirstCentered (domination : Dominance) (a : INode) (b : INode) : INode =
+    let rec private mergeIntersectingFirstCentered (domination : Dominance) (a : Node) (b : Node) : Node =
         invariant a.Cell.IsCenteredAtOrigin                                         "d8bf0eb6-7368-4c92-99b4-b7eafa6567f8"
         invariant (not b.Cell.IsCenteredAtOrigin)                                   "39c66587-2f0f-48b4-9823-24d77df925c5"
         invariant (a.SplitLimitExponent = b.SplitLimitExponent)                     "183c56a6-0194-4648-b3e6-2a968ec8685a"
@@ -311,7 +311,7 @@ module Merge =
                     )
                 let parentCell = a.Cell.Parent
                 let parentLodLayers = Node.GenerateLodLayers subnodes parentCell
-                let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) :> INode |> Some
+                let aNew = Node(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) |> Some
                 invariant aNew.IsSome                                               "ee364985-7daa-4837-b6cb-7bcbc21a314f"
                 invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)        "a6919ff2-07ee-4c6e-a350-b9de29953460"
                 mergeIntersectingFirstCentered domination aNew.Value b
@@ -370,7 +370,7 @@ module Merge =
                     let qcell = a'.Cell.GetQuadrant(qi)
 
                     let a'' = if a'.IsLeafNode then 
-                                Node(Guid.NewGuid(), a'.Cell, a'.SplitLimitExponent, a'.OriginalSampleExponent, a'.Layers, Some(Array.create 4 NoNode)) :> INode
+                                Node(Guid.NewGuid(), a'.Cell, a'.SplitLimitExponent, a'.OriginalSampleExponent, a'.Layers, Some(Array.create 4 NoNode))
                               else 
                                 a'
 

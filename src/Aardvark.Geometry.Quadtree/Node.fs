@@ -49,111 +49,6 @@ with
 
     member this.WithNewInMemoryStore () = this.WithNewInMemoryStore(verbose = false)
 
-type INode =
-    abstract member Id : Guid
-    /// Cell occupied by this node.
-    abstract member Cell : Cell2d
-    abstract member SplitLimitExponent : int
-    abstract member OriginalSampleExponent : int
-    abstract member Layers : ILayer[]
-    abstract member SampleWindow : Box2l
-    abstract member SampleExponent : int
-    abstract member SubNodes : NodeRef[] option
-    abstract member WithLayers : ILayer[] -> INode
-    abstract member GetLayer<'a> : Durable.Def -> Layer<'a>
-    abstract member Save : SerializationOptions -> Guid
-    abstract member Split : unit -> INode[]
-and
-    NodeRef =
-    | NoNode
-    | InMemoryNode of INode
-    | OutOfCoreNode of Guid * (unit -> INode)
-
-[<AutoOpen>]
-module INodeExtensions = 
-    type INode with
-        member this.IsInnerNode with get() = this.SubNodes.IsSome
-        member this.IsLeafNode  with get() = this.SubNodes.IsNone
-        member this.SampleWindowBoundingBox with get() = this.Layers.[0].BoundingBox
-        member this.AllSamples with get() =
-            let e = this.Layers.[0].SampleExponent
-            let w = this.Layers.[0].SampleWindow
-            let xMaxIncl = int w.Size.X - 1
-            let yMaxIncl = int w.Size.Y - 1
-
-            let samples = Array.zeroCreate (int w.Size.X * int w.Size.Y)
-            let mutable i = 0
-            for y = 0 to yMaxIncl do
-                for x = 0 to xMaxIncl do
-                    samples.[i] <- Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
-                    i <- i + 1
-            samples
-
-type NodeRef with
-
-    /// Get referenced node (from memory or load out-of-core), or None if NoNode.
-    member this.TryGetInMemory () : INode option =
-        match this with
-        | NoNode -> None
-        | InMemoryNode n -> Some n
-        | OutOfCoreNode (_, load) -> load() |> Some
-
-    /// Forces property Id. Throws exception if NoNode.
-    member this.Id with get() = match this.TryGetInMemory() with | Some n -> n.Id | None -> Guid.Empty
-
-    /// Forces property Cell. Throws exception if NoNode.
-    member this.Cell with get() = this.TryGetInMemory().Value.Cell
-
-    /// Forces property SampleWindowBoundingBox. Throws exception if NoNode.
-    member this.SampleWindowBoundingBox with get() = this.TryGetInMemory().Value.SampleWindowBoundingBox
-
-    /// Forces GetLayer. Throws exception if NoNode.
-    member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
-
-module Node =
-
-    let ToRef (n : INode option) =
-        match n with
-        | Some n -> InMemoryNode n
-        | None -> NoNode
-
-    let TryGetInMemory (n : NodeRef) = n.TryGetInMemory()
-
-    let internal GenerateLodLayers (subNodes : NodeRef[]) (rootCell : Cell2d) =
-
-        let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
-        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
-        
-        let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
-        let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
-
-        let result =
-            subNodes 
-            |> Seq.collect (fun x -> x.Layers) 
-            |> Seq.groupBy (fun x -> x.Def)
-            |> Seq.choose (fun (_, xs) ->
-                let maxExponent = xs |> Seq.map (fun x -> x.SampleExponent) |> Seq.max
-                xs 
-                |> Seq.map (fun layer ->
-                    let mutable l = layer
-                    while l.SampleExponent < maxExponent do l <- l.ResampleUntyped rootCell
-                    l
-                    )
-                |> Layer.Merge
-                )
-            |> Seq.map (fun layer -> layer.ResampleUntyped rootCell)
-            |> Seq.toArray
-
-
-        let resultExponents = result |> Array.groupBy (fun x -> x.SampleExponent)
-        if resultExponents.Length <> 1 then
-            failwith "Invariant abbd4b37-d816-4ba4-9427-183458ff6ad1."
-
-        let selfExponent = resultExponents.[0] |> fst
-        invariant (selfExponent = maxSubNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81"
-
-        result
-
 type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : NodeRef[] option) =
 
     do
@@ -186,7 +81,7 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                     invariant (cell.Exponent = x.Cell.Exponent + 1)             "780d98cc-ecab-43fc-b492-229fb0e208a3"
                 | OutOfCoreNode _ -> ()
 
-    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : INode option[]) =
+    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : Node option[]) =
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
         Node(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
 
@@ -197,70 +92,85 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
     new (cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[]) =
         Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, None)
 
-    interface INode with
-        member _.Id with get() = id
-        member _.Cell with get() = cell
-        member _.SplitLimitExponent with get() = splitLimitExp
-        member _.OriginalSampleExponent with get() = originalSampleExponent
-        member _.Layers with get() = layers
-        member _.SampleWindow with get() = layers.[0].SampleWindow
-        member _.SampleExponent with get() = layers.[0].SampleExponent
-        member _.SubNodes with get() = subNodes
-        member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes) :> INode
-        member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
-            layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
-        member this.Save options =
-            let map = List<KeyValuePair<Durable.Def, obj>>()
+    member _.Id with get() = id
+    member _.Cell with get() = cell
+    member _.SplitLimitExponent with get() = splitLimitExp
+    member _.OriginalSampleExponent with get() = originalSampleExponent
+    member _.Layers with get() = layers
+    member _.SampleWindow with get() = layers.[0].SampleWindow
+    member _.SampleWindowBoundingBox with get() = layers.[0].BoundingBox
+    member _.SampleExponent with get() = layers.[0].SampleExponent
+    member _.SubNodes with get() = subNodes
+    member _.IsInnerNode with get() = subNodes.IsSome
+    member _.IsLeafNode  with get() = subNodes.IsNone
+    member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes)
+    member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
+        layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
+    member this.Save options =
+        let map = List<KeyValuePair<Durable.Def, obj>>()
 
-            // node properties
-            map.Add(kvp Defs.NodeId id)
-            map.Add(kvp Defs.CellBounds cell)
-            map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
-            map.Add(kvp Defs.OriginalSampleExponent originalSampleExponent)
+        // node properties
+        map.Add(kvp Defs.NodeId id)
+        map.Add(kvp Defs.CellBounds cell)
+        map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
+        map.Add(kvp Defs.OriginalSampleExponent originalSampleExponent)
             
-            // layers
-            for layer in layers do
-                let layerDef = Defs.GetLayerFromDef layer.Def
-                let dm = layer.Materialize().ToDurableMap ()
-                map.Add(kvp layerDef dm)
+        // layers
+        for layer in layers do
+            let layerDef = Defs.GetLayerFromDef layer.Def
+            let dm = layer.Materialize().ToDurableMap ()
+            map.Add(kvp layerDef dm)
 
-            // children
-            match subNodes with
-            | Some xs ->
+        // children
+        match subNodes with
+        | Some xs ->
 
-                // recursively store subnodes (where necessary)
-                for x in xs do 
-                    match x with 
-                    | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
-                    | NoNode            -> () // nothing to store
-                    | OutOfCoreNode _   -> () // already stored
+            // recursively store subnodes (where necessary)
+            for x in xs do 
+                match x with 
+                | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
+                | NoNode            -> () // nothing to store
+                | OutOfCoreNode _   -> () // already stored
 
-                // collect subnode IDs 
-                let ids = xs |> Array.map (fun x -> 
-                    match x with 
-                    | NoNode -> Guid.Empty
-                    | InMemoryNode n -> n.Id
-                    | OutOfCoreNode (id, _) -> id
-                    )
-                map.Add(kvp Defs.SubnodeIds ids)
-            | None -> ()
-
-            let buffer = DurableCodec.Serialize(Defs.Node, map)
-            options.Save id buffer
-            id
-        member this.Split () : INode[] =
-
-            let subLayers = cell.Children |> Array.map (fun subCell ->
-                let subBox = subCell.GetBoundsForExponent(layers.[0].SampleExponent)
-                let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
-                (subCell, subLayers) 
+            // collect subnode IDs 
+            let ids = xs |> Array.map (fun x -> 
+                match x with 
+                | NoNode -> Guid.Empty
+                | InMemoryNode n -> n.Id
+                | OutOfCoreNode (id, _) -> id
                 )
+            map.Add(kvp Defs.SubnodeIds ids)
+        | None -> ()
 
-            let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
-                Node(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None) :> INode
-                )
+        let buffer = DurableCodec.Serialize(Defs.Node, map)
+        options.Save id buffer
+        id
+    member this.Split () : Node[] =
 
-            subNodes
+        let subLayers = cell.Children |> Array.map (fun subCell ->
+            let subBox = subCell.GetBoundsForExponent(layers.[0].SampleExponent)
+            let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
+            (subCell, subLayers) 
+            )
+
+        let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
+            Node(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None)
+            )
+
+        subNodes
+    member _.AllSamples with get() =
+        let e = layers.[0].SampleExponent
+        let w = layers.[0].SampleWindow
+        let xMaxIncl = int w.Size.X - 1
+        let yMaxIncl = int w.Size.Y - 1
+
+        let samples = Array.zeroCreate (int w.Size.X * int w.Size.Y)
+        let mutable i = 0
+        for y = 0 to yMaxIncl do
+            for x = 0 to xMaxIncl do
+                samples.[i] <- Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
+                i <- i + 1
+        samples
 
     static member Load (options: SerializationOptions) (id : Guid) : NodeRef =
         if id = Guid.Empty then
@@ -308,8 +218,77 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                                 )
                             Some xs
 
-                    let n = Node(id, cell, splitLimitExp, originalSampleExp, layers, subNodes) :> INode
+                    let n = Node(id, cell, splitLimitExp, originalSampleExp, layers, subNodes)
                     InMemoryNode n
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
+and
+
+    NodeRef =
+    | NoNode
+    | InMemoryNode of Node
+    | OutOfCoreNode of Guid * (unit -> Node)
+    with
+        /// Get referenced node (from memory or load out-of-core), or None if NoNode.
+        member this.TryGetInMemory () : Node option =
+            match this with
+            | NoNode -> None
+            | InMemoryNode n -> Some n
+            | OutOfCoreNode (_, load) -> load() |> Some
+
+        /// Forces property Id. Throws exception if NoNode.
+        member this.Id with get() = match this.TryGetInMemory() with | Some n -> n.Id | None -> Guid.Empty
+
+        /// Forces property Cell. Throws exception if NoNode.
+        member this.Cell with get() = this.TryGetInMemory().Value.Cell
+
+        /// Forces property SampleWindowBoundingBox. Throws exception if NoNode.
+        member this.SampleWindowBoundingBox with get() = this.TryGetInMemory().Value.SampleWindowBoundingBox
+
+        /// Forces GetLayer. Throws exception if NoNode.
+        member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
+
+module Node =
+
+    let ToRef (n : Node option) =
+        match n with
+        | Some n -> InMemoryNode n
+        | None -> NoNode
+
+    let TryGetInMemory (n : NodeRef) = n.TryGetInMemory()
+
+    let internal GenerateLodLayers (subNodes : NodeRef[]) (rootCell : Cell2d) =
+
+        let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
+        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
+        
+        let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
+        let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
+
+        let result =
+            subNodes 
+            |> Seq.collect (fun x -> x.Layers) 
+            |> Seq.groupBy (fun x -> x.Def)
+            |> Seq.choose (fun (_, xs) ->
+                let maxExponent = xs |> Seq.map (fun x -> x.SampleExponent) |> Seq.max
+                xs 
+                |> Seq.map (fun layer ->
+                    let mutable l = layer
+                    while l.SampleExponent < maxExponent do l <- l.ResampleUntyped rootCell
+                    l
+                    )
+                |> Layer.Merge
+                )
+            |> Seq.map (fun layer -> layer.ResampleUntyped rootCell)
+            |> Seq.toArray
+
+
+        let resultExponents = result |> Array.groupBy (fun x -> x.SampleExponent)
+        if resultExponents.Length <> 1 then
+            failwith "Invariant abbd4b37-d816-4ba4-9427-183458ff6ad1."
+
+        let selfExponent = resultExponents.[0] |> fst
+        invariant (selfExponent = maxSubNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81"
+
+        result

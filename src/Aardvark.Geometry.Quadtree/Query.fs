@@ -43,7 +43,7 @@ module Query =
         | NotSelected
 
     type Result = {
-        Node : INode
+        Node : Node
         Selection : NodeSelection
     }
     with
@@ -59,10 +59,10 @@ module Query =
     /// The generic query function.
     let rec Generic 
             (config : Config) 
-            (isNodeFullyInside : INode -> bool) 
-            (isNodeFullyOutside : INode -> bool) 
+            (isNodeFullyInside : Node -> bool) 
+            (isNodeFullyOutside : Node -> bool) 
             (isSampleInside : Cell2d -> bool)
-            (n : INode) 
+            (n : Node) 
             : Result seq =
         seq {
 
@@ -116,8 +116,8 @@ module Query =
     /// Returns all samples inside given cell.
     let InsideCell (config : Config) (filter : Cell2d) (root : NodeRef) : Result seq =
         let filterBb = filter.BoundingBox
-        let isNodeFullyInside (n : INode) = filterBb.Contains n.SampleWindowBoundingBox
-        let isNodeFullyOutside (n : INode) = not (filterBb.Intersects n.SampleWindowBoundingBox)
+        let isNodeFullyInside (n : Node) = filterBb.Contains n.SampleWindowBoundingBox
+        let isNodeFullyOutside (n : Node) = not (filterBb.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n
         match root.TryGetInMemory() with
         | None -> Seq.empty
@@ -126,8 +126,8 @@ module Query =
     /// Returns all samples inside given cell.
     let IntersectsCell (config : Config) (filter : Cell2d) (root : NodeRef) : Result seq =
         let filterBb = filter.BoundingBox
-        let isNodeFullyInside (n : INode) = filterBb.Contains n.SampleWindowBoundingBox
-        let isNodeFullyOutside (n : INode) = not (filterBb.Intersects n.SampleWindowBoundingBox)
+        let isNodeFullyInside (n : Node) = filterBb.Contains n.SampleWindowBoundingBox
+        let isNodeFullyOutside (n : Node) = not (filterBb.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filterBb.Intersects n.BoundingBox
         match root.TryGetInMemory() with
         | None -> Seq.empty
@@ -135,8 +135,8 @@ module Query =
 
     /// Returns all samples inside given box.
     let InsideBox (config : Config) (filter : Box2d) (root : NodeRef) : Result seq =
-        let isNodeFullyInside (n : INode) = filter.Contains n.SampleWindowBoundingBox
-        let isNodeFullyOutside (n : INode) = not (filter.Intersects n.SampleWindowBoundingBox)
+        let isNodeFullyInside (n : Node) = filter.Contains n.SampleWindowBoundingBox
+        let isNodeFullyOutside (n : Node) = not (filter.Intersects n.SampleWindowBoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n.BoundingBox
         match root.TryGetInMemory() with
         | None -> Seq.empty
@@ -146,9 +146,9 @@ module Query =
     let InsidePolygon (config : Config) (filter : Polygon2d) (root : NodeRef) : Result seq =
         let filter = if filter.IsCcw() then filter else filter.Reversed
         let rpos = V2d(config.SampleMode.RelativePosition)
-        let isNodeFullyInside (n : INode) =
+        let isNodeFullyInside (n : Node) =
             n.SampleWindowBoundingBox.ToPolygon2dCCW().IsFullyContainedInside(filter)
-        let isNodeFullyOutside (n : INode) =
+        let isNodeFullyOutside (n : Node) =
             not (filter.Intersects(n.SampleWindowBoundingBox.ToPolygon2dCCW()))
         let isSampleInside (n : Cell2d) =
             let bb = n.BoundingBox
@@ -162,12 +162,12 @@ module Query =
     let NearLine (config : Config) (filter : Ray2d) (withinDistance : float) (root : NodeRef) : Result seq =
         let filter = Ray2d(filter.Origin, filter.Direction.Normalized)
         let rpos = V2d(config.SampleMode.RelativePosition)
-        let isNodeFullyInside (n : INode) =
+        let isNodeFullyInside (n : Node) =
             let wbb = n.SampleWindowBoundingBox
             let halfDiagonal = wbb.Size.Length * 0.5
             let centerDist = filter.GetDistanceToRay(wbb.Center)
             centerDist + halfDiagonal <= withinDistance
-        let isNodeFullyOutside (n : INode) =
+        let isNodeFullyOutside (n : Node) =
             let wbb = n.SampleWindowBoundingBox
             let halfDiagonal = wbb.Size.Length * 0.5
             let centerDist = filter.GetDistanceToRay(wbb.Center)

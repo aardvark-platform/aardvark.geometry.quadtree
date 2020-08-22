@@ -29,7 +29,7 @@ module Quadtree =
     let rec CountLeafs root = root |> tryCount 1 0
     let rec CountInner root = root |> tryCount 0 1
 
-    let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : INode =
+    let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : Node =
     
         invariant (layers.Length > 0)                                                       "dccf4ce3-b163-41b7-9bd9-0a3e7b76e3a5"
         invariant (layers |> Array.groupBy (fun l -> l.SampleExponent) |> Array.length = 1) "4071f97e-1809-422a-90df-29c774cedc7b"
@@ -80,11 +80,11 @@ module Quadtree =
 
             let lodLayers = Node.GenerateLodLayers subNodes rootCell
 
-            Node(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, lodLayers, Some subNodes) :> INode
+            Node(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, lodLayers, Some subNodes)
         
         else
         
-            Node(rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, layers) :> INode
+            Node(rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, layers)
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.
