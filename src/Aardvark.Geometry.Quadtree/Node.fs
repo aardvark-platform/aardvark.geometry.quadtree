@@ -49,7 +49,7 @@ with
 
     member this.WithNewInMemoryStore () = this.WithNewInMemoryStore(verbose = false)
 
-type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : NodeRef[] option) =
+type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNodeRef[] option) =
 
     do
         invariantm (layers.Length > 0) "No layers." "fe0e56d7-9bc2-4f61-8b36-0ed7fcc4bc56"
@@ -81,16 +81,16 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                     invariant (cell.Exponent = x.Cell.Exponent + 1)             "780d98cc-ecab-43fc-b492-229fb0e208a3"
                 | OutOfCoreNode _ -> ()
 
-    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : Node option[]) =
+    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNode option[]) =
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
-        Node(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
+        QNode(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
 
-    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : NodeRef[]) =
-        Node(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
+    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNodeRef[]) =
+        QNode(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
 
     /// Create leaf node.
     new (cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[]) =
-        Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, None)
+        QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, None)
 
     member _.Id with get() = id
     member _.Cell with get() = cell
@@ -103,7 +103,7 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
     member _.SubNodes with get() = subNodes
     member _.IsInnerNode with get() = subNodes.IsSome
     member _.IsLeafNode  with get() = subNodes.IsNone
-    member _.WithLayers (newLayers : ILayer[]) = Node(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes)
+    member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes)
     member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
         layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
     member this.Save options =
@@ -145,7 +145,7 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
         let buffer = DurableCodec.Serialize(Defs.Node, map)
         options.Save id buffer
         id
-    member this.Split () : Node[] =
+    member this.Split () : QNode[] =
 
         let subLayers = cell.Children |> Array.map (fun subCell ->
             let subBox = subCell.GetBoundsForExponent(layers.[0].SampleExponent)
@@ -154,7 +154,7 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
             )
 
         let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
-            Node(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None)
+            QNode(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None)
             )
 
         subNodes
@@ -172,7 +172,7 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                 i <- i + 1
         samples
 
-    static member Load (options: SerializationOptions) (id : Guid) : NodeRef =
+    static member Load (options: SerializationOptions) (id : Guid) : QNodeRef =
         if id = Guid.Empty then
             NoNode
         else
@@ -210,7 +210,7 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                                     NoNode
                                 else
                                     OutOfCoreNode (k, (fun () ->
-                                        match Node.Load options k with
+                                        match QNode.Load options k with
                                         | InMemoryNode n        -> n
                                         | NoNode                -> failwith "Invariant de92e0d9-0dd2-4fc1-b4c7-0ace2910ce24."
                                         | OutOfCoreNode (_, _)  -> failwith "Invariant 59c84c71-9043-41d4-abc0-4e1f49b8e2ba."
@@ -218,20 +218,20 @@ type Node(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent 
                                 )
                             Some xs
 
-                    let n = Node(id, cell, splitLimitExp, originalSampleExp, layers, subNodes)
+                    let n = QNode(id, cell, splitLimitExp, originalSampleExp, layers, subNodes)
                     InMemoryNode n
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
 and
 
-    NodeRef =
+    QNodeRef =
     | NoNode
-    | InMemoryNode of Node
-    | OutOfCoreNode of Guid * (unit -> Node)
+    | InMemoryNode of QNode
+    | OutOfCoreNode of Guid * (unit -> QNode)
     with
         /// Get referenced node (from memory or load out-of-core), or None if NoNode.
-        member this.TryGetInMemory () : Node option =
+        member this.TryGetInMemory () : QNode option =
             match this with
             | NoNode -> None
             | InMemoryNode n -> Some n
@@ -249,16 +249,16 @@ and
         /// Forces GetLayer. Throws exception if NoNode.
         member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
 
-module Node =
+module QNode =
 
-    let ToRef (n : Node option) =
+    let ToRef (n : QNode option) =
         match n with
         | Some n -> InMemoryNode n
         | None -> NoNode
 
-    let TryGetInMemory (n : NodeRef) = n.TryGetInMemory()
+    let TryGetInMemory (n : QNodeRef) = n.TryGetInMemory()
 
-    let internal GenerateLodLayers (subNodes : NodeRef[]) (rootCell : Cell2d) =
+    let internal GenerateLodLayers (subNodes : QNodeRef[]) (rootCell : Cell2d) =
 
         let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
         invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"

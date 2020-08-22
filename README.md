@@ -137,7 +137,7 @@ type NodeSelection =
      | PartiallySelected of Cell2d[]
 
 type Result = {
-    Node : INode
+    Node : QNode
     Selection : NodeSelection
     }
 ```
@@ -170,7 +170,7 @@ You can use `Quadtree.Merge` to create a new quadtree from two existing quadtree
 An immutable merge is performed, meaning the original quadtrees remain untouched.
 
 ```fsharp
-Quadtree.Merge (d : Dominance) (first : NodeRef) (second : NodeRef) : NodeRef
+Quadtree.Merge (d : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef
 ```
 
 The `dominance` parameter is used to control which samples will be used in overlapping areas, where both the first and second quadtree contain samples:

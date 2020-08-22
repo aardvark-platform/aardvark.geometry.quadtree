@@ -17,7 +17,7 @@ with
 [<AutoOpen>]
 module Quadtree =
 
-    let rec private tryCount a b (root : NodeRef) =
+    let rec private tryCount a b (root : QNodeRef) =
         match root.TryGetInMemory() with 
         | None -> 0 
         | Some n -> 
@@ -29,7 +29,7 @@ module Quadtree =
     let rec CountLeafs root = root |> tryCount 1 0
     let rec CountInner root = root |> tryCount 0 1
 
-    let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : Node =
+    let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : QNode =
     
         invariant (layers.Length > 0)                                                       "dccf4ce3-b163-41b7-9bd9-0a3e7b76e3a5"
         invariant (layers |> Array.groupBy (fun l -> l.SampleExponent) |> Array.length = 1) "4071f97e-1809-422a-90df-29c774cedc7b"
@@ -78,17 +78,17 @@ module Quadtree =
                 | Some x -> invariant (x.Cell = children.[i])                               "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e"
                 | None -> ()
 
-            let lodLayers = Node.GenerateLodLayers subNodes rootCell
+            let lodLayers = QNode.GenerateLodLayers subNodes rootCell
 
-            Node(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, lodLayers, Some subNodes)
+            QNode(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, lodLayers, Some subNodes)
         
         else
         
-            Node(rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, layers)
+            QNode(rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, layers)
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.
-    let Build (config : BuildConfig) ([<ParamArray>] layers : ILayer[]) : NodeRef =
+    let Build (config : BuildConfig) ([<ParamArray>] layers : ILayer[]) : QNodeRef =
         
         invariantm (layers.Length > 0) "Can't build quadtree with 0 layers."                "6216df3f-279c-415f-a435-bdb35d274e39"
 
@@ -108,14 +108,14 @@ module Quadtree =
 
         build config rootCell sampleExponent layers |> InMemoryNode
 
-    let Merge (domination : Dominance) (a : NodeRef) (b : NodeRef) = Merge.Merge domination a b
+    let Merge (domination : Dominance) (a : QNodeRef) (b : QNodeRef) = Merge.Merge domination a b
 
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
-    let Save (options : SerializationOptions) (qtree : NodeRef) : Guid =
+    let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =
         match qtree with
         | InMemoryNode n -> n.Save options
         | OutOfCoreNode (id, _) -> id
         | NoNode -> Guid.Empty
 
-    let Load (options : SerializationOptions) (id : Guid) : NodeRef =
-        Node.Load options id
+    let Load (options : SerializationOptions) (id : Guid) : QNodeRef =
+        QNode.Load options id
