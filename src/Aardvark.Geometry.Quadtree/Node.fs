@@ -65,7 +65,7 @@ with
     static member SimpleFolderStore (path : string) =
         let store = new Uncodium.SimpleStore.SimpleFolderStore(path)
         {
-            Save    = fun id buffer -> store.Add(id.ToString(), null, fun () -> buffer)
+            Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
             TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
             Exists  = fun id        -> store.Contains(id.ToString())
         }
