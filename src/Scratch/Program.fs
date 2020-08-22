@@ -89,7 +89,8 @@ let merge () =
     for cell, x in allSamples do printfn "%A -> %f" cell x
 
     // save
-    let options = SerializationOptions.Default.WithNewInMemoryStore(verbose = true)
+    let options = SerializationOptions.NewInMemoryStore(verbose = true)
+    //let options = SerializationOptions.SimpleDiskStore(@"T:\qstore2")
     let id = mergedQtree |> Quadtree.Save options
     printfn "saved quadtree %A" id
 
@@ -254,12 +255,12 @@ let main argv =
 
     //example ()
 
-    //merge ()
+    merge ()
 
     //buildQuadtree ()
 
     //test ()
 
-    performanceTest ()
+    //performanceTest ()
 
     0

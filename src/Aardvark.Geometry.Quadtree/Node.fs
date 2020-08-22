@@ -24,12 +24,14 @@ with
         Exists  = fun id        -> failwith "No store defined. Invariant 0f9c8cfd-21dd-4973-b88d-97629a5d2804."
         }
 
+    (* in-memory store (for testing purposes *)
+
     static member private inMemoryStoreCount : int = 0
 
-    member this.WithNewInMemoryStore (verbose : bool) =
+    static member NewInMemoryStore (verbose : bool) =
         let store = Dictionary<Guid, byte[]>()
         let storeNumber = Interlocked.Increment(ref SerializationOptions.inMemoryStoreCount)
-        { this with
+        {
             Save = fun id buffer ->
                 store.[id] <- buffer
                 if verbose then printfn "[InMemoryStore %d] SAVE %A <- %d bytes" storeNumber id buffer.Length
@@ -47,7 +49,26 @@ with
                 result
         }
 
-    member this.WithNewInMemoryStore () = this.WithNewInMemoryStore(verbose = false)
+    static member NewInMemoryStore () =
+        SerializationOptions.NewInMemoryStore(verbose = false)
+
+    (* Uncodium.SimpleStore *)
+
+    static member SimpleDiskStore (path : string) =
+        let store = new Uncodium.SimpleStore.SimpleDiskStore(path)
+        {
+            Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
+            TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
+            Exists  = fun id        -> store.Contains(id.ToString())
+        }
+
+    static member SimpleFolderStore (path : string) =
+        let store = new Uncodium.SimpleStore.SimpleFolderStore(path)
+        {
+            Save    = fun id buffer -> store.Add(id.ToString(), null, fun () -> buffer)
+            TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
+            Exists  = fun id        -> store.Contains(id.ToString())
+        }
 
 type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNodeRef[] option) =
 

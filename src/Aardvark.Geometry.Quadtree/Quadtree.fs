@@ -117,5 +117,8 @@ module Quadtree =
         | OutOfCoreNode (id, _) -> id
         | NoNode -> Guid.Empty
 
+    /// Load quadtree with given id.
+    /// Returns the tree's root node, with children being loaded lazily.
+    /// If id does not exist, then `NoNode` is returned.
     let Load (options : SerializationOptions) (id : Guid) : QNodeRef =
         QNode.Load options id
