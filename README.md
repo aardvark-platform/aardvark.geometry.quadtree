@@ -203,6 +203,7 @@ Currently available query functions:
 
 Query | Description
 -------- | -----------
+`Query.`**`All`** | All samples in quadtree.
 `Query.`**`InsideCell`** | All samples fully inside given cell.
 `Query.`**`IntersectsCell`** | All samples with sample cell intersecting given cell. If query cell is smaller than data cells this will also return a data cell surrounding the query cell even if sample position is outside query cell. Sample mode is ignored.
 `Query.`**`InsideBox`** | All samples inside given box.

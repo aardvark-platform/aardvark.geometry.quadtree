@@ -19,6 +19,14 @@ let private createQuadtree () =
 
 
 [<Fact>]
+let ``All`` () =
+    let q = createQuadtree ()
+    let r = Query.All Query.Config.Default q |> Array.ofSeq
+    Assert.True(r.Length = 6)
+    Assert.True(r |> Array.forall (fun x -> match x.Selection with | Query.FullySelected -> true | _ -> false ))
+
+
+[<Fact>]
 let ``InsideCell2d_FullyInside`` () =
     let q = createQuadtree ()
     let r = Query.InsideCell Query.Config.Default (Cell2d(0L, 0L, 4)) q |> Array.ofSeq

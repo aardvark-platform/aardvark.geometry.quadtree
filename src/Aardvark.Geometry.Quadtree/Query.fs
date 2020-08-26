@@ -114,6 +114,12 @@ module Query =
         }
     
     /// Returns all samples inside given cell.
+    let All (config : Config) (root : QNodeRef) : Result seq =
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic config (fun _ -> true) (fun _ -> false) (fun _ -> true) root
+
+    /// Returns all samples inside given cell.
     let InsideCell (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
         let filterBb = filter.BoundingBox
         let isNodeFullyInside (n : QNode) = filterBb.Contains n.SampleWindowBoundingBox
