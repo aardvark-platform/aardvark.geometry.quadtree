@@ -3,6 +3,8 @@
 open Aardvark.Data
 open Aardvark.Base
 open System
+open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
 
 module Defs =
 
@@ -112,7 +114,9 @@ module Defs =
         ]
 
     let TryGetDefFromLayer layerDef = layer2def |> Map.tryFind layerDef
+    
+    [<MethodImpl(MethodImplOptions.NoInlining ||| MethodImplOptions.NoOptimization)>]
+    let private keep (a : 'a) = ()
 
     [<OnAardvarkInit;CompilerMessage("Internal only",1337,IsHidden=true)>]
-    let init () =
-        ignore Node
+    let init () = keep Node
