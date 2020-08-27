@@ -1,6 +1,7 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
 open Aardvark.Data
+open Aardvark.Base
 open System
 
 module Defs =
@@ -111,3 +112,7 @@ module Defs =
         ]
 
     let TryGetDefFromLayer layerDef = layer2def |> Map.tryFind layerDef
+
+    [<OnAardvarkInit;CompilerMessage("Internal only",1337,IsHidden=true)>]
+    let init () =
+        ignore Node

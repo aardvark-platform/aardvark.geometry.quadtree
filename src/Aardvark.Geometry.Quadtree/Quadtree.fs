@@ -1,5 +1,7 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
+#nowarn "1337"
+
 open Aardvark.Base
 open System
 
@@ -112,6 +114,7 @@ module Quadtree =
 
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =
+        Defs.init ()
         match qtree with
         | InMemoryNode n -> n.Save options
         | OutOfCoreNode (id, _) -> id
@@ -121,4 +124,5 @@ module Quadtree =
     /// Returns the tree's root node, with children being loaded lazily.
     /// If id does not exist, then `NoNode` is returned.
     let Load (options : SerializationOptions) (id : Guid) : QNodeRef =
+        Defs.init ()
         QNode.Load options id
