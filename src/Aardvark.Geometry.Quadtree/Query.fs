@@ -150,7 +150,9 @@ module Query =
 
     /// Returns all samples inside given polygon.
     let InsidePolygon (config : Config) (filter : Polygon2d) (root : QNodeRef) : Result seq =
-        let filter = if filter.IsCcw() then filter else filter.Reversed
+        let filter = 
+            let p = filter.WithoutMultiplePoints()
+            if p.IsCcw() then p else p.Reversed
         let rpos = V2d(config.SampleMode.RelativePosition)
         let isNodeFullyInside (n : QNode) =
             n.SampleWindowBoundingBox.ToPolygon2dCCW().IsFullyContainedInside(filter)

@@ -250,12 +250,45 @@ let performanceTest () =
 
     ()
 
+let cpunz20200829 () =
+
+    // define mapping of raw data to raster space
+    let hor1 = V4f(1.0, 0.0,0.0,0.0)
+    let hor2 = V4f(2.0, 0.0,0.0,0.0)
+    let oblique12 = V4f(1.5, 1.0,0.0,0.0)
+    
+    let parameters = [|hor1; oblique12; hor2; 
+                       hor1; oblique12; hor2;
+                       hor1; oblique12; hor2;
+                       hor1; oblique12; hor2|]
+
+    let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 4))
+
+    // a layer gives meaning to raw data
+    let bilinParameters = Layer(Defs.BilinearParams4f, parameters, mapping)
+    
+    // build the quadtree (incl. levels-of-detail)
+    
+    let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+
+    let polygon = Polygon2d([|V2d(0.0,0.0); V2d(2.0,2.0); V2d(3.0,2.0); V2d(3.0,0.0); V2d(0.0,0.0)|])
+    let result0 = qtree |> Query.InsidePolygon Query.Config.Default polygon |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.BilinearParams4f) |> Seq.toArray
+
+    //let result1 = qtree |> Query.All Query.Config.Default |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.BilinearParams4f) |> Seq.toArray
+    //printfn "Query.Polygon: length = %d" result1.Length
+
+    
+
+    ()
+
 [<EntryPoint>]
 let main argv =
 
+    cpunz20200829 ()
+
     //example ()
 
-    merge ()
+    //merge ()
 
     //buildQuadtree ()
 
