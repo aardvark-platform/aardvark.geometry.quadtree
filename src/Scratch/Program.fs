@@ -281,10 +281,37 @@ let cpunz20200829 () =
 
     ()
 
+let isOnBorder (poly : Polygon2d) p maxDist =
+    poly.EdgeLines |> Seq.exists (fun e -> e.IsDistanceToPointSmallerThan(p, maxDist))
+
+let containsApprox (poly : Polygon2d) p maxDist =
+    poly.Contains(p) || isOnBorder poly p maxDist
+
 [<EntryPoint>]
 let main argv =
 
-    cpunz20200829 ()
+    let poly = Polygon2d(V2d.OO, V2d.IO, V2d.II, V2d.OI)
+
+    poly.Contains       (V2d(0.5, 0.5)) |> printfn "%A"
+    isOnBorder poly     (V2d(0.5, 0.5)) 0.00000001 |> printfn "%A"
+    containsApprox poly (V2d(0.5, 0.5)) 0.00000001 |> printfn "%A"
+    printfn ""
+
+    poly.Contains       (V2d(0.5, 0.0)) |> printfn "%A"
+    isOnBorder poly     (V2d(0.5, 0.0)) 0.00000001 |> printfn "%A"
+    containsApprox poly (V2d(0.5, 0.0)) 0.00000001 |> printfn "%A"
+    printfn ""
+
+    poly.Contains       (V2d(0.5, -0.00000001)) |> printfn "%A"
+    isOnBorder poly     (V2d(0.5, -0.00000001)) 0.00000001 |> printfn "%A"
+    containsApprox poly (V2d(0.5, -0.00000001)) 0.00000001 |> printfn "%A"
+    printfn ""
+
+    poly.Contains       (V2d(0.5, -0.000000011)) |> printfn "%A"
+    isOnBorder poly     (V2d(0.5, -0.000000011)) 0.00000001 |> printfn "%A"
+    containsApprox poly (V2d(0.5, -0.000000011)) 0.00000001 |> printfn "%A"
+
+    //cpunz20200829 ()
 
     //example ()
 
