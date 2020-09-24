@@ -287,29 +287,56 @@ let isOnBorder (poly : Polygon2d) p maxDist =
 let containsApprox (poly : Polygon2d) p maxDist =
     poly.Contains(p) || isOnBorder poly p maxDist
 
-[<EntryPoint>]
-let main argv =
-
+let polyTest () =
     let poly = Polygon2d(V2d.OO, V2d.IO, V2d.II, V2d.OI)
-
+    
+    let polyCcw = if poly.IsCcw() then poly else poly.Reversed
+    
     poly.Contains       (V2d(0.5, 0.5)) |> printfn "%A"
     isOnBorder poly     (V2d(0.5, 0.5)) 0.00000001 |> printfn "%A"
     containsApprox poly (V2d(0.5, 0.5)) 0.00000001 |> printfn "%A"
     printfn ""
-
+    
     poly.Contains       (V2d(0.5, 0.0)) |> printfn "%A"
     isOnBorder poly     (V2d(0.5, 0.0)) 0.00000001 |> printfn "%A"
     containsApprox poly (V2d(0.5, 0.0)) 0.00000001 |> printfn "%A"
     printfn ""
-
+    
     poly.Contains       (V2d(0.5, -0.00000001)) |> printfn "%A"
     isOnBorder poly     (V2d(0.5, -0.00000001)) 0.00000001 |> printfn "%A"
     containsApprox poly (V2d(0.5, -0.00000001)) 0.00000001 |> printfn "%A"
     printfn ""
-
+    
     poly.Contains       (V2d(0.5, -0.000000011)) |> printfn "%A"
     isOnBorder poly     (V2d(0.5, -0.000000011)) 0.00000001 |> printfn "%A"
     containsApprox poly (V2d(0.5, -0.000000011)) 0.00000001 |> printfn "%A"
+
+let cpunz20200923 () =
+
+    let hor = V4f(0.0, 0.0,0.0,0.0) 
+    
+    let parameters = [|hor|]
+
+    let mapping = DataMapping(origin = Cell2d(0L, 0L, 2), size = V2i(1, 1))
+
+    // a layer gives meaning to raw data
+    let bilinParameters = Layer(Defs.BilinearParams4f, parameters, mapping)
+    
+    // build the quadtree (incl. levels-of-detail)
+    
+    let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+
+    let r = Query.IntersectsCell Query.Config.Default (Cell2d(0,0,0)) qtree |> Array.ofSeq
+
+    ()
+
+
+[<EntryPoint>]
+let main argv =
+
+    cpunz20200923 ()
+
+    //polyTest ()
 
     //cpunz20200829 ()
 

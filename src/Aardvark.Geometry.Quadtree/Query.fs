@@ -129,7 +129,7 @@ module Query =
         | None -> Seq.empty
         | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
-    /// Returns all samples inside given cell.
+    /// Returns all samples intersecting given cell.
     let IntersectsCell (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
         let filterBb = filter.BoundingBox
         let isNodeFullyInside (n : QNode) = filterBb.Contains n.SampleWindowBoundingBox
