@@ -3,6 +3,7 @@ open Aardvark.Base
 open Aardvark.Geometry.Quadtree
 open System.Diagnostics
 open System.IO
+open System.Globalization
 
 let example () =
 
@@ -121,23 +122,90 @@ let buildQuadtree () =
     printfn "elapsed time: %A" sw.Elapsed
     printfn "%i nodes (%i leafs, %i inner)" (q |> Quadtree.CountNodes) (q |> Quadtree.CountLeafs) (q |> Quadtree.CountInner)
 
+let parsePts filename (e : int) =
+    let f = 1.0 / Math.Pow(2.0, float e)
+    File.ReadLines(filename)
+    |> Seq.skip 1
+    |> Seq.map (fun line ->
+        let ts = line.Split(' ')
+        let xy = V2d(float ts.[0], float ts.[1])
+        let xy' = V2l(f * xy)
+        let h = float32 ts.[2]
+        let n = V3f(float32 ts.[7], float32 ts.[8], float32 ts.[9])
+        (xy, xy', h, n)
+        )
+    |> Seq.toArray
+
+let parsePolygon filename =
+    File.ReadLines(filename)
+    |> Seq.filter (fun line -> not (String.IsNullOrWhiteSpace(line)))
+    |> Seq.map (fun line ->
+        let ts = line.Split(',')
+        let x = Double.Parse(ts.[0])
+        let y = Double.Parse(ts.[1])
+        V2d(x, y)
+        )
+    |> Polygon2d
+
+let import filename (e : int) (splitLimitPowerOfTwo : int) =
+
+    Report.BeginTimed "importing"
+    printfn "  filename: %s" filename
+    printfn "  exponent: %d" e
+
+    let samples = parsePts filename e
+    printfn "  samples  : %d" samples.Length
+
+    let cells = samples |> Array.map (fun (_, xy, _, _) -> Cell2d(xy, e))
+
+    let ps = samples |> Array.map (fun (p, _, _, _) -> p)
+    let psBounds = Box2d(ps)
+    printfn "  psBounds : %A" psBounds
+    printfn "             %A" psBounds.Size
+
+    let ps' = samples |> Array.map (fun (_, p, _, _) -> p)
+    let bb  = Box2l(ps')
+    printfn "  psBounds': %A" bb
+    printfn "             %A" bb.Size
+
+    let size = V2i(bb.Size) + V2i.II
+    let bufferOrigin = Cell2d(bb.Min,-1)
+    let bufferSize = size
+    let window = Box2l(bb.Min, bb.Min + V2l(size))
+
+    let heights = Array.create (bufferSize.X * bufferSize.Y) nanf
+    let normals = Array.create (bufferSize.X * bufferSize.Y) V3f.NaN
+
+    for (_, xy,h,n) in samples do
+        let xy = V2i(xy - bufferOrigin.XY)
+        let i = xy.Y * bufferSize.X + xy.X
+        heights.[i] <- h
+        normals.[i] <- n
+
+    // define mapping of raw data to raster
+    let mapping = DataMapping(bufferOrigin, bufferSize)
+    
+    // a layer gives meaning to raw data
+    let heightsLayer = Layer(Defs.Heights1f, heights, mapping)
+    let normalsLayer = Layer(Defs.Normals3f, normals, mapping)
+
+    // build the quadtree (incl. levels-of-detail)
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = splitLimitPowerOfTwo }
+    let qtree = Quadtree.Build config [| heightsLayer; normalsLayer |]
+    printfn "  created quadtree: %A" qtree.Cell
+
+    Report.EndTimed () |> ignore
+
+    (qtree, cells)
+
 let test () =
 
     // parse pts file
-    let samples =
-        //File.ReadLines(@"T:\Vgm\Data\Raster\kiga_002_ground_raster_1m.pts")
-        File.ReadLines(@"T:\Vgm\Data\Raster\kiga_0_5.pts")
-        |> Seq.skip 1
-        |> Seq.map (fun line ->
-            let ts = line.Split(' ')
-            let xy = V2l(int64 (float ts.[0]), int64 (float ts.[1]))
-            let h = float32 ts.[2]
-            let n = V3f(float32 ts.[7], float32 ts.[8], float32 ts.[9])
-            (xy, h, n)
-            )
-        |> Seq.toArray
+    let samples = 
+        //parsePts @"T:\Vgm\Data\Raster\kiga_002_ground_raster_1m.pts"
+        parsePts @"T:\Vgm\Data\Raster\kiga_0_5.pts" 0
 
-    let bb = Box2l(samples |> Seq.map (fun (xy, _, _) -> xy));
+    let bb = Box2l(samples |> Seq.map (fun (_, xy, _, _) -> xy));
     let size = V2i(bb.Size) + V2i.II
     printfn "pts data: %A" bb
     printfn "  count : %d" (samples |> Seq.length)
@@ -172,7 +240,7 @@ let test () =
 
     let heights = Array.create (bufferSize.X * bufferSize.Y) nanf
     let normals = Array.create (bufferSize.X * bufferSize.Y) V3f.Zero
-    for (xy,h,n) in samples do
+    for (_,xy,h,n) in samples do
         let xy = V2i(xy - bufferOrigin.XY)
         let i = xy.Y * bufferSize.X + xy.X
         heights.[i] <- h
@@ -330,11 +398,68 @@ let cpunz20200923 () =
 
     ()
 
+let cpunz20200925 () =
+
+    CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
+
+    let (q0, cells0) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50.pts" -1 2
+    let (q1, cells1) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50_1.pts" -1 2
+
+    let polygon = parsePolygon @"T:\Vgm\Data\Raster\20200925_cpunz\polygon_volumen.txt"
+
+    let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) =
+        
+        let posAndParams = // : V4f[]
+            resultChunk       
+            |> Seq.collect (fun chunk -> chunk.GetSamples<V3f> Defs.Normals3f)        
+            |> Seq.map (fun (cell, normal) -> 
+                //let bilParam = {| b0 = (float)bilParamV.X; b1 = (float)bilParamV.Y; b2 = (float)bilParamV.Z; b3 = (float)bilParamV.W |}
+                (normal, cell))   
+            
+        posAndParams |> Seq.filter (fun pos -> (fst pos).X.IsNaN() |> not)
+                     |> Seq.map (fun pos -> (Some (snd pos), Some (fst pos)) )
+
+
+    let queryQuadtreeCellCounterParts (qtree : QNodeRef) (cellForQuery : Cell2d) =
+            let config = Query.Config.Default
+            qtree |> Query.IntersectsCell config cellForQuery |> makeReturnValOfQueryResults
+
+    let dtmCellsZeroBased = 
+        Query.InsidePolygon Query.Config.Default polygon q0
+        |> Seq.collect (fun chunk -> chunk.GetSamples<V3f> Defs.Normals3f)
+        |> Seq.map fst
+        |> Seq.toArray
+
+    printfn "cells count (polygon): %d" dtmCellsZeroBased.Length
+
+    printfn "cells count (q0)     : %d" cells0.Length
+    Report.BeginTimed("compute")
+
+    let newDifferenceModel = 
+        //cells0
+        dtmCellsZeroBased
+        |> Seq.map (fun oneElem -> 
+            let cellEnum = queryQuadtreeCellCounterParts q1 oneElem |> Seq.toArray
+            cellEnum
+            )
+        //|> Seq.take 100
+        |> Seq.toArray
+
+    Report.EndTimed() |> ignore
+
+    let foo = newDifferenceModel |> Array.map (fun x -> (fst x.[0]).Value) |> Array.sortBy (fun x -> (x.X, x.Y, x.Exponent))
+    
+    printfn "q0 node count               %d" (q0 |> Quadtree.CountNodes)
+    printfn "q1 node count               %d" (q1 |> Quadtree.CountNodes)
+    printfn "newDifferenceModel.Length = %d" newDifferenceModel.Length
+
+    ()
 
 [<EntryPoint>]
 let main argv =
 
-    cpunz20200923 ()
+    cpunz20200925 ()
+    //cpunz20200923 ()
 
     //polyTest ()
 
