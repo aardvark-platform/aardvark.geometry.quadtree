@@ -33,14 +33,14 @@ let ``cpunz_20200829`` () =
     let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 4))
 
     // a layer gives meaning to raw data
-    let bilinParameters = Layer(Defs.BilinearParams4f, parameters, mapping)
+    let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
     
     // build the quadtree (incl. levels-of-detail)
     
     let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
 
     let polygon = Polygon2d([|V2d(0.0,0.0); V2d(2.0,2.0); V2d(3.0,2.0); V2d(3.0,0.0); V2d(0.0,0.0)|])
-    let result0 = qtree |> Query.InsidePolygon Query.Config.Default polygon |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.BilinearParams4f) |> Seq.toArray
+    let result0 = qtree |> Query.InsidePolygon Query.Config.Default polygon |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.HeightsBilinear4f) |> Seq.toArray
 
     //let result1 = qtree |> Query.All Query.Config.Default |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.BilinearParams4f) |> Seq.toArray
     //printfn "Query.Polygon: length = %d" result1.Length

@@ -3,6 +3,8 @@
 open Aardvark.Base
 open Aardvark.Data
 
+#nowarn "44"
+
 type BorderMode<'a> =
     | Fail
     | ClampToEdge
@@ -69,22 +71,34 @@ module internal Resamplers =
         C4f(_r,_g,_b,_a)
         
     let resamplers = Map.ofSeq [
+        (Defs.Heights1f.Id, resampleFloat32 :> obj)
+        (Defs.Heights1d.Id, resampleFloat64 :> obj)
+        (Defs.HeightsBilinear4f.Id, resampleV4fNorm :> obj)
+        (Defs.HeightsBilinear4d.Id, resampleV4dNorm :> obj)
+
         (Defs.Normals3f.Id, resampleV3fNorm :> obj)
         (Defs.Normals3d.Id, resampleV3dNorm :> obj)
+
         (Defs.Colors3b.Id, resampleC3b :> obj)
         (Defs.Colors4b.Id, resampleC4b :> obj)
         (Defs.Colors3f.Id, resampleC3f :> obj)
         (Defs.Colors4f.Id, resampleC4f :> obj)
-        (Defs.Heights1f.Id, resampleFloat32 :> obj)
-        (Defs.Heights1d.Id, resampleFloat64 :> obj)
+
         (Defs.HeightStdDevs1f.Id, resampleFloat32 :> obj)
         (Defs.HeightStdDevs1d.Id, resampleFloat64 :> obj)
+
         (Defs.Intensities1i.Id, resampleInt32 :> obj)
         (Defs.Intensities1l.Id, resampleInt64 :> obj)
         (Defs.Intensities1f.Id, resampleFloat32 :> obj)
         (Defs.Intensities1d.Id, resampleFloat64 :> obj)
+
         (Defs.BilinearParams4f.Id, resampleV4fNorm :> obj)
         (Defs.BilinearParams4d.Id, resampleV4dNorm :> obj)
+
+        (Defs.Volumes1f.Id, resampleFloat32 :> obj)
+        (Defs.Volumes1d.Id, resampleFloat64 :> obj)
+        (Defs.VolumesBilinear4f.Id, resampleV4fNorm :> obj)
+        (Defs.VolumesBilinear4d.Id, resampleV4dNorm :> obj)
     ]
 
     let getResamplerFor (def : Durable.Def) =

@@ -72,6 +72,10 @@ let ``Build_Centered_c`` () =
     Assert.True((countInner = 1))
     Assert.True((countLeafs = 4))
 
+
+
+
+
 [<Fact>]
 let ``Build_Heights1f`` () =
 
@@ -83,6 +87,20 @@ let ``Build_Heights1f`` () =
 let ``Build_Heights1d`` () =
 
     let q = createQuadtree' 0 0 10 7 0 2 Defs.Heights1d (fun x y -> 1.0)
+    Assert.True(Quadtree.CountLeafs q = 6)
+    Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+
+[<Fact>]
+let ``Build_HeightsBilinear4f`` () =
+
+    let q = createQuadtree' 0 0 10 7 0 2 Defs.HeightsBilinear4f (fun x y -> V4f.Zero)
+    Assert.True(Quadtree.CountLeafs q = 6)
+    Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+
+[<Fact>]
+let ``Build_HeightsBilinear4d`` () =
+
+    let q = createQuadtree' 0 0 10 7 0 2 Defs.HeightsBilinear4d (fun x y -> V4d.Zero)
     Assert.True(Quadtree.CountLeafs q = 6)
     Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
 
@@ -171,15 +189,29 @@ let ``Build_Intensities1d`` () =
     Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
 
 [<Fact>]
-let ``Build_BilinearParams4f`` () =
+let ``Build_Volumes1f`` () =
 
-    let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4f (fun x y -> V4f.Zero)
+    let q = createQuadtree' 0 0 10 7 0 2 Defs.Volumes1f (fun x y -> 1.0f)
     Assert.True(Quadtree.CountLeafs q = 6)
     Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
 
 [<Fact>]
-let ``Build_BilinearParams4d`` () =
+let ``Build_Volumes1d`` () =
 
-    let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4d (fun x y -> V4d.Zero)
+    let q = createQuadtree' 0 0 10 7 0 2 Defs.Volumes1d (fun x y -> 1.0)
+    Assert.True(Quadtree.CountLeafs q = 6)
+    Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+
+[<Fact>]
+let ``Build_VolumesBilinear4f`` () =
+
+    let q = createQuadtree' 0 0 10 7 0 2 Defs.VolumesBilinear4f (fun x y -> V4f.Zero)
+    Assert.True(Quadtree.CountLeafs q = 6)
+    Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+
+[<Fact>]
+let ``Build_VolumesBilinear4d`` () =
+
+    let q = createQuadtree' 0 0 10 7 0 2 Defs.VolumesBilinear4d (fun x y -> V4d.Zero)
     Assert.True(Quadtree.CountLeafs q = 6)
     Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)

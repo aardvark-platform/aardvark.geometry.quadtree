@@ -5,6 +5,8 @@ open Aardvark.Data
 open System.Collections.Immutable
 open System.Collections.Generic
 
+#nowarn "44"
+
 type ILayer =
     abstract member Def : Durable.Def
     abstract member Mapping : DataMapping
@@ -178,20 +180,32 @@ module Layer =
     let private builders = Map.ofList [
         defineBuilder<float32>  Defs.Heights1f
         defineBuilder<float>    Defs.Heights1d
+        defineBuilder<V4f>      Defs.HeightsBilinear4f
+        defineBuilder<V4d>      Defs.HeightsBilinear4d
+
         defineBuilder<V3f>      Defs.Normals3f
         defineBuilder<V3d>      Defs.Normals3d
+
         defineBuilder<float32>  Defs.HeightStdDevs1f
         defineBuilder<float>    Defs.HeightStdDevs1d
+
         defineBuilder<C3b>      Defs.Colors3b
         defineBuilder<C4b>      Defs.Colors4b
         defineBuilder<C3f>      Defs.Colors3f
         defineBuilder<C4f>      Defs.Colors4f
+
         defineBuilder<int>      Defs.Intensities1i
         defineBuilder<int64>    Defs.Intensities1l
         defineBuilder<float32>  Defs.Intensities1f
         defineBuilder<float>    Defs.Intensities1d
+
         defineBuilder<V4f>      Defs.BilinearParams4f
         defineBuilder<V4d>      Defs.BilinearParams4d
+        
+        defineBuilder<float32>  Defs.Volumes1f
+        defineBuilder<float>    Defs.Volumes1d
+        defineBuilder<V4f>      Defs.VolumesBilinear4f
+        defineBuilder<V4d>      Defs.VolumesBilinear4d
         ]
     
     let FromDurableMap (def : Durable.Def) (map : ImmutableDictionary<Durable.Def, obj>) : ILayer =

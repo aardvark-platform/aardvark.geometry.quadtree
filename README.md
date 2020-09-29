@@ -82,7 +82,9 @@ A `Layer` specifies a `DataMapping` and a **semantic** for raw data.
 Semantic | Description | F# Type | C# Type
 -------- | ----------- | -------------- | ------
 `Defs.`**`Heights1f`** | Height value per sample. | `float32[]` | `float[]` 
-`Defs.`**`Heights1d`** | Height value per sample. | `float[]` | `double[]` 
+`Defs.`**`Heights1d`** | Height value per sample. | `float[]` | `double[]`
+`Defs.`**`HeightsBilinear4f`** | Height value per sample as bilinear params.<br>height(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4f[]` | `V4f[]`
+`Defs.`**`HeightsBilinear4d`** | Height value per sample as bilinear params.<br>height(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4d[]` | `V4d[]`
 `Defs.`**`Normals3f`** | Normal vector per sample. | `V3f[]` | `V3f[]`
 `Defs.`**`Normals3d`** | Normal vector per sample. | `V3d[]` | `V3d[]`
 `Defs.`**`HeightStdDevs1f`** | Std dev per height value. | `float32[]` | `float[]`
@@ -95,8 +97,11 @@ Semantic | Description | F# Type | C# Type
 `Defs.`**`Intensities1l`** | Intensity value per sample. | `int64[]` | `long[]`
 `Defs.`**`Intensities1f`** | Intensity value per sample. | `float32[]` | `float[]`
 `Defs.`**`Intensities1d`** | Intensity value per sample. | `float[]` | `double[]`
-`Defs.`**`BilinearParams4f`** | Bilinear params per sample. | `V4f[]` | `V4f[]`
 `Defs.`**`BilinearParams4d`** | Bilinear params per sample. | `V4d[]` | `V4d[]`
+*planned*<br>`Defs.`**`Volumes1f`** | Volume value (height difference) per sample. | `float32[]` | `float[]` 
+*planned*<br>`Defs.`**`Volumes1d`** | Volume value (height difference) per sample. | `float[]` | `double[]`
+*planned*<br>`Defs.`**`VolumesBilinear4f`** | Volume value (height difference) per sample as bilinear params.<br>volume(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4f[]` | `V4f[]`
+*planned*<br>`Defs.`**`VolumesBilinear4d`** | Volume value (height difference) per sample as bilinear params.<br>volume(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4d[]` | `V4d[]`
 
 ## Quadtrees
 
