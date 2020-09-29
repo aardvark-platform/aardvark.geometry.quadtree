@@ -102,6 +102,8 @@ Semantic | Description | F# Type | C# Type
 *planned*<br>`Defs.`**`Volumes1d`** | Volume value (height difference) per sample. | `float[]` | `double[]`
 *planned*<br>`Defs.`**`VolumesBilinear4f`** | Volume value (height difference) per sample as bilinear params.<br>volume(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4f[]` | `V4f[]`
 *planned*<br>`Defs.`**`VolumesBilinear4d`** | Volume value (height difference) per sample as bilinear params.<br>volume(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4d[]` | `V4d[]`
+`Defs.`**`BilinearParams4f`** | Obsolete. Use HeightsBilinear4f instead. | `V4f[]` | `V4f[]`
+`Defs.`**`BilinearParams4d`** | Obsolete. Use HeightsBilinear4d instead. | `V4d[]` | `V4d[]`
 
 ## Quadtrees
 
