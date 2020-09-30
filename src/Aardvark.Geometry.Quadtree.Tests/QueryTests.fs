@@ -266,3 +266,16 @@ let ``TryGetSampleCell`` () =
     isInside (V2d(0.4, 0.6)) (Cell2d(0,0,0))
     isInside (V2d(1.0, 2.0)) (Cell2d(1,2,0))
     isInside (V2d(9.9, 6.9)) (Cell2d(9,6,0))
+
+[<Fact>]
+let ``SamplePositions`` () =
+    let q = createQuadtree ()
+    let ps = [| V2d(0.0, 0.0); V2d(0.4, 0.6); V2d(1.0, 2.0); V2d(3.5, 2.1); V2d(9.9, 6.9) |]
+    let r = Query.SamplePositions Query.Config.Default ps q |> Seq.toArray
+
+    let count = r |> Array.sumBy (fun x -> x.Cells.Length)
+    Assert.True(5 = count)
+
+    let xs = r |> Array.collect (fun x -> x.GetSamples<float32> Defs.Heights1f)
+    Assert.True(5 = xs.Length)
+    

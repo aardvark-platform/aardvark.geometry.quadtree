@@ -221,7 +221,7 @@ module Query =
             this.Cells |> Array.map (fun c -> layer.GetSample(Fail, c))
         member this.GetSampleCells () : Cell2d[] = this.Cells
 
-    /// Returns samples at given positions.
+    
     let rec private SamplePositionsWithBounds (config : Config) (positions : V2d[]) (positionsBounds : Box2d) (n : QNode) : seq<ResultWithPositions> =
 
         seq {
@@ -236,15 +236,11 @@ module Query =
 
             let swbb = n.SampleWindowBoundingBox
 
-            if not (positionsBounds.Contains swbb) then
-
+            if not (swbb.Contains positionsBounds) then
                 ()
-
             else
-
                 if n.IsLeafNode || n.Cell.Exponent = config.MinExponent then
                 // reached leaf or max depth
-
                     if swbb.ContainsMaxExclusive positionsBounds then
                         // fully inside
                         let cells = positions |> Array.map n.GetSample
@@ -254,7 +250,6 @@ module Query =
                         let ps = positions |> Array.filter swbb.ContainsMaxExclusive
                         let cells = ps |> Array.map n.GetSample
                         yield { Node = n; Cells = cells; Positions = ps }
-
                 else
                 // at inner node with children to recursively traverse
 
@@ -282,7 +277,7 @@ module Query =
                     | Some subnodes ->
                         let center = n.Cell.GetCenter()
                         let inline getQuadrant (p : V2d) = 
-                            match p.X < center.X, p.Y < center.Y with | false, false -> 0 | true,  false -> 1 | false, true  -> 2 | true,  true  -> 3
+                            match p.X >= center.X, p.Y >= center.Y with | false, false -> 0 | true,  false -> 1 | false, true  -> 2 | true,  true  -> 3
                         let spss = positionsCoveredBySubNodeSamples |> Array.groupBy getQuadrant
                         for (quadrant, ps) in spss do
                             match subnodes.[quadrant] |> QNode.TryGetInMemory with
@@ -294,8 +289,11 @@ module Query =
                             
         }
 
-    let rec SamplePositions (config : Config) (positions : V2d[]) (n : QNode) =
+    /// Returns samples at given positions.
+    let rec SamplePositions (config : Config) (positions : V2d[]) (root : QNodeRef) =
         let bb = Box2d(positions)
-        SamplePositionsWithBounds config positions bb n
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> SamplePositionsWithBounds config positions bb root
 
 
