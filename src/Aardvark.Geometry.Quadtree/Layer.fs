@@ -220,8 +220,6 @@ module Layer =
         | Some builder -> builder mapping (map.[def])
         | None -> sprintf "Unknown layer type %A. 8c90faa2-de10-4938-b8ee-3034bd9bdea0." def |> failwith
 
-
-
     let BoundingBox (layer : ILayer) = layer.Mapping.BoundingBox
 
     let Window (layer : ILayer) = layer.Mapping.Window

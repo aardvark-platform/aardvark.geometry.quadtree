@@ -47,6 +47,7 @@ module Query =
         Selection : NodeSelection
     }
     with
+        
         member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
             let ps = 
@@ -54,7 +55,14 @@ module Query =
                 | NotSelected -> Array.empty
                 | PartiallySelected ps -> ps
                 | FullySelected -> this.Node.AllSamples
-            ps |> Array.map (fun p -> (p, layer.GetSample Fail p))
+            let result = ps |> Array.map (fun p -> (p, layer.GetSample Fail p))
+            result
+
+        member this.GetSampleCells () : Cell2d[] =
+            match this.Selection with
+            | NotSelected -> Array.empty
+            | PartiallySelected ps -> ps
+            | FullySelected -> this.Node.AllSamples
 
     /// The generic query function.
     let rec Generic 
@@ -189,6 +197,20 @@ module Query =
         | None -> Seq.empty
         | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
+    /// Returns sample at given position.
+    let Position (config : Config) (position : V2d) (root : QNodeRef) : Result seq =
+        let isNodeFullyInside (n : QNode) =  false
+        let isNodeFullyOutside (n : QNode) = not (n.SampleWindowBoundingBox.Contains position)
+        let isSampleInside (n : Cell2d) = n.BoundingBox.Contains position
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+
+    /// Returns sample cell at given position, or None if there is no sample at this position.
+    let TryGetSampleCellAtPosition (config : Config) (position : V2d) (root : QNodeRef) : Cell2d option =
+        Position config position root
+        |> Seq.collect (fun r -> r.GetSampleCells ())
+        |> Seq.tryHead
 
     ()
 

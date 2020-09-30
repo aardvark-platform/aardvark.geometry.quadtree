@@ -30,13 +30,13 @@ module Defs =
     let Heights1f              = def "4cb689c5-b627-4bcd-9db7-5dbd24d7545a" "Quadtree.Heights1f" "Quadtree. Height value per sample. Float32[]." Durable.Primitives.Float32Array
     let Heights1fLayer         = def "fcf042b4-fe33-4e28-9aea-f5526600f8a4" "Quadtree.Heights1f.Layer" "Quadtree. Heights1f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     
-    let HeightsBilinear4f      = def "4d343b08-b82d-4667-830b-72a5180509de" "Quadtree.HeightsBilinearParams4f" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where A=v.X, B=v.Y, C=v.Z, D=v.W. V4f[]." Durable.Aardvark.V4fArray
+    let HeightsBilinear4f      = def "4d343b08-b82d-4667-830b-72a5180509de" "Quadtree.HeightsBilinearParams4f" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4f[]." Durable.Aardvark.V4fArray
     let HeightsBilinear4fLayer = def "2e03222d-4f72-49e6-b56f-79c8839127f8" "Quadtree.HeightsBilinearParams4f.Layer" "Quadtree. HeightsBilinearParams4f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let Heights1d              = def "c66a4240-00ef-44f9-b377-0667f279b97e" "Quadtree.Heights1d" "Quadtree. Height value per sample. Float64[]." Durable.Primitives.Float64Array
     let Heights1dLayer         = def "baa8ed40-57e3-4f88-8d11-0b547494c8cb" "Quadtree.Heights1d.Layer" "Quadtree. Heights1d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
                                
-    let HeightsBilinear4d      = def "ea09c9f0-ac1a-4905-9a4e-5a7ebdcd873f" "Quadtree.HeightsBilinearParams4d" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where A=v.X, B=v.Y, C=v.Z, D=v.W. V4d[]." Durable.Aardvark.V4dArray
+    let HeightsBilinear4d      = def "ea09c9f0-ac1a-4905-9a4e-5a7ebdcd873f" "Quadtree.HeightsBilinearParams4d" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4d[]." Durable.Aardvark.V4dArray
     let HeightsBilinear4dLayer = def "c93e5b85-7455-425f-949b-517f38f40bac" "Quadtree.HeightsBilinearParams4d.Layer" "Quadtree. HeightsBilinearParams4d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let Normals3f              = def "d5166ae4-7bea-4ebe-a3bf-cae8072f8951" "Quadtree.Normals3f" "Quadtree. Normal vector per sample. V3f[]." Durable.Aardvark.V3fArray
@@ -88,13 +88,13 @@ module Defs =
     let Volumes1f              = def "702521f3-2474-4072-9f9f-d506b6e19e7a" "Quadtree.Volumes1f" "Quadtree. Volume (height difference) value per sample. Float32[]." Durable.Primitives.Float32Array
     let Volumes1fLayer         = def "f84c4628-9969-43ad-9a93-813430bae8e1" "Quadtree.Volumes1f.Layer" "Quadtree. Volumes1f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     
-    let VolumesBilinear4f      = def "127e11b1-ee31-4df8-b1ea-d780dfd03e70" "Quadtree.VolumesBilinear4f" "Quadtree. Volume value (height difference) per sample as bilinear params. volume(x,y) = A + B*x + C*y+ D*x*y, where A=v.X, B=v.Y, C=v.Z, D=v.W. V4f[]." Durable.Aardvark.V4fArray
+    let VolumesBilinear4f      = def "127e11b1-ee31-4df8-b1ea-d780dfd03e70" "Quadtree.VolumesBilinear4f" "Quadtree. Volume value (height difference) per sample as bilinear params. volume(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4f[]." Durable.Aardvark.V4fArray
     let VolumesBilinear4fLayer = def "5a743ae9-b37d-4e94-842f-b544588a56d5" "Quadtree.VolumesBilinear4f.Layer" "Quadtree. VolumesBilinearParams4f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let Volumes1d              = def "c88bb26c-1145-4e65-aa59-2e2d4cdfa0ad" "Quadtree.Volumes1d" "Quadtree. Height value per sample. Float64[]." Durable.Primitives.Float64Array
     let Volumes1dLayer         = def "5d376ccc-6d02-47ee-bff0-06ebe9680c9c" "Quadtree.Volumes1d.Layer" "Quadtree. Volumes1d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
                                
-    let VolumesBilinear4d      = def "9aadc102-68b7-4e6f-ba22-bad1440e1bcf" "Quadtree.VolumesBilinear4d" "Quadtree. Volume value (height difference) per sample as bilinear params. volume(x,y) = A + B*x + C*y+ D*x*y, where A=v.X, B=v.Y, C=v.Z, D=v.W. V4d[]." Durable.Aardvark.V4dArray
+    let VolumesBilinear4d      = def "9aadc102-68b7-4e6f-ba22-bad1440e1bcf" "Quadtree.VolumesBilinear4d" "Quadtree. Volume value (height difference) per sample as bilinear params. volume(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4d[]." Durable.Aardvark.V4dArray
     let VolumesBilinear4dLayer = def "fd547ab1-88e9-4fc2-9c7d-a67545bfd3d1" "Quadtree.VolumesBilinear4d.Layer" "Quadtree. VolumesBilinearParams4d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let private def2layer = Map.ofList [

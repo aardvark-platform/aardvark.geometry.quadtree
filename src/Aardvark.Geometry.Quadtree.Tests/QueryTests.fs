@@ -221,3 +221,48 @@ let ``NearLine2d_Partial`` () =
 
     let foo = r |> Array.collect (fun x -> x.GetSamples<float32> Defs.Heights1f)
     Assert.True(foo.Length = 16)
+
+
+
+[<Fact>]
+let ``Position`` () =
+    let q = createQuadtree ()
+
+    let trySample p =
+            Query.Position Query.Config.Default p q 
+            |> Seq.collect (fun r -> r.GetSamples<float32> Defs.Heights1f)
+            |> Seq.tryHead
+
+    let isOutside pos = Assert.True(match trySample pos with | Some (c, h) -> false | None -> true)
+    let isInside pos cell = Assert.True(match trySample pos with | Some (c, h) -> c = cell | None -> false)
+
+    isOutside (V2d(-1.0, -2.0))
+    isOutside (V2d( 0.5,  8.0))
+    isOutside (V2d(10.1,  0.0))
+    isOutside (V2d(10.0,  7.1))
+    isOutside (V2d( 0.0,  7.1))
+
+    isInside (V2d(0.0, 0.0)) (Cell2d(0,0,0))
+    isInside (V2d(0.4, 0.6)) (Cell2d(0,0,0))
+    isInside (V2d(1.0, 2.0)) (Cell2d(0,1,0))
+    isInside (V2d(9.9, 6.9)) (Cell2d(9,6,0))
+
+[<Fact>]
+let ``TryGetSampleCell`` () =
+    let q = createQuadtree ()
+
+    let trySample p = Query.TryGetSampleCellAtPosition Query.Config.Default p q 
+
+    let isOutside pos = Assert.True(match trySample pos with | Some c -> false | None -> true)
+    let isInside pos cell = Assert.True(match trySample pos with | Some c -> c = cell | None -> false)
+
+    isOutside (V2d(-1.0, -2.0))
+    isOutside (V2d( 0.5,  8.0))
+    isOutside (V2d(10.1,  0.0))
+    isOutside (V2d(10.0,  7.1))
+    isOutside (V2d( 0.0,  7.1))
+
+    isInside (V2d(0.0, 0.0)) (Cell2d(0,0,0))
+    isInside (V2d(0.4, 0.6)) (Cell2d(0,0,0))
+    isInside (V2d(1.0, 2.0)) (Cell2d(0,1,0))
+    isInside (V2d(9.9, 6.9)) (Cell2d(9,6,0))
