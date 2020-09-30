@@ -114,20 +114,35 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
         QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, None)
 
     member _.Id with get() = id
+
     member _.Cell with get() = cell
+
     member _.SplitLimitExponent with get() = splitLimitExp
+
     member _.OriginalSampleExponent with get() = originalSampleExponent
+
     member _.Layers with get() = layers
+
     member _.SampleWindow with get() = layers.[0].SampleWindow
+
     member _.SampleWindowBoundingBox with get() = layers.[0].BoundingBox
+
     member _.SampleExponent with get() = layers.[0].SampleExponent
+
+    member _.Mapping with get() = layers.[0].Mapping
+
     member _.SubNodes with get() = subNodes
+
     member _.IsInnerNode with get() = subNodes.IsSome
+
     member _.IsLeafNode  with get() = subNodes.IsNone
+
     member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes)
+
     member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
         layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
-    member this.Save options =
+
+    member this.Save options : Guid =
         let map = List<KeyValuePair<Durable.Def, obj>>()
 
         // node properties
@@ -166,6 +181,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
         let buffer = DurableCodec.Serialize(Defs.Node, map)
         options.Save id buffer
         id
+
     member this.Split () : QNode[] =
 
         let subLayers = cell.Children |> Array.map (fun subCell ->
@@ -179,7 +195,8 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
             )
 
         subNodes
-    member _.AllSamples with get() =
+
+    member this.AllSamples with get() : Cell2d[] =
         let e = layers.[0].SampleExponent
         let w = layers.[0].SampleWindow
         let xMaxIncl = int w.Size.X - 1
@@ -192,6 +209,9 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
                 samples.[i] <- Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
                 i <- i + 1
         samples
+
+    member this.GetSample (p : V2d) : Cell2d =
+        this.Mapping.GetSampleCell(p)
 
     static member Load (options: SerializationOptions) (id : Guid) : QNodeRef =
         if id = Guid.Empty then
@@ -284,7 +304,7 @@ module QNode =
         let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
         invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
         
-        let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
+        //let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
         let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
 
         let result =

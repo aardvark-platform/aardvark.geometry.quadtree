@@ -65,27 +65,27 @@ let ``Resample3`` () =
     Assert.True(a.SampleExponent   = 0)
     Assert.True(a.SampleWindow.Min = V2l(1, 1))
     Assert.True(a.SampleWindow.Max = V2l(3, 3))
-    Assert.True(a.GetSample Fail (Cell2d(1, 1, 0)) = 10.0)
-    Assert.True(a.GetSample Fail (Cell2d(2, 1, 0)) = 20.0)
-    Assert.True(a.GetSample Fail (Cell2d(1, 2, 0)) = 30.0)
-    Assert.True(a.GetSample Fail (Cell2d(2, 2, 0)) = 40.0)
+    Assert.True(a.GetSample(Fail, Cell2d(1, 1, 0)) = 10.0)
+    Assert.True(a.GetSample(Fail, Cell2d(2, 1, 0)) = 20.0)
+    Assert.True(a.GetSample(Fail, Cell2d(1, 2, 0)) = 30.0)
+    Assert.True(a.GetSample(Fail, Cell2d(2, 2, 0)) = 40.0)
 
     let b = a.Resample ClampToEdge (fun (a,b,c,d) -> (a+b+c+d)/4.0) a.CellBounds
     Assert.True(b.Data.Length      = 4)
     Assert.True(b.SampleExponent   = 1)
     Assert.True(b.SampleWindow.Min = V2l(0, 0))
     Assert.True(b.SampleWindow.Max = V2l(2, 2))
-    Assert.True(b.GetSample Fail (Cell2d(0, 0, 1)) = 10.0)
-    Assert.True(b.GetSample Fail (Cell2d(1, 0, 1)) = 20.0)
-    Assert.True(b.GetSample Fail (Cell2d(0, 1, 1)) = 30.0)
-    Assert.True(b.GetSample Fail (Cell2d(1, 1, 1)) = 40.0)
+    Assert.True(b.GetSample(Fail, Cell2d(0, 0, 1)) = 10.0)
+    Assert.True(b.GetSample(Fail, Cell2d(1, 0, 1)) = 20.0)
+    Assert.True(b.GetSample(Fail, Cell2d(0, 1, 1)) = 30.0)
+    Assert.True(b.GetSample(Fail, Cell2d(1, 1, 1)) = 40.0)
 
     let c = b.Resample ClampToEdge (fun (a,b,c,d) -> (a+b+c+d)/4.0) b.CellBounds
     Assert.True(c.Data.Length      = 1)
     Assert.True(c.SampleExponent   = 2)
     Assert.True(c.SampleWindow.Min = V2l(0, 0))
     Assert.True(c.SampleWindow.Max = V2l(1, 1))
-    Assert.True(c.GetSample Fail (Cell2d(0, 0, 2)) = 25.0)
+    Assert.True(c.GetSample(Fail, Cell2d(0, 0, 2)) = 25.0)
 
     ()
 
@@ -102,17 +102,17 @@ let ``Resample4`` () =
     Assert.True(a.SampleExponent   = 0)
     Assert.True(a.SampleWindow.Min = V2l(-1, -1))
     Assert.True(a.SampleWindow.Max = V2l(+1, +1))
-    Assert.True(a.GetSample Fail (Cell2d(-1, -1, 0)) = 10.0)
-    Assert.True(a.GetSample Fail (Cell2d( 0, -1, 0)) = 20.0)
-    Assert.True(a.GetSample Fail (Cell2d(-1,  0, 0)) = 30.0)
-    Assert.True(a.GetSample Fail (Cell2d( 0,  0, 0)) = 40.0)
+    Assert.True(a.GetSample(Fail, Cell2d(-1, -1, 0)) = 10.0)
+    Assert.True(a.GetSample(Fail, Cell2d( 0, -1, 0)) = 20.0)
+    Assert.True(a.GetSample(Fail, Cell2d(-1,  0, 0)) = 30.0)
+    Assert.True(a.GetSample(Fail, Cell2d( 0,  0, 0)) = 40.0)
 
     let b = a.Resample ClampToEdge (fun (a,b,c,d) -> (a+b+c+d)/4.0) a.CellBounds
     Assert.True(b.Data.Length      = 1)
     Assert.True(b.Mapping.BufferOrigin.IsCenteredAtOrigin)
     Assert.True(b.SampleExponent   = 1)
     Assert.True(b.SampleWindow.IsInvalid)
-    Assert.True(b.GetSample Fail (Cell2d(1)) = 25.0)
+    Assert.True(b.GetSample(Fail, Cell2d(1)) = 25.0)
 
     ()
 
@@ -129,24 +129,24 @@ let ``Resample5`` () =
     Assert.True(a.SampleExponent   = 0)
     Assert.True(a.SampleWindow.Min = V2l(-1, -2))
     Assert.True(a.SampleWindow.Max = V2l(+1,  0))
-    Assert.True(a.GetSample Fail (Cell2d(-1, -2, 0)) = 10.0)
-    Assert.True(a.GetSample Fail (Cell2d( 0, -2, 0)) = 20.0)
-    Assert.True(a.GetSample Fail (Cell2d(-1, -1, 0)) = 30.0)
-    Assert.True(a.GetSample Fail (Cell2d( 0, -1, 0)) = 40.0)
+    Assert.True(a.GetSample(Fail, Cell2d(-1, -2, 0)) = 10.0)
+    Assert.True(a.GetSample(Fail, Cell2d( 0, -2, 0)) = 20.0)
+    Assert.True(a.GetSample(Fail, Cell2d(-1, -1, 0)) = 30.0)
+    Assert.True(a.GetSample(Fail, Cell2d( 0, -1, 0)) = 40.0)
 
     let b = a.Resample ClampToEdge (fun (a,b,c,d) -> (a+b+c+d)/4.0) a.CellBounds
     Assert.True(b.Data.Length      = 2)
     Assert.True(b.SampleExponent   = 1)
     Assert.True(b.SampleWindow.Min = V2l(-1, -1))
     Assert.True(b.SampleWindow.Max = V2l(+1,  0))
-    Assert.True(b.GetSample Fail (Cell2d(-1, -1, 1)) = 20.0)
-    Assert.True(b.GetSample Fail (Cell2d( 0, -1, 1)) = 30.0)
+    Assert.True(b.GetSample(Fail, Cell2d(-1, -1, 1)) = 20.0)
+    Assert.True(b.GetSample(Fail, Cell2d( 0, -1, 1)) = 30.0)
 
     let c = b.Resample ClampToEdge (fun (a,b,c,d) -> (a+b+c+d)/4.0) b.CellBounds
     Assert.True(c.Data.Length      = 1)
     Assert.True(c.Mapping.BufferOrigin.IsCenteredAtOrigin)
     Assert.True(c.SampleExponent   = 2)
     Assert.True(c.SampleWindow.IsInvalid)
-    Assert.True(c.GetSample Fail (Cell2d(2)) = 25.0)
+    Assert.True(c.GetSample(Fail, Cell2d(2)) = 25.0)
 
     ()

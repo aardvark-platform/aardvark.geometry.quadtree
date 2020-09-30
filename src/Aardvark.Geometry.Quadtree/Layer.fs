@@ -55,7 +55,7 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
                 for y = 0 to size.Y - 1 do
                     for x = 0 to size.X - 1 do
                         let c = Cell2d(mapping.Window.Min.X + int64 x, mapping.Window.Min.Y + int64 y, mapping.BufferOrigin.Exponent)
-                        let s = this.GetSample Fail c
+                        let s = this.GetSample(Fail, c)
                         newdata.[i] <- s
                         i <- i + 1
 
@@ -76,7 +76,7 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
     member this.WithWindow = (this :> ILayer).WithWindow
     member this.CellBounds with get() = (this :> ILayer).CellBounds
 
-    member this.GetSample (mode : BorderMode<'a>) (s : Cell2d) : 'a =
+    member this.GetSample (mode : BorderMode<'a>, s : Cell2d) : 'a =
         let min = this.SampleMin
         let maxIncl = this.SampleMaxIncl
         let inline inside () = s.X >= min.X && s.Y >= min.Y && s.X <= maxIncl.X && s.Y <= maxIncl.Y
@@ -100,13 +100,17 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             let i = mapping.GetBufferIndex(x, y)
             data.[i]
 
+    member this.GetSample (mode : BorderMode<'a>, globalPos : V2d) : 'a =
+        let s = mapping.GetSampleCell globalPos
+        this.GetSample(mode, s)
+
     member this.Resample (mode : BorderMode<'a>) (f : 'a*'a*'a*'a -> 'a) (resampleRoot : Cell2d) : Layer<'a> =
 
         if resampleRoot.IsCenteredAtOrigin && this.SampleExponent + 1 = resampleRoot.Exponent then
 
             let win = this.SampleWindow
             if win.Min.X >= -1L && win.Min.Y >= -1L && win.Max.X <= +1L && win.Max.Y <= +1L then
-                let inline getSample x y = this.GetSample mode (Cell2d(int64 x, int64 y, this.SampleExponent))
+                let inline getSample x y = this.GetSample(mode, (Cell2d(int64 x, int64 y, this.SampleExponent)))
                 let v = f (getSample -1 -1, getSample 0 -1, getSample -1 0, getSample 0 0)
                 let buffer = Array.create 1 v
                 let newMapping = DataMapping(resampleRoot) 
@@ -125,7 +129,7 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
 
             let buffer = Array.zeroCreate ((w + 1) * (h + 1))
 
-            let getSample = this.GetSample mode
+            let getSample (x : Cell2d) = this.GetSample(mode, x)
             let mutable i = 0
             for y = 0 to h do
                 for x = 0 to w do
@@ -265,7 +269,7 @@ module Layer =
                 for x = 0 to xMaxIncl do
                     let c = Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
                     let i = finalMapping.GetBufferIndex c
-                    let v = layer.GetSample Fail c
+                    let v = layer.GetSample(Fail, c)
                     finalData.[i] <- v
         
         Layer(def, finalData, finalMapping)

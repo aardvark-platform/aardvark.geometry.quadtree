@@ -62,4 +62,15 @@ type Cell2dExtensions =
             let x = self.X <<< d
             let y = self.Y <<< d
             Box2l(x, y, x + f, y + f)
+
+[<Extension>]
+type Box2dExtensions =
+
+    [<Extension>]
+    static member inline ContainsMaxExclusive (self : Box2d, other : Box2d) : bool =
+        self.Min.X <= other.Min.X && self.Min.Y <= other.Min.Y && self.Max.X > other.Max.X && self.Max.Y > other.Max.Y
+
+    [<Extension>]
+    static member inline ContainsMaxExclusive (self : Box2d, p : V2d) : bool =
+        self.Min.X <= p.X && self.Min.Y <= p.Y && self.Max.X > p.X && self.Max.Y > p.Y
                 

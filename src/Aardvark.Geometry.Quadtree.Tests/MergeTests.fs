@@ -161,7 +161,7 @@ let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
     Assert.True(Quadtree.CountLeafs m = 4)
 
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 10.0f))
 
     ()
@@ -180,7 +180,7 @@ let ``Merge_Overlapping_1x1_DifferentDepth_SecondMoreDetailed`` () =
     Assert.True((mLeafCount = 4))
     
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 20.0f))
 
     ()
@@ -193,7 +193,7 @@ let ``Merge_Overlapping_1x1_SameDepth_FirstDominates`` () =
 
     let m = Merge FirstDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 10.0f))
 
     ()
@@ -206,7 +206,7 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates`` () =
 
     let m = Merge SecondDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 20.0f))
 
     ()
@@ -219,7 +219,7 @@ let ``Merge_Overlapping_1x1_SameDepth_NoneDominates`` () =
 
     let m = Merge MoreDetailedDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True(x = 10.0f || x = 20.0f)
 
     ()
@@ -233,7 +233,7 @@ let ``Merge_Overlapping_BothCentered_DifferentDepth_SecondMoreDetailed`` () =
     
     let m = Merge MoreDetailedDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(1))
+    let x = l.GetSample(Fail, Cell2d(1))
     Assert.True((x = 20.0f))
     
     ()
@@ -246,7 +246,7 @@ let ``Merge_Overlapping_BothCentered_DifferentDepth_FirstMoreDetailed`` () =
     
     let m = Merge MoreDetailedDominates b a
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(1))
+    let x = l.GetSample(Fail, Cell2d(1))
     Assert.True((x = 20.0f))
     
     ()
@@ -259,7 +259,7 @@ let ``Merge_Overlapping_BothCentered_SameDetail_FirstDominates`` () =
 
     let m = Merge FirstDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(1))
+    let x = l.GetSample(Fail, Cell2d(1))
     Assert.True((x = 10.0f))
 
     ()
@@ -272,7 +272,7 @@ let ``Merge_Overlapping_BothCentered_SameDetail_SecondDominates`` () =
 
     let m = Merge SecondDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(1))
+    let x = l.GetSample(Fail, Cell2d(1))
     Assert.True((x = 20.0f))
 
     ()
@@ -285,7 +285,7 @@ let ``Merge_Overlapping_BothCentered_SameDetail_NoneDominates`` () =
 
     let m = Merge MoreDetailedDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(1))
+    let x = l.GetSample(Fail, Cell2d(1))
     Assert.True(x = 10.0f || x = 20.0f)
 
     ()
@@ -303,7 +303,7 @@ let ``Merge_Overlapping_1x1_SameDetail_1`` () =
     Assert.True(Quadtree.CountLeafs m = 1)
 
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 10.0f))
 
     ()
@@ -321,7 +321,7 @@ let ``Merge_Overlapping_1x1_SameDetail_2`` () =
     Assert.True(Quadtree.CountLeafs m = 1)
 
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 20.0f))
 
     ()
@@ -340,7 +340,7 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
     Assert.True(m.Cell = Cell2d(0,0,1))
 
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,1))
+    let x = l.GetSample(Fail, Cell2d(0,0,1))
     Assert.True((x = 20.0f))
 
     ()
@@ -359,7 +359,7 @@ let ``Merge_LayersWithDifferentResolution_256`` () =
     Assert.True(m.Cell = Cell2d(0,0,8))
 
     let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample Fail (Cell2d(0,0,0))
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 10.0f))
 
     ()
