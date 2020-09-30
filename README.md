@@ -83,8 +83,8 @@ Semantic | Description | F# Type | C# Type
 -------- | ----------- | -------------- | ------
 `Defs.`**`Heights1f`** | Height value per sample. | `float32[]` | `float[]` 
 `Defs.`**`Heights1d`** | Height value per sample. | `float[]` | `double[]`
-`Defs.`**`HeightsBilinear4f`** | Height value per sample as bilinear params.<br>height(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4f[]` | `V4f[]`
-`Defs.`**`HeightsBilinear4d`** | Height value per sample as bilinear params.<br>height(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4d[]` | `V4d[]`
+`Defs.`**`HeightsBilinear4f`** | Height value per sample as bilinear params. \* | `V4f[]` | `V4f[]`
+`Defs.`**`HeightsBilinear4d`** | Height value per sample as bilinear params. \* | `V4d[]` | `V4d[]`
 `Defs.`**`Normals3f`** | Normal vector per sample. | `V3f[]` | `V3f[]`
 `Defs.`**`Normals3d`** | Normal vector per sample. | `V3d[]` | `V3d[]`
 `Defs.`**`HeightStdDevs1f`** | Std dev per height value. | `float32[]` | `float[]`
@@ -98,12 +98,15 @@ Semantic | Description | F# Type | C# Type
 `Defs.`**`Intensities1f`** | Intensity value per sample. | `float32[]` | `float[]`
 `Defs.`**`Intensities1d`** | Intensity value per sample. | `float[]` | `double[]`
 `Defs.`**`BilinearParams4d`** | Bilinear params per sample. | `V4d[]` | `V4d[]`
-*planned*<br>`Defs.`**`Volumes1f`** | Volume value (height difference) per sample. | `float32[]` | `float[]` 
-*planned*<br>`Defs.`**`Volumes1d`** | Volume value (height difference) per sample. | `float[]` | `double[]`
-*planned*<br>`Defs.`**`VolumesBilinear4f`** | Volume value (height difference) per sample as bilinear params.<br>volume(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4f[]` | `V4f[]`
-*planned*<br>`Defs.`**`VolumesBilinear4d`** | Volume value (height difference) per sample as bilinear params.<br>volume(x,y) = A + B*x + C*y+ D*x*y,<br>where A=v.X, B=v.Y, C=v.Z, D=v.W. | `V4d[]` | `V4d[]`
+`Defs.`**`Volumes1f`** | Volume value (height difference) per sample. | `float32[]` | `float[]` 
+`Defs.`**`Volumes1d`** | Volume value (height difference) per sample. | `float[]` | `double[]`
+`Defs.`**`VolumesBilinear4f`** | Volume value (height difference) per sample as bilinear params. \* | `V4f[]` | `V4f[]`
+`Defs.`**`VolumesBilinear4d`** | Volume value (height difference) per sample as bilinear params. \* | `V4d[]` | `V4d[]`
 `Defs.`**`BilinearParams4f`** | Obsolete. Use HeightsBilinear4f instead. | `V4f[]` | `V4f[]`
 `Defs.`**`BilinearParams4d`** | Obsolete. Use HeightsBilinear4d instead. | `V4d[]` | `V4d[]`
+
+
+<br>\* Sample value `s` at position `(x,y)` is computed as `s(x,y) = A + B*x + C*y + D*x*y`, where `(x,y)` is in range `[-sample.Size/2, +sample.Size/2]`. The center of the sample cell corresponds to `(x=0,y=0)`. Weights `A`, `B`, `C`, `D` are stored in a 4-dim vector `v` as follows: `A=v.X`, `B=v.Y`, `C=v.Z`, `D=v.W`.
 
 ## Quadtrees
 
