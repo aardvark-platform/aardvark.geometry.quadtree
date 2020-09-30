@@ -199,9 +199,13 @@ module Query =
 
     /// Returns sample at given position.
     let Position (config : Config) (position : V2d) (root : QNodeRef) : Result seq =
-        let isNodeFullyInside (n : QNode) =  false
-        let isNodeFullyOutside (n : QNode) = not (n.SampleWindowBoundingBox.Contains position)
-        let isSampleInside (n : Cell2d) = n.BoundingBox.Contains position
+        let isNodeFullyInside _ =  false
+        let isNodeFullyOutside (n : QNode) =
+            let bb = n.SampleWindowBoundingBox
+            position.X <  bb.Min.X || position.Y <  bb.Min.Y || position.X >= bb.Max.X || position.Y >= bb.Max.Y
+        let isSampleInside (n : Cell2d) = 
+            let bb = n.BoundingBox
+            position.X >= bb.Min.X && position.Y >= bb.Min.Y && position.X <  bb.Max.X && position.Y <  bb.Max.Y
         match root.TryGetInMemory() with
         | None -> Seq.empty
         | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
