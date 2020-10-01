@@ -185,28 +185,8 @@ module Query =
         | None -> Seq.empty
         | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
-    /// Returns sample at given position.
-    let Position (config : Config) (position : V2d) (root : QNodeRef) : Result seq =
-        let isNodeFullyInside _ =  false
-        let isNodeFullyOutside (n : QNode) =
-            let bb = n.SampleWindowBoundingBox
-            position.X <  bb.Min.X || position.Y <  bb.Min.Y || position.X >= bb.Max.X || position.Y >= bb.Max.Y
-        let isSampleInside (n : Cell2d) = 
-            let bb = n.BoundingBox
-            position.X >= bb.Min.X && position.Y >= bb.Min.Y && position.X <  bb.Max.X && position.Y <  bb.Max.Y
-        match root.TryGetInMemory() with
-        | None -> Seq.empty
-        | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
-    /// Returns sample cell at given position, or None if there is no sample at this position.
-    let TryGetSampleCellAtPosition (config : Config) (position : V2d) (root : QNodeRef) : Cell2d option =
-        Position config position root
-        |> Seq.collect (fun r -> r.GetSampleCells ())
-        |> Seq.tryHead
-
-
-
-    
+module Sample =
     
     type SampleResult = {
         Node : QNode
@@ -219,7 +199,7 @@ module Query =
             let layer = this.Node.GetLayer<'a>(def)
             this.Cells |> Array.map (fun c -> (c, layer.GetSample(Fail, c)))
 
-    let rec private SamplePositionsWithBounds (config : Config) (positions : V2d[]) (positionsBounds : Box2d) (n : QNode) : seq<SampleResult> =
+    let rec private PositionsWithBounds (config : Query.Config) (positions : V2d[]) (positionsBounds : Box2d) (n : QNode) : SampleResult seq =
 
         seq {
 
@@ -281,16 +261,26 @@ module Query =
                             | None -> failwith "Invariant b431402f-9db7-4b74-b3bd-ca8655d96f58."
                             | Some subnode ->
                                 let bb = Box2d(ps)
-                                let r = SamplePositionsWithBounds config ps bb subnode
+                                let r = PositionsWithBounds config ps bb subnode
                                 yield! r
                             
         }
 
     /// Returns samples at given positions.
-    let rec SamplePositions (config : Config) (positions : V2d[]) (root : QNodeRef) =
+    let Positions (config : Query.Config) (positions : V2d[]) (root : QNodeRef) : SampleResult seq=
         let bb = Box2d(positions)
         match root.TryGetInMemory() with
         | None -> Seq.empty
-        | Some root -> SamplePositionsWithBounds config positions bb root
+        | Some root -> PositionsWithBounds config positions bb root
 
+    /// Returns sample at given position.
+    let Position (config : Query.Config) (position : V2d) (root : QNodeRef) : SampleResult seq =
+        Positions config [| position |] root
 
+    /// Returns sample cell at given position, or None if there is no sample at this position.
+    let TryGetCellAtPosition (config : Query.Config) (position : V2d) (root : QNodeRef) : Cell2d option =
+        match Position config position root |> Seq.tryHead with
+        | None -> None
+        | Some result -> 
+            if result.Cells.Length > 1 then failwith "Invariant 26b9fc1a-45ee-4e14-aede-ea50c32e3bed."
+            result.Cells |> Array.tryHead

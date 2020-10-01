@@ -229,7 +229,7 @@ let ``Position`` () =
     let q = createQuadtree ()
 
     let trySample p =
-            Query.Position Query.Config.Default p q 
+            Sample.Position Query.Config.Default p q 
             |> Seq.collect (fun r -> r.GetSamples<float32> Defs.Heights1f)
             |> Seq.tryExactlyOne
 
@@ -248,10 +248,10 @@ let ``Position`` () =
     isInside (V2d(9.9, 6.9)) (Cell2d(9,6,0))
 
 [<Fact>]
-let ``TryGetSampleCell`` () =
+let ``TryGetCellAtPosition`` () =
     let q = createQuadtree ()
 
-    let trySample p = Query.TryGetSampleCellAtPosition Query.Config.Default p q 
+    let trySample p = Sample.TryGetCellAtPosition Query.Config.Default p q 
 
     let isOutside pos = Assert.True(match trySample pos with | Some c -> false | None -> true)
     let isInside pos cell = Assert.True(match trySample pos with | Some c -> c = cell | None -> false)
@@ -268,10 +268,10 @@ let ``TryGetSampleCell`` () =
     isInside (V2d(9.9, 6.9)) (Cell2d(9,6,0))
 
 [<Fact>]
-let ``SamplePositions`` () =
+let ``Positions`` () =
     let q = createQuadtree ()
     let ps = [| V2d(0.0, 0.0); V2d(0.4, 0.6); V2d(1.0, 2.0); V2d(3.5, 2.1); V2d(9.9, 6.9) |]
-    let r = Query.SamplePositions Query.Config.Default ps q |> Seq.toArray
+    let r = Sample.Positions Query.Config.Default ps q |> Seq.toArray
 
     let count = r |> Array.sumBy (fun x -> x.Cells.Length)
     Assert.True(5 = count)
