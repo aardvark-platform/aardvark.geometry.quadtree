@@ -207,7 +207,7 @@ let mergedQuadtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQu
 
 
 
-## Queries
+## Queries and Sampling
 
 Currently available query functions:
 
@@ -221,10 +221,19 @@ Query | Description
 `Query.`**`NearLine`** | All samples within a given distance of a line.
 
 Please see the example above on how to use query functions. 
-
 All queries return a sequence of `Query.Result` objects.
-
 Each result references a quadtree node, and whether it is **fully** or **partially** selected.
+
+Sample | Result | Description
+------ | ------ | -----------
+`Sample.`**`Positions`** | `seq<SampleResult>` | Samples at given positions. Positions without sample data are not included.
+`Sample.`**`Position`**  | `seq<SampleResult>` | Sample at given position. Result contains 0 or 1 entries.
+`Sample.`**`TryGetCellAtPosition`** | `Option<Cell2d>` | Cell at given position, or `None` if there is no sample.
+
+
+
+
+
 
 ```fsharp
 type NodeSelection =
