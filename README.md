@@ -207,7 +207,7 @@ let mergedQuadtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQu
 
 
 
-## Queries and Sampling
+## Queries
 
 Currently available query functions:
 
@@ -223,17 +223,6 @@ Query | Description
 Please see the example above on how to use query functions. 
 All queries return a sequence of `Query.Result` objects.
 Each result references a quadtree node, and whether it is **fully** or **partially** selected.
-
-Sample | Result | Description
------- | ------ | -----------
-`Sample.`**`Positions`** | `seq<SampleResult>` | Samples at given positions. Positions without sample data are not included.
-`Sample.`**`Position`**  | `seq<SampleResult>` | Sample at given position. Result contains 0 or 1 entries.
-`Sample.`**`TryGetCellAtPosition`** | `Option<Cell2d>` | Cell at given position, or `None` if there is no sample.
-
-
-
-
-
 
 ```fsharp
 type NodeSelection =
@@ -266,3 +255,31 @@ let myCustomConfig = {
     Verbose = false
     }
 ```
+
+## Sampling
+
+Currently available sample functions are:
+
+Sample | Result | Description
+------ | ------ | -----------
+`Sample.`**`Positions`** | `seq<SampleResult>` | Samples at given positions. Positions without sample data are not included.
+`Sample.`**`Position`**  | `seq<SampleResult>` | Sample at given position. Result contains 0 or 1 entries.
+`Sample.`**`TryGetCellAtPosition`** | `Option<Cell2d>` | Cell at given position, or `None` if there is no sample.
+
+Sampling functions return a sequence of `SampleResult` items.
+
+Each item contains a subset of the requested sample positions `Positions` (located in the given `Node`) and a second array `Cells` with the associated cell for each position. Positions are in global space, and **not** relative to the node.
+
+You can query any layer for its associated sample values, using the ``GetSamples` function.
+
+```fsharp
+type SampleResult = {
+    Node : QNode
+    Positions : V2d[]
+    Cells : Cell2d[]
+}
+with
+    member this.GetSamples<'a>(def : Durable.Def) : (V2d*Cell2d*'a)[]
+```
+
+
