@@ -195,9 +195,9 @@ module Sample =
     }
     with
         member this.GetSampleCells () : Cell2d[] = this.Cells
-        member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
+        member this.GetSamples<'a>(def : Durable.Def) : (V2d*Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
-            this.Cells |> Array.map (fun c -> (c, layer.GetSample(Fail, c)))
+            this.Cells |> Array.map2 (fun p c -> (p, c, layer.GetSample(Fail, c))) this.Positions
 
     let rec private PositionsWithBounds (config : Query.Config) (positions : V2d[]) (positionsBounds : Box2d) (n : QNode) : SampleResult seq =
 
@@ -271,7 +271,11 @@ module Sample =
         let bb = Box2d(positions)
         match root.TryGetInMemory() with
         | None -> Seq.empty
-        | Some root -> PositionsWithBounds config positions bb root
+        | Some root ->
+            if root.Cell.BoundingBox.Contains(bb) then
+                PositionsWithBounds config positions bb root
+            else
+                Seq.empty
 
     /// Returns sample at given position.
     let Position (config : Query.Config) (position : V2d) (root : QNodeRef) : SampleResult seq =
