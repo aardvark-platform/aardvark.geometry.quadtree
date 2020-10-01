@@ -47,20 +47,16 @@ module Query =
         Selection : NodeSelection
     }
     with
-        member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
-            let layer = this.Node.GetLayer<'a>(def)
-            let cells = 
-                match this.Selection with
-                | NotSelected -> Array.empty
-                | PartiallySelected cells -> cells
-                | FullySelected -> this.Node.AllSamples
-            let result = cells |> Array.map (fun p -> (p, layer.GetSample(Fail, p)))
-            result
         member this.GetSampleCells () : Cell2d[] =
             match this.Selection with
             | NotSelected -> Array.empty
-            | PartiallySelected ps -> ps
+            | PartiallySelected cells -> cells
             | FullySelected -> this.Node.AllSamples
+        member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
+            let layer = this.Node.GetLayer<'a>(def)
+            let cells = this.GetSampleCells ()
+            let result = cells |> Array.map (fun p -> (p, layer.GetSample(Fail, p)))
+            result
 
     /// The generic query function.
     let rec Generic 
@@ -210,19 +206,20 @@ module Query =
 
 
 
-    type ResultWithPositions = {
+    
+    
+    type SampleResult = {
         Node : QNode
         Cells : Cell2d[]
         Positions : V2d[]
     }
     with
-        member this.GetSamples<'a>(def : Durable.Def) : 'a[] =
-            let layer = this.Node.GetLayer<'a>(def)
-            this.Cells |> Array.map (fun c -> layer.GetSample(Fail, c))
         member this.GetSampleCells () : Cell2d[] = this.Cells
+        member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
+            let layer = this.Node.GetLayer<'a>(def)
+            this.Cells |> Array.map (fun c -> (c, layer.GetSample(Fail, c)))
 
-    
-    let rec private SamplePositionsWithBounds (config : Config) (positions : V2d[]) (positionsBounds : Box2d) (n : QNode) : seq<ResultWithPositions> =
+    let rec private SamplePositionsWithBounds (config : Config) (positions : V2d[]) (positionsBounds : Box2d) (n : QNode) : seq<SampleResult> =
 
         seq {
 
