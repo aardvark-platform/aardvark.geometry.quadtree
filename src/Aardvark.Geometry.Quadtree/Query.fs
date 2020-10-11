@@ -39,7 +39,9 @@ module Query =
 
     type NodeSelection =
         | FullySelected
-        | PartiallySelected of Cell2d[]
+        | CellsSelected of Cell2d[]
+        | WindowSelected of Box2l
+        | SubtractionSelected of Box2l // full node except given box
         | NotSelected
 
     type Result = {
@@ -50,8 +52,10 @@ module Query =
         member this.GetSampleCells () : Cell2d[] =
             match this.Selection with
             | NotSelected -> Array.empty
-            | PartiallySelected cells -> cells
-            | FullySelected -> this.Node.AllSamples
+            | CellsSelected cells -> cells
+            | WindowSelected window -> this.Node.GetAllSamplesInsideWindow(window)
+            | SubtractionSelected second -> this.Node.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.SampleExponent)
+            | FullySelected -> this.Node.GetAllSamples()
         member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
             let cells = this.GetSampleCells ()
@@ -66,6 +70,9 @@ module Query =
             (isSampleInside : Cell2d -> bool)
             (n : QNode) 
             : Result seq =
+
+        if config.Verbose then printfn "\n[Generic ] %A %A" n.Cell n.SampleWindow
+
         seq {
 
             invariantm (n.Cell.Exponent >= config.MinExponent)
@@ -73,20 +80,30 @@ module Query =
                 "bd20d469-970c-4c9c-b99c-6694dc90923d."
 
             if isNodeFullyOutside n then
+                if config.Verbose then printfn "[Generic ] isFullyOutside"
                 ()
             else
                 if n.IsLeafNode || n.Cell.Exponent = config.MinExponent then
-                // reached leaf or max depth
+                    // reached leaf or max depth
+                    if config.Verbose then printfn "[Generic ] reached leaf or max depth"
                     if isNodeFullyInside n then
                         // fully inside
-                        yield { Node = n; Selection = FullySelected }
+                        let result = { Node = n; Selection = FullySelected }
+                        if config.Verbose then
+                            printfn "[Generic ] fully inside"
+                            printfn "[Generic ] YIELD %A" result
+                        yield result
                     else
                         // partially inside
-                        let xs = n.AllSamples |> Array.filter isSampleInside
+                        if config.Verbose then printfn "[Generic ] partially inside"
+                        let xs = n.GetAllSamples() |> Array.filter isSampleInside
                         if xs.Length > 0 then
-                            yield { Node = n; Selection = PartiallySelected xs }
+                            let result = { Node = n; Selection = CellsSelected xs }
+                            if config.Verbose then printfn "[Generic ] YIELD %A" result
+                            yield result
                 else
-                // at inner node with children to recursively traverse
+                    // at inner node with children to recursively traverse
+                    if config.Verbose then printfn "[Generic ] at inner node with children to recursively traverse"
 
                     invariant n.SubNodes.IsSome "0baa1ede-dde1-489b-ba3c-28a7e7a5bd3a"
 
@@ -96,9 +113,11 @@ module Query =
                         let sampleWindow = Box2l.FromMinAndSize(sample.XY * 2L, V2l(2, 2))
                         subWindow.Intersects sampleWindow
                     let inline notContainedBySubWindows (s : Cell2d) = subWindows |> Array.exists (subWindowContainsSample s) |> not
-                    let xs = n.AllSamples |> Array.filter (fun s -> isSampleInside s && notContainedBySubWindows s)
+                    let xs = n.GetAllSamples() |> Array.filter (fun s -> isSampleInside s && notContainedBySubWindows s)
                     if xs.Length > 0 then
-                        yield { Node = n; Selection = PartiallySelected xs }
+                        let result = { Node = n; Selection = CellsSelected xs }
+                        if config.Verbose then printfn "[Generic ] YIELD %A" result
+                        yield result
 
                     // recursively return samples from children
                     match n.SubNodes with
@@ -184,6 +203,93 @@ module Query =
         match root.TryGetInMemory() with
         | None -> Seq.empty
         | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
+
+
+    /// The generic query function.
+    let rec Generic' 
+            (config : Config) 
+            (isNodeFullyInside : QNode -> bool) 
+            (isNodeFullyOutside : QNode -> bool) 
+            (getSamplesInside : QNode -> Result option)
+            (n : QNode) 
+            : Result seq =
+
+        if config.Verbose then printfn "\n[Generic'] %A %A" n.Cell n.SampleWindow
+
+        seq {
+
+            invariantm (n.Cell.Exponent >= config.MinExponent)
+                "Query cannot start at node with exponent smaller than configured minExponent."
+                "2c82bfd9-e7ff-4f8f-a990-156f0460a255."
+
+            if isNodeFullyOutside n then
+                if config.Verbose then printfn "[Generic'] isFullyOutside"
+                ()
+            else
+                if n.IsLeafNode || n.Cell.Exponent = config.MinExponent then
+                    // reached leaf or max depth
+                    if config.Verbose then printfn "[Generic'] reached leaf or max depth"
+                    if isNodeFullyInside n then
+                        // fully inside
+                        let result = { Node = n; Selection = FullySelected }
+                        if config.Verbose then 
+                            printfn "[Generic'] fully inside"
+                            printfn "[Generic'] YIELD %A" result
+                        yield result
+                    else
+                        // partially inside
+                        if config.Verbose then printfn "[Generic'] partially inside"
+                        match getSamplesInside n with
+                        | None -> ()
+                        | Some result -> 
+                            if config.Verbose then printfn "[Generic'] YIELD %A" result
+                            yield result
+                else
+                    // at inner node with children to recursively traverse
+                    if config.Verbose then printfn "[Generic'] at inner node with children to recursively traverse"
+
+                    invariant n.SubNodes.IsSome "d6801ee4-022f-4a05-a5c1-6ca4dbe24159"
+
+                    // return samples from inner node, which are not covered by children
+                    
+                    let nodeSampleWindow = n.SampleWindow
+                    for sn in n.SubNodes.Value do
+                        match QNode.TryGetInMemory sn with
+                        | None -> () // no subnode
+                        | Some sn ->
+                            let quadrantBounds = sn.Cell.GetBoundsForExponent(n.SampleExponent)
+                            match nodeSampleWindow.TryIntersect(quadrantBounds) with
+                            | None -> () // subnode quadrant contains no samples
+                            | Some nodeSampleWindowQuadrant ->
+                                let subWindow = Box2l(sn.SampleWindow.Min / 2L, sn.SampleWindow.Max / 2L)
+                                if subWindow.ContainsMaxExclusive(nodeSampleWindowQuadrant) then
+                                    // subnode quadrant samples are FULLY covered by child samples
+                                    // -> return nothing
+                                    () 
+                                else
+                                    // subnode quadrant samples are PARTIALLY covered by child samples
+                                    // -> return subtraction
+                                    let rs = Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside sn
+                                    yield! rs
+        }
+
+    
+    /// Returns all samples intersecting given cell.
+    let IntersectsCell' (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
+        let filterBb = filter.BoundingBox
+        let isNodeFullyInside (n : QNode) = filterBb.Contains n.SampleWindowBoundingBox
+        let isNodeFullyOutside (n : QNode) = not (filterBb.Intersects n.SampleWindowBoundingBox)
+        let getSamplesInside (n : QNode) =
+            let overlap = filter.GetBoundsForExponent(n.SampleExponent).Intersection(n.SampleWindow)
+            if overlap.SizeX > 0L && overlap.SizeY > 0L then
+                Some { Node = n; Selection = WindowSelected overlap }
+            else
+                None
+
+        match root.TryGetInMemory() with
+        | None -> Seq.empty
+        | Some root -> Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside root
+
 
 
 module Sample =

@@ -85,7 +85,7 @@ let ``InsideCell2d_ExactCellMatch`` () =
     let r = Query.InsideCell Query.Config.Default (Cell2d(2L, 1L, 0)) q |> Array.ofSeq
     Assert.True(r.Length = 1)
     match r.[0].Selection with
-    | Query.PartiallySelected xs ->
+    | Query.CellsSelected xs ->
         Assert.True(xs.Length = 1)
         let xs = r.[0].GetSamples<float32> Defs.Heights1f
         Assert.True(xs.Length = 1)
@@ -127,7 +127,7 @@ let ``IntersectsCell2d_ExactCellMatch`` () =
     let r = Query.IntersectsCell Query.Config.Default (Cell2d(2L, 1L, 0)) q |> Array.ofSeq
     Assert.True(r.Length = 1)
     match r.[0].Selection with
-    | Query.PartiallySelected xs ->
+    | Query.CellsSelected xs ->
         Assert.True(xs.Length = 1)
         let xs = r.[0].GetSamples<float32> Defs.Heights1f
         Assert.True(xs.Length = 1)
@@ -142,7 +142,7 @@ let ``IntersectsCell2d_Supersampling`` () =
     let r = Query.IntersectsCell Query.Config.Default (Cell2d(4L, 2L, -1)) q |> Array.ofSeq
     Assert.True(r.Length = 1)
     match r.[0].Selection with
-    | Query.PartiallySelected xs ->
+    | Query.CellsSelected xs ->
         Assert.True(xs.Length = 1)
         let xs = r.[0].GetSamples<float32> Defs.Heights1f
         Assert.True(xs.Length = 1)

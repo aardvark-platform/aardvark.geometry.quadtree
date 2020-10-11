@@ -196,19 +196,15 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
 
         subNodes
 
-    member this.AllSamples with get() : Cell2d[] =
-        let e = layers.[0].SampleExponent
-        let w = layers.[0].SampleWindow
-        let xMaxIncl = int w.Size.X - 1
-        let yMaxIncl = int w.Size.Y - 1
+    member this.GetAllSamples () : Cell2d[] =
+        this.SampleWindow.GetAllSamples(this.SampleExponent)
 
-        let samples = Array.zeroCreate (int w.Size.X * int w.Size.Y)
-        let mutable i = 0
-        for y = 0 to yMaxIncl do
-            for x = 0 to xMaxIncl do
-                samples.[i] <- Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
-                i <- i + 1
-        samples
+    member this.GetAllSamplesInsideWindow (window : Box2l) : Cell2d[] =
+        invariant (this.SampleWindow.Contains(window)) "f244101f-975c-4a0a-8c03-20e0618834b4"
+        window.GetAllSamples(this.SampleExponent)
+
+    member this.GetAllSamplesFromFirstMinusSecond (first : Box2l) (second : Box2l) : Cell2d[] =
+        first.GetAllSamplesFromFirstMinusSecond(second, this.SampleExponent)
 
     member this.GetSample (p : V2d) : Cell2d =
         this.Mapping.GetSampleCell(p)

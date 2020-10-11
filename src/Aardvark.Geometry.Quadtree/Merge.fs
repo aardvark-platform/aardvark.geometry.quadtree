@@ -7,7 +7,19 @@ open System
     Merge.
 *)
 
+/// Which data dominates in merge operations.
+type Dominance = 
+    | FirstDominates 
+    | SecondDominates 
+    | MoreDetailedDominates
+
 module Merge =
+
+    let private flipDomination d =
+           match d with
+           | FirstDominates        -> SecondDominates
+           | SecondDominates       -> FirstDominates
+           | MoreDetailedDominates -> MoreDetailedDominates
 
     let inline private intersecting (a : QNode) (b : QNode) = a.Cell.Intersects(b.Cell)
 

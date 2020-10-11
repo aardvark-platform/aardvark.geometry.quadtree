@@ -147,26 +147,29 @@ let parsePolygon filename =
         )
     |> Polygon2d
 
-let import filename (e : int) (splitLimitPowerOfTwo : int) =
+let import filename (e : int) (splitLimitPowerOfTwo : int) (verbose : bool) =
 
-    Report.BeginTimed "importing"
-    printfn "  filename: %s" filename
-    printfn "  exponent: %d" e
+    if verbose then
+        Report.BeginTimed "importing"
+        printfn "  filename: %s" filename
+        printfn "  exponent: %d" e
 
     let samples = parsePts filename e
-    printfn "  samples  : %d" samples.Length
+    if verbose then printfn "  samples  : %d" samples.Length
 
     let cells = samples |> Array.map (fun (_, xy, _, _) -> Cell2d(xy, e))
 
     let ps = samples |> Array.map (fun (p, _, _, _) -> p)
     let psBounds = Box2d(ps)
-    printfn "  psBounds : %A" psBounds
-    printfn "             %A" psBounds.Size
+    if verbose then
+        printfn "  psBounds : %A" psBounds
+        printfn "             %A" psBounds.Size
 
     let ps' = samples |> Array.map (fun (_, p, _, _) -> p)
     let bb  = Box2l(ps')
-    printfn "  psBounds': %A" bb
-    printfn "             %A" bb.Size
+    if verbose then
+        printfn "  psBounds': %A" bb
+        printfn "             %A" bb.Size
 
     let size = V2i(bb.Size) + V2i.II
     let bufferOrigin = Cell2d(bb.Min,-1)
@@ -192,9 +195,10 @@ let import filename (e : int) (splitLimitPowerOfTwo : int) =
     // build the quadtree (incl. levels-of-detail)
     let config = { BuildConfig.Default with SplitLimitPowerOfTwo = splitLimitPowerOfTwo }
     let qtree = Quadtree.Build config [| heightsLayer; normalsLayer |]
-    printfn "  created quadtree: %A" qtree.Cell
-
-    Report.EndTimed () |> ignore
+    
+    if verbose then
+        printfn "  created quadtree: %A" qtree.Cell
+        Report.EndTimed () |> ignore
 
     (qtree, cells)
 
@@ -398,67 +402,96 @@ let cpunz20200923 () =
 
     ()
 
+/// Query.IntersectsCell speed too slow (seen for many queries) ...
 let cpunz20200925 () =
 
     CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
 
-    let (q0, cells0) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50.pts" -1 2
-    let (q1, cells1) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50_1.pts" -1 2
+    for e = 3 to 10 do
 
-    let polygon = parsePolygon @"T:\Vgm\Data\Raster\20200925_cpunz\polygon_volumen.txt"
+        printfn "---------- e = %d --------------" e
 
-    let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) =
+        let (q0, cells0) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50.pts" -1 e false
+        let (q1, cells1) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50_1.pts" -1 e false
+
+        let polygon = parsePolygon @"T:\Vgm\Data\Raster\20200925_cpunz\polygon_volumen.txt"
+
+        let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) =
         
-        let posAndParams = // : V4f[]
-            resultChunk       
-            |> Seq.collect (fun chunk -> chunk.GetSamples<V3f> Defs.Normals3f)        
-            |> Seq.map (fun (cell, normal) -> 
-                //let bilParam = {| b0 = (float)bilParamV.X; b1 = (float)bilParamV.Y; b2 = (float)bilParamV.Z; b3 = (float)bilParamV.W |}
-                (normal, cell))   
+            let debug = resultChunk |> Seq.toArray
+            //printfn "[makeReturnValOfQueryResults] %d" debug.Length
+
+            let posAndParams = // : V4f[]
+                debug       
+                |> Seq.collect (fun chunk -> chunk.GetSamples<V3f> Defs.Normals3f)        
+                |> Seq.map (fun (cell, normal) -> 
+                    //let bilParam = {| b0 = (float)bilParamV.X; b1 = (float)bilParamV.Y; b2 = (float)bilParamV.Z; b3 = (float)bilParamV.W |}
+                    (normal, cell))   
             
-        posAndParams |> Seq.filter (fun pos -> (fst pos).X.IsNaN() |> not)
-                     |> Seq.map (fun pos -> (Some (snd pos), Some (fst pos)) )
+            posAndParams |> Seq.filter (fun pos -> (fst pos).X.IsNaN() |> not)
+                         |> Seq.map (fun pos -> (Some (snd pos), Some (fst pos)) )
 
 
-    let queryQuadtreeCellCounterParts (qtree : QNodeRef) (cellForQuery : Cell2d) =
+        let mutable count = 0
+        let queryQuadtreeCellCounterParts (qtree : QNodeRef) (cellForQuery : Cell2d) =
+            count <- count + 1
+            //if count % 1000 = 0 then printfn "[progress] %d" count
             let config = Query.Config.Default
             qtree |> Query.IntersectsCell config cellForQuery |> makeReturnValOfQueryResults
 
-    let dtmCellsZeroBased = 
-        Query.InsidePolygon Query.Config.Default polygon q0
-        |> Seq.collect (fun chunk -> chunk.GetSamples<V3f> Defs.Normals3f)
-        |> Seq.map fst
-        |> Seq.toArray
+        let dtmCellsZeroBased = 
+            Query.InsidePolygon Query.Config.Default polygon q0
+            |> Seq.collect (fun chunk -> chunk.GetSamples<V3f> Defs.Normals3f)
+            |> Seq.map fst
+            |> Seq.toArray
 
-    printfn "cells count (polygon): %d" dtmCellsZeroBased.Length
+        //printfn "cells count (polygon): %d" dtmCellsZeroBased.Length
 
-    printfn "cells count (q0)     : %d" cells0.Length
-    Report.BeginTimed("compute")
+        //printfn "cells count (q0)     : %d" cells0.Length
+        //printfn "cells count (q1)     : %d" cells1.Length
+        Report.BeginTimed("compute")
 
-    let newDifferenceModel = 
-        //cells0
-        dtmCellsZeroBased
-        |> Seq.map (fun oneElem -> 
-            let cellEnum = queryQuadtreeCellCounterParts q1 oneElem |> Seq.toArray
-            cellEnum
-            )
-        //|> Seq.take 100
-        |> Seq.toArray
+        let newDifferenceModel = 
+            //cells0
+            dtmCellsZeroBased
+            //|> Seq.take 1
+            |> Seq.map (fun oneElem -> 
+                let cellEnum = queryQuadtreeCellCounterParts q1 oneElem |> Seq.toArray
+                //printfn "[newDifferenceModel] %d" cellEnum.Length
+                cellEnum
+                )
+            //|> Seq.take 100
+            |> Seq.toArray
 
-    Report.EndTimed() |> ignore
+        Report.EndTimed() |> ignore
 
-    let foo = newDifferenceModel |> Array.map (fun x -> (fst x.[0]).Value) |> Array.sortBy (fun x -> (x.X, x.Y, x.Exponent))
+        let foo = newDifferenceModel |> Array.map (fun x -> (fst x.[0]).Value) |> Array.sortBy (fun x -> (x.X, x.Y, x.Exponent))
     
-    printfn "q0 node count               %d" (q0 |> Quadtree.CountNodes)
-    printfn "q1 node count               %d" (q1 |> Quadtree.CountNodes)
-    printfn "newDifferenceModel.Length = %d" newDifferenceModel.Length
+        //printfn "q0 node count               %d" (q0 |> Quadtree.CountNodes)
+        //printfn "q1 node count               %d" (q1 |> Quadtree.CountNodes)
+        printfn "newDifferenceModel.Length = %d" newDifferenceModel.Length
 
-    ()
+        ()
+
+let subtractionEnumerationTest () =
+    let a = Box2l(0L, 0L, 3L, 3L)
+    let aSamples = a.GetAllSamples(0)
+    printfn "%A" aSamples
+
+    let b = Box2l(1L, 0L, 2L, 3L)
+    let bSamples = b.GetAllSamples(0)
+    printfn "%A" bSamples
+
+    let result = a.GetAllSamplesFromFirstMinusSecond(b, 0)
+    printfn "%A" result
 
 [<EntryPoint>]
 let main argv =
 
+    //subtractionEnumerationTest ()
+   
     cpunz20200925 ()
+
     //cpunz20200923 ()
 
     //polyTest ()

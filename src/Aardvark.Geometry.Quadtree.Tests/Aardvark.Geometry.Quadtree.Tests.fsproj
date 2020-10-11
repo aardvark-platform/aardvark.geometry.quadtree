@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="PreludeTests.fs" />
     <Compile Include="QuadtreeTestsObsolete.fs" />
     <Compile Include="SerializationTests.fs" />
     <Compile Include="DataMappingTests.fs" />
