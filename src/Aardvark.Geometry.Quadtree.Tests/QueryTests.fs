@@ -124,33 +124,35 @@ let ``IntersectsCell2d_Partial`` () =
 [<Fact>]
 let ``IntersectsCell2d_ExactCellMatch`` () =
     let q = createQuadtree ()
+    
     let r = Query.IntersectsCell Query.Config.Default (Cell2d(2L, 1L, 0)) q |> Array.ofSeq
     Assert.True(r.Length = 1)
-    match r.[0].Selection with
-    | Query.CellsSelected xs ->
-        Assert.True(xs.Length = 1)
-        let xs = r.[0].GetSamples<float32> Defs.Heights1f
-        Assert.True(xs.Length = 1)
-        let (c, x) = xs.[0]
-        Assert.True(Cell2d(2L, 1L, 0) = c)
-        Assert.True(2.01f = x)
-    | _ -> Assert.True(false)
+    
+    let resultCells = r.[0].GetSampleCells()
+    Assert.True(resultCells.Length = 1)
+    Assert.True(resultCells.[0] = Cell2d(2L, 1L, 0))
+
+    let xs = r.[0].GetSamples<float32> Defs.Heights1f
+    Assert.True(xs.Length = 1)
+    let (c, x) = xs.[0]
+    Assert.True(Cell2d(2L, 1L, 0) = c)
+    Assert.True(2.01f = x)
 
 [<Fact>]
 let ``IntersectsCell2d_Supersampling`` () =
     let q = createQuadtree ()
+    
     let r = Query.IntersectsCell Query.Config.Default (Cell2d(4L, 2L, -1)) q |> Array.ofSeq
     Assert.True(r.Length = 1)
-    match r.[0].Selection with
-    | Query.CellsSelected xs ->
-        Assert.True(xs.Length = 1)
-        let xs = r.[0].GetSamples<float32> Defs.Heights1f
-        Assert.True(xs.Length = 1)
-        let (c, x) = xs.[0]
-        Assert.True(Cell2d(2L, 1L, 0) = c)
-        Assert.True(2.01f = x)
-    | _ -> Assert.True(false)
 
+    let resultCells = r.[0].GetSampleCells()
+    Assert.True(resultCells.Length = 1)
+
+    let xs = r.[0].GetSamples<float32> Defs.Heights1f
+    Assert.True(xs.Length = 1)
+    let (c, x) = xs.[0]
+    Assert.True(Cell2d(2L, 1L, 0) = c)
+    Assert.True(2.01f = x)
 
 [<Fact>]
 let ``InsideBox2d_FullyInside`` () =

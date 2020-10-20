@@ -45,7 +45,11 @@ type Cell2dExtensions =
     static member GetBoundsForExponent (self : Cell2d, e : int) : Box2l =
         let d = self.Exponent - e
         if d < 0 then 
-            failwith "Invariant 9fa8c845-2821-4cfa-9fc2-f9b8c15030f7."
+            let mutable cell = self
+            while cell.Exponent < e do cell <- cell.Parent
+            Box2l.FromMinAndSize(cell.XY, 1L, 1L)
+        elif d = 0 then
+            Box2l.FromMinAndSize(self.XY, 1L, 1L)
         else
             let f = 1L <<< d
             let x = self.X <<< d
