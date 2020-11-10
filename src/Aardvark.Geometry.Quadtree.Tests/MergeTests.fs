@@ -199,6 +199,32 @@ let ``Merge_Overlapping_1x1_SameDepth_FirstDominates`` () =
     ()
 
 [<Fact>]
+let ``Merge_Overlapping_1x1_SameDepth_FirstDominates_2`` () =
+
+    let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
+
+    let m = Merge FirstDominates a b
+    let l = m.GetLayer<float32> Defs.Heights1f
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
+    Assert.True((x = 10.0f))
+
+    ()
+
+[<Fact>]
+let ``Merge_Overlapping_1x1_SameDepth_FirstDominates_3`` () =
+
+    let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
+
+    let m = Merge FirstDominates b a
+    let l = m.GetLayer<float32> Defs.Heights1f
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
+    Assert.True((x = 20.0f))
+
+    ()
+
+[<Fact>]
 let ``Merge_Overlapping_1x1_SameDepth_SecondDominates`` () =
 
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
@@ -208,6 +234,32 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates`` () =
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,0))
     Assert.True((x = 20.0f))
+
+    ()
+
+[<Fact>]
+let ``Merge_Overlapping_1x1_SameDepth_SecondDominates_2`` () =
+
+    let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
+
+    let m = Merge SecondDominates a b
+    let l = m.GetLayer<float32> Defs.Heights1f
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
+    Assert.True((x = 20.0f))
+
+    ()
+
+[<Fact>]
+let ``Merge_Overlapping_1x1_SameDepth_SecondDominates_3`` () =
+
+    let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
+
+    let m = Merge SecondDominates b a
+    let l = m.GetLayer<float32> Defs.Heights1f
+    let x = l.GetSample(Fail, Cell2d(0,0,0))
+    Assert.True((x = 10.0f))
 
     ()
 

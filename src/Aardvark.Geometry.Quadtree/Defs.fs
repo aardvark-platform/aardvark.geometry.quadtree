@@ -30,14 +30,14 @@ module Defs =
     let Heights1f              = def "4cb689c5-b627-4bcd-9db7-5dbd24d7545a" "Quadtree.Heights1f" "Quadtree. Height value per sample. Float32[]." Durable.Primitives.Float32Array
     let Heights1fLayer         = def "fcf042b4-fe33-4e28-9aea-f5526600f8a4" "Quadtree.Heights1f.Layer" "Quadtree. Heights1f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     
-    let HeightsBilinear4f      = def "4d343b08-b82d-4667-830b-72a5180509de" "Quadtree.HeightsBilinearParams4f" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4f[]." Durable.Aardvark.V4fArray
-    let HeightsBilinear4fLayer = def "2e03222d-4f72-49e6-b56f-79c8839127f8" "Quadtree.HeightsBilinearParams4f.Layer" "Quadtree. HeightsBilinearParams4f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    let HeightsBilinear4f      = def "4d343b08-b82d-4667-830b-72a5180509de" "Quadtree.HeightsBilinear4f" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4f[]." Durable.Aardvark.V4fArray
+    let HeightsBilinear4fLayer = def "2e03222d-4f72-49e6-b56f-79c8839127f8" "Quadtree.HeightsBilinear4f.Layer" "Quadtree. HeightsBilinearParams4f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let Heights1d              = def "c66a4240-00ef-44f9-b377-0667f279b97e" "Quadtree.Heights1d" "Quadtree. Height value per sample. Float64[]." Durable.Primitives.Float64Array
     let Heights1dLayer         = def "baa8ed40-57e3-4f88-8d11-0b547494c8cb" "Quadtree.Heights1d.Layer" "Quadtree. Heights1d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
                                
-    let HeightsBilinear4d      = def "ea09c9f0-ac1a-4905-9a4e-5a7ebdcd873f" "Quadtree.HeightsBilinearParams4d" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4d[]." Durable.Aardvark.V4dArray
-    let HeightsBilinear4dLayer = def "c93e5b85-7455-425f-949b-517f38f40bac" "Quadtree.HeightsBilinearParams4d.Layer" "Quadtree. HeightsBilinearParams4d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    let HeightsBilinear4d      = def "ea09c9f0-ac1a-4905-9a4e-5a7ebdcd873f" "Quadtree.HeightsBilinear4d" "Quadtree. Height value per sample as bilinear params. height(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4d[]." Durable.Aardvark.V4dArray
+    let HeightsBilinear4dLayer = def "c93e5b85-7455-425f-949b-517f38f40bac" "Quadtree.HeightsBilinear4d.Layer" "Quadtree. HeightsBilinearParams4d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
     let Normals3f              = def "d5166ae4-7bea-4ebe-a3bf-cae8072f8951" "Quadtree.Normals3f" "Quadtree. Normal vector per sample. V3f[]." Durable.Aardvark.V3fArray
     let Normals3fLayer         = def "817ecbb6-1e86-41a2-b1ee-53884a27ea97" "Quadtree.Normals3f.Layer" "Quadtree. Normals3f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16

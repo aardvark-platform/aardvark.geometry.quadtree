@@ -485,12 +485,82 @@ let subtractionEnumerationTest () =
     let result = a.GetAllSamplesFromFirstMinusSecond(b, 0)
     printfn "%A" result
 
+let cpunz20201105 () =
+
+    let createQuadTreePlanes =
+
+        // define mapping of raw data to raster space
+        let hor1 = V4f(1.0, 0.0,0.0,0.0)
+        let hor2 = V4f(2.0, 0.0,0.0,0.0)
+        let oblique12 = V4f(1.5, 1.0,0.0,0.0)
+        
+        let parameters = [|hor1; oblique12; hor2; 
+                           hor1; oblique12; hor2;
+                           hor1; oblique12; hor2;
+                           hor1; oblique12; hor2|]
+
+        let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 4))
+
+        // a layer gives meaning to raw data
+        let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+        
+        // build the quadtree (incl. levels-of-detail)
+        
+        let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+
+        qtree
+
+    let createOneCell = 
+        // define mapping of raw data to raster space
+        let hor1 = V4f(1.0, 0.0,0.0,0.0)
+        let hor2 = V4f(2.0, 0.0,0.0,0.0)
+        let oblique12 = V4f(1.5, 1.0,0.0,0.0)
+        
+        let parameters = [|oblique12|]
+
+        let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(1, 1))
+
+        // a layer gives meaning to raw data
+        let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+        
+        // build the quadtree (incl. levels-of-detail)
+        
+        let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+
+        qtree
+
+    let mainTree = createQuadTreePlanes
+    let subTree = createOneCell
+    let newTree = Quadtree.Merge SecondDominates mainTree subTree
+    //let (_, _, x0) = get pos mainTree
+    //let (_, _, x1) = get pos subTree
+
+    let test target merged =
+        let get (pos : V2d) root = ((Sample.Position Query.Config.Default pos root |> Seq.head).GetSamples<V4f> Defs.HeightsBilinear4f).[0]
+        let pos = V2d(0.5, 0.5)
+        let (_, _, x) = get pos merged
+        printfn "sample %A; target %A; %A" x target (x = target) 
+
+    
+    Quadtree.Merge FirstDominates  mainTree subTree |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
+    Quadtree.Merge SecondDominates mainTree subTree |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
+    Quadtree.Merge FirstDominates  subTree mainTree |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
+    Quadtree.Merge SecondDominates subTree mainTree |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
+
+    ()
+
+
+
+
+
 [<EntryPoint>]
 let main argv =
 
+    cpunz20201105 ()
+
     //subtractionEnumerationTest ()
    
-    cpunz20200925 ()
+    //cpunz20200925 ()
 
     //cpunz20200923 ()
 
