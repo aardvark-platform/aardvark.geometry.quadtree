@@ -536,9 +536,9 @@ let cpunz20201105 () =
     //let (_, _, x1) = get pos subTree
 
     let test target merged =
-        let get (pos : V2d) root = ((Sample.Position Query.Config.Default pos root |> Seq.head).GetSamples<V4f> Defs.HeightsBilinear4f).[0]
+        let get (pos : V2d) root = Sample.PositionTyped<V4f> Query.Config.Default pos Defs.HeightsBilinear4f root
         let pos = V2d(0.5, 0.5)
-        let (_, _, x) = get pos merged
+        let x = (get pos merged).Value
         printfn "sample %A; target %A; %A" x target (x = target) 
 
     

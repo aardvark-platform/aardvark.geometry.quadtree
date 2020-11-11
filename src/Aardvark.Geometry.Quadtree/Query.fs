@@ -373,6 +373,8 @@ module Sample =
         }
 
     /// Returns samples at given positions.
+    /// If there is no sample at a given position, it will not be included in the result sequence.
+    /// This means, the result sequence may be empty.
     let Positions (config : Query.Config) (positions : V2d[]) (root : QNodeRef) : SampleResult seq=
         let bb = Box2d(positions)
         match root.TryGetInMemory() with
@@ -383,13 +385,21 @@ module Sample =
             else
                 Seq.empty
 
-    /// Returns sample at given position.
-    let Position (config : Query.Config) (position : V2d) (root : QNodeRef) : SampleResult seq =
-        Positions config [| position |] root
+    /// Returns sample at given position, or None if there is no sample.
+    let Position (config : Query.Config) (position : V2d) (root : QNodeRef) : SampleResult option =
+        Positions config [| position |] root |> Seq.tryHead
+
+    let PositionTyped<'a>  (config : Query.Config) (position : V2d) (def : Durable.Def) (root : QNodeRef) : 'a option =
+        match Position config position root with
+        | Some x -> 
+            let xs = x.GetSamples<'a> def
+            let (_, _, result) = xs.[0]
+            Some result
+        | None -> None
 
     /// Returns sample cell at given position, or None if there is no sample at this position.
     let TryGetCellAtPosition (config : Query.Config) (position : V2d) (root : QNodeRef) : Cell2d option =
-        match Position config position root |> Seq.tryHead with
+        match Position config position root with
         | None -> None
         | Some result -> 
             if result.Cells.Length > 1 then failwith "Invariant 26b9fc1a-45ee-4e14-aede-ea50c32e3bed."

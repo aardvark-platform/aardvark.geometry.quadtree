@@ -83,29 +83,37 @@ module Merge =
         invariantm (a.Length = b.Length) "Mismatch number of layers." "d034fed2-aaa8-4e95-851d-48cc364943e9"
 
         let mutable merged = Map.empty
+
         let merge (x : ILayer) : unit =
-            match Map.tryFind x.Def.Id merged with
+            let def = x.Def
+            match Map.tryFind def.Id merged with
 
             | Some (first : ILayer) ->
                 let second = x
+                if first.Def.Id <> second.Def.Id then failwith "Invariant b2af0e01-849d-48a2-8026-686dc72176e2."
 
-                let handleCollision () =
-                    match seq {second;first} |> Layer.Merge with
+                let firstWins =
+                    match domination with
+                    | FirstDominates -> true
+                    | SecondDominates -> false
+                    | MoreDetailedDominates -> first.SampleExponent < second.SampleExponent
+
+                let handleCollision layers =
+                    match Layer.Merge layers with
                     | Some z -> merged <- merged |> Map.add z.Def.Id z
-                    | None -> ()
+                    | None -> failwith "Invariant 830238b9-c428-4a15-bf44-08d57ace123a."
 
                 if second.Mapping = first.Mapping then
-                    if second.SampleExponent <> first.SampleExponent then
-                        match domination, second.SampleExponent < first.SampleExponent with
-                        | FirstDominates, _ | MoreDetailedDominates, true  -> merged <- merged |> Map.add second.Def.Id first
-                        | SecondDominates, _ | MoreDetailedDominates, false -> merged <- merged |> Map.add first.Def.Id second
-                    else
-                        match domination with
-                        | FirstDominates -> merged <- merged |> Map.add second.Def.Id first
-                        | SecondDominates -> merged <- merged |> Map.add first.Def.Id second
-                        | MoreDetailedDominates -> handleCollision()
+
+                    // perfect overlap AND same resolution
+                    let winner = if firstWins then first else second
+                    merged <- merged |> Map.add def.Id winner
+
                 else
-                    handleCollision()
+
+                    // partial overlap OR different resolution
+                    let ordered = if firstWins then [second; first] else [first; second]
+                    handleCollision ordered
 
             | None   -> merged <- merged |> Map.add x.Def.Id x
 
