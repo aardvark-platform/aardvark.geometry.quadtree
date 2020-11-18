@@ -84,7 +84,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
         let bb = cell.BoundingBox
         for layer in layers do
             invariantm (layer.SampleExponent = e) "Layers exponent mismatch."   "7adc422c-effc-4a86-b493-ff1cd0f9e991"
-            invariantm (layer.SampleWindow = w) "Layers window mismatch."       "74a57d1d-6a7f-4f9e-b26c-41a1e79cb989"
+            invariantm (layer.SampleWindow = w)   "Layers window mismatch."     "74a57d1d-6a7f-4f9e-b26c-41a1e79cb989"
             invariantm (bb.Contains(layer.Mapping.BoundingBox)) 
                 (sprintf "Layer %A is outside node bounds." layer.Def.Id)       "dbe069cc-df5c-42c1-bb58-59c5a061ee15"
             

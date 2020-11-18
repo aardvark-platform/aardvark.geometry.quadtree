@@ -549,6 +549,70 @@ let cpunz20201105 () =
 
     ()
 
+let cpunz20201116 () =
+
+    let createQuadTreePlanes =
+        let parameters = [| 1.0;  2.0;  3.0; 
+                            4.0;  5.0;  6.0;
+                            7.0;  8.0;  9.0;
+                           10.0; 11.0; 12.0 |]
+        let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 4))
+        let bilinParameters = Layer(Defs.Heights1d, parameters, mapping)
+        let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+        qtree
+
+    let createOneCell = 
+        let parameters = [|501.0; 502.0;
+                           503.0; 504.0|]
+        let mapping = DataMapping(origin = Cell2d(0L, 2L, -1), size = V2i(2, 2))
+        let bilinParameters = Layer(Defs.Heights1d, parameters, mapping)
+        let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+        qtree
+
+    let createOneSubCell = 
+        let hor1 = V4f(4.0, 0.0,0.0,0.0)
+        let parameters = [|9991.0; 9992.0;
+                           9993.0; 9994.0 |]
+        let mapping = DataMapping(origin = Cell2d(2L, 4L, -2), size = V2i(2, 2))
+        let bilinParameters = Layer(Defs.Heights1d, parameters, mapping)
+        let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+        qtree
+
+    let printRaster raster =
+        raster |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<float>(Defs.Heights1d)) |> printfn "%A"
+
+    let mainTree = createQuadTreePlanes
+    let mainTree' = mainTree.TryGetInMemory().Value
+    printfn "[mainTree  ] isLeafNode = %A" mainTree'.IsLeafNode
+    printRaster mainTree
+
+    let subTree = createOneCell
+    let subTree' = subTree.TryGetInMemory().Value
+    printfn "[subTree   ] isLeafNode = %A" subTree'.IsLeafNode
+    printRaster subTree
+
+    let newTree = Quadtree.Merge SecondDominates mainTree subTree
+    let newTree' = newTree.TryGetInMemory().Value
+    printfn "[newTree   ] isLeafNode = %A" newTree'.IsLeafNode
+    printRaster newTree
+    
+    let subSubTree = createOneSubCell
+    let subSubTree' = subSubTree.TryGetInMemory().Value
+    printfn "[subSubTree] isLeafNode = %A" subSubTree'.IsLeafNode
+    printRaster subSubTree
+
+    let subNewTree = Quadtree.Merge SecondDominates newTree subSubTree
+    let subNewTree' = subNewTree.TryGetInMemory().Value
+    printfn "[subNewTree] isLeafNode = %A" subNewTree'.IsLeafNode
+    printRaster subNewTree
+
+    //let qtreeCells = queryService.QueryQuadtreeAll subNewTree
+    let resultCells = subNewTree |> Query.All Query.Config.Default |> Seq.toArray
+    
+    //printfn "%A" resultCells
+
+
+    ()
 
 
 
@@ -556,7 +620,9 @@ let cpunz20201105 () =
 [<EntryPoint>]
 let main argv =
 
-    cpunz20201105 ()
+    cpunz20201116 ()
+
+    //cpunz20201105 ()
 
     //subtractionEnumerationTest ()
    
