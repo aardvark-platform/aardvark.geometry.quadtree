@@ -16,7 +16,6 @@ type BuildConfig = {
 with
     static member Default = { SplitLimitPowerOfTwo = 8 }
 
-[<AutoOpen>]
 module Quadtree =
 
     let rec private tryCount a b (root : QNodeRef) =
@@ -30,6 +29,8 @@ module Quadtree =
     let rec CountNodes root = root |> tryCount 1 1
     let rec CountLeafs root = root |> tryCount 1 0
     let rec CountInner root = root |> tryCount 0 1
+
+
 
     let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : QNode =
     
@@ -80,7 +81,7 @@ module Quadtree =
                 | Some x -> invariant (x.Cell = children.[i])                               "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e"
                 | None -> ()
 
-            let lodLayers = QNode.GenerateLodLayers subNodes rootCell
+            let lodLayers = QNode.generateLodLayers subNodes rootCell
 
             QNode(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, lodLayers, Some subNodes)
         
@@ -110,7 +111,8 @@ module Quadtree =
 
         build config rootCell sampleExponent layers |> InMemoryNode
 
-    let Merge (domination : Dominance) (a : QNodeRef) (b : QNodeRef) = Merge.Merge domination a b
+    let Merge (first : QNodeRef) (second : QNodeRef) (domination : Dominance) =
+        Merge.merge first second domination
 
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =

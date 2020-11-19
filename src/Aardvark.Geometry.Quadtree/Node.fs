@@ -182,14 +182,27 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
         options.Save id buffer
         id
 
+    member this.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () : QNode[] =
+        if this.Cell.IsCenteredAtOrigin then
+            let subLayers = cell.Children |> Array.map (fun subCell ->
+                let cell = subCell.Parent
+                let subBox = cell.GetBoundsForExponent(this.SampleExponent)
+                let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
+                (cell, subLayers) 
+                )
+            subLayers |> Array.map (fun (subCell, subLayers) ->
+                QNode(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None)
+                )
+        else
+            failwith "Node must be centered at origin to split into quadrant nodes at same level. Invariant 6a4321b1-0f59-4574-bf51-fcce423fa389."
+
     member this.Split () : QNode[] =
 
         let subLayers = cell.Children |> Array.map (fun subCell ->
-            let subBox = subCell.GetBoundsForExponent(layers.[0].SampleExponent)
+            let subBox = subCell.GetBoundsForExponent(this.SampleExponent)
             let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
             (subCell, subLayers) 
             )
-
         let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
             QNode(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None)
             )
@@ -288,14 +301,14 @@ and
 
 module QNode =
 
-    let ToRef (n : QNode option) =
+    let toRef (n : QNode option) =
         match n with
         | Some n -> InMemoryNode n
         | None -> NoNode
 
-    let TryGetInMemory (n : QNodeRef) = n.TryGetInMemory()
+    let tryGetInMemory (n : QNodeRef) : QNode option = n.TryGetInMemory()
 
-    let internal GenerateLodLayers (subNodes : QNodeRef[]) (rootCell : Cell2d) =
+    let generateLodLayers (subNodes : QNodeRef[]) (rootCell : Cell2d) =
 
         let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
         invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
@@ -329,3 +342,85 @@ module QNode =
         invariant (selfExponent = maxSubNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81"
 
         result
+
+    /// Computes and attaches a parent nodes to given tree until given root is reached.
+    /// Returns new tree starting at root.
+    /// Newly attached nodes contains resampled layers (LoD) from given node.
+    let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =
+
+           match nodeRef.TryGetInMemory() with
+           | None -> NoNode
+           | Some node ->
+               invariant (root.Contains(node.Cell))                                                "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
+               invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
+               invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
+               
+               if root = node.Cell then
+                   InMemoryNode node
+               else
+                   invariant (root.Exponent > node.Cell.Exponent)                                  "b652d9bc-340a-4312-8407-9fdee62ffcaa"
+
+                   if root.IsCenteredAtOrigin && node.Cell.IsCenteredAtOrigin then
+
+                       let roots = root.Children
+                       let nodes = match node.SubNodes with
+                                   | Some xs -> xs
+                                   | None    -> node.SplitCenteredNodeIntoQuadrantNodesAtSameLevel() |> Array.map InMemoryNode
+                       let rootSubNodes  = Array.map2 extendUpTo roots nodes
+                       let rootLodLayers = generateLodLayers rootSubNodes root
+
+                       let n = QNode(Guid.NewGuid(), root, node.SplitLimitExponent,
+                                     node.OriginalSampleExponent, rootLodLayers,
+                                     rootSubNodes)
+
+                       InMemoryNode n
+
+                   else
+                       let isChildOfCenteredRoot = root.IsCenteredAtOrigin && root.Exponent = node.Cell.Exponent + 1
+
+                       let parentCell = if isChildOfCenteredRoot then root else node.Cell.Parent
+                       let qi = parentCell.GetQuadrant(node.Cell)
+                   
+                       invariantm qi.HasValue                                                      "09575aa7-38b3-4afa-bb63-389af3301fc0"
+                           (sprintf "Parent cell: %A; node cell: %A." parentCell node.Cell)
+                   
+                       let parentSubNodes = Array.create 4 NoNode
+                       parentSubNodes.[qi.Value] <- InMemoryNode node
+                       let parentLodLayers = generateLodLayers parentSubNodes root
+                   
+                       invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent)    "7b0fa058-4812-4332-9547-0c33ee7ea7d5"
+                   
+                       let parentNode = QNode(Guid.NewGuid(), parentCell, node.SplitLimitExponent,
+                                              node.OriginalSampleExponent, parentLodLayers,
+                                              parentSubNodes)
+                   
+                       invariant (parentNode.Cell.Exponent = node.Cell.Exponent + 1)               "27b263d3-7fe5-49fd-96ca-422c37f9a31a"
+                       invariant (parentNode.SampleExponent = node.SampleExponent + 1)             "6076b045-9bee-4285-b583-1d3d49bb259a"
+                   
+                       match extendUpTo root (InMemoryNode parentNode) with
+                       | InMemoryNode result -> invariant (root.Exponent = result.Cell.Exponent)   "a0d249da-ed0d-4abe-8751-191ad0ffb9f9"
+                                                InMemoryNode result
+                       | _ -> failwith "Invariant 991571a4-ea05-4142-bd38-a6964319ba97."
+
+    ///// Computes and attaches a parent node to given tree.
+    ///// Returns new tree with parent attached.
+    ///// Parent node contains resampled layers (LoD) from given node.
+    //let attachParentNode (nodeRef : QNodeRef) : QNodeRef =
+        
+    //    match nodeRef.TryGetInMemory() with
+    //    | None      -> NoNode
+    //    | Some node ->
+
+    //        if node.Cell.IsCenteredAtOrigin then
+
+    //            extendUpTo node.Cell.Parent (InMemoryNode node)
+
+    //        else
+            
+    //            let parentCell = node.Cell.Parent
+    //            let i = parentCell.GetQuadrant(node.Cell).Value
+    //            let subNodes = Array.create 4 NoNode
+    //            subNodes.[i] <- nodeRef
+    //            let parentLayers = node.Layers |> Array.map (fun x -> x.ResampleUntyped parentCell)
+    //            let n = QNode(Guid.NewGuid(), parentCell, node.SplitLimitExponent, node.OriginalSampleExponent, parentLayers, subNodes)
+    //            InMemoryNode n

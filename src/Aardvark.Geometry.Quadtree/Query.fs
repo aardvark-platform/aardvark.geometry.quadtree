@@ -83,7 +83,7 @@ module Query =
                 if config.Verbose then printfn "[Generic ] isFullyOutside"
                 ()
             else
-                if n.IsLeafNode || n.Cell.Exponent = config.MinExponent then
+                if n.IsLeafNode || n.SampleExponent = config.MinExponent then
                     // reached leaf or max depth
                     if config.Verbose then printfn "[Generic ] reached leaf or max depth"
                     if isNodeFullyInside n then
@@ -108,7 +108,7 @@ module Query =
                     invariant n.SubNodes.IsSome "0baa1ede-dde1-489b-ba3c-28a7e7a5bd3a"
 
                     // return samples from inner node, which are not covered by children
-                    let subWindows = n.SubNodes.Value  |> Array.map QNode.TryGetInMemory |> Array.choose (Option.map (fun x -> x.SampleWindow))
+                    let subWindows = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.SampleWindow))
                     let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2l) =
                         let sampleWindow = Box2l.FromMinAndSize(sample.XY * 2L, V2l(2, 2))
                         subWindow.Intersects sampleWindow
@@ -123,7 +123,7 @@ module Query =
                     match n.SubNodes with
                     | None -> failwith "Invariant 4f33151d-e387-40a1-a1b7-c04e2335bd91."
                     | Some subnodes ->
-                        for subnode in subnodes |> Seq.choose QNode.TryGetInMemory do
+                        for subnode in subnodes |> Seq.choose QNode.tryGetInMemory do
                             let r = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside subnode
                             yield! r
         }
@@ -254,7 +254,7 @@ module Query =
                     
                     let nodeSampleWindow = n.SampleWindow
                     for sn in n.SubNodes.Value do
-                        match QNode.TryGetInMemory sn with
+                        match QNode.tryGetInMemory sn with
                         | None -> () // no subnode
                         | Some sn ->
                             let quadrantBounds = sn.Cell.GetBoundsForExponent(n.SampleExponent)
@@ -339,7 +339,7 @@ module Sample =
                     invariant n.SubNodes.IsSome "d8bf936c-7ff5-48b0-ac8a-d714f1e3af4c"
 
                     // split positions in two sets, by whether a position is covered by subnode samples (or not)
-                    let subSwbbs = n.SubNodes.Value  |> Array.map QNode.TryGetInMemory |> Array.choose (Option.map (fun x -> x.SampleWindowBoundingBox))
+                    let subSwbbs = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.SampleWindowBoundingBox))
                     let inline coveredByInnerNodeSamples (p : V2d) = swbb.ContainsMaxExclusive p
                     let inline coveredBySubNodeSamples (p : V2d) = subSwbbs |> Array.exists (fun bb -> bb.ContainsMaxExclusive(p))
                     let mutable positionsCoveredBySubNodeSamples = Array.empty
@@ -363,7 +363,7 @@ module Sample =
                             match p.X >= center.X, p.Y >= center.Y with | false, false -> 0 | true,  false -> 1 | false, true  -> 2 | true,  true  -> 3
                         let spss = positionsCoveredBySubNodeSamples |> Array.groupBy getQuadrant
                         for (quadrant, ps) in spss do
-                            match subnodes.[quadrant] |> QNode.TryGetInMemory with
+                            match subnodes.[quadrant] |> QNode.tryGetInMemory with
                             | None -> failwith "Invariant b431402f-9db7-4b74-b3bd-ca8655d96f58."
                             | Some subnode ->
                                 let bb = Box2d(ps)

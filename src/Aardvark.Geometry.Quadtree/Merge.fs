@@ -21,62 +21,10 @@ module Merge =
            | SecondDominates       -> FirstDominates
            | MoreDetailedDominates -> MoreDetailedDominates
 
-    let inline private intersecting (a : QNode) (b : QNode) = a.Cell.Intersects(b.Cell)
+    let inline private overlapping (a : QNode) (b : QNode) = a.Cell.Intersects(b.Cell)
 
-    let rec private extendUpTo (root : Cell2d) (node : QNodeRef) : QNodeRef =
-        match node.TryGetInMemory() with
-        | None -> NoNode
-        | Some node ->
-            invariant (root.Contains(node.Cell))                                                "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
-            invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
-            invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
-            
-            if root = node.Cell then
-                InMemoryNode node
-            else
-                invariant (root.Exponent > node.Cell.Exponent)                                  "b652d9bc-340a-4312-8407-9fdee62ffcaa"
+   
 
-                if root.IsCenteredAtOrigin && node.Cell.IsCenteredAtOrigin then
-
-                    let roots = root.Children
-                    let nodes = match node.SubNodes with
-                                | Some xs -> xs
-                                | None    -> node.Split() |> Array.map InMemoryNode
-                    let rootSubNodes = Array.map2 extendUpTo roots nodes
-                    let rootLodLayers = QNode.GenerateLodLayers rootSubNodes root
-
-                    let n = QNode(Guid.NewGuid(), root, node.SplitLimitExponent,
-                                 node.OriginalSampleExponent, rootLodLayers,
-                                 rootSubNodes)
-
-                    InMemoryNode n
-
-                else
-                    let isChildOfCenteredRoot = root.IsCenteredAtOrigin && root.Exponent = node.Cell.Exponent + 1
-
-                    let parentCell = if isChildOfCenteredRoot then root else node.Cell.Parent
-                    let qi = parentCell.GetQuadrant(node.Cell)
-                
-                    invariantm qi.HasValue                                                      "09575aa7-38b3-4afa-bb63-389af3301fc0"
-                        (sprintf "Parent cell: %A; node cell: %A." parentCell node.Cell)
-                
-                    let parentSubNodes = Array.create 4 NoNode
-                    parentSubNodes.[qi.Value] <- InMemoryNode node
-                    let parentLodLayers = QNode.GenerateLodLayers parentSubNodes root
-                
-                    invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent)    "7b0fa058-4812-4332-9547-0c33ee7ea7d5"
-                
-                    let parentNode = QNode(Guid.NewGuid(), parentCell, node.SplitLimitExponent,
-                                           node.OriginalSampleExponent, parentLodLayers,
-                                           parentSubNodes)
-                
-                    invariant (parentNode.Cell.Exponent = node.Cell.Exponent + 1)               "27b263d3-7fe5-49fd-96ca-422c37f9a31a"
-                    invariant (parentNode.SampleExponent = node.SampleExponent + 1)             "6076b045-9bee-4285-b583-1d3d49bb259a"
-                
-                    match extendUpTo root (InMemoryNode parentNode) with
-                    | InMemoryNode result -> invariant (root.Exponent = result.Cell.Exponent)   "a0d249da-ed0d-4abe-8751-191ad0ffb9f9"
-                                             InMemoryNode result
-                    | _ -> failwith "Invariant 991571a4-ea05-4142-bd38-a6964319ba97."
 
     let private mergeLayers (a : ILayer[]) (b : ILayer[]) (domination : Dominance) : ILayer[] =
 
@@ -88,21 +36,23 @@ module Merge =
             let def = x.Def
             match Map.tryFind def.Id merged with
 
+            | None                  ->
+                merged <- merged |> Map.add x.Def.Id x
+
             | Some (first : ILayer) ->
                 let second = x
                 if first.Def.Id <> second.Def.Id then
                     failwith "Invariant b2af0e01-849d-48a2-8026-686dc72176e2."
 
-                let firstWins =
-                    match domination with
-                    | FirstDominates -> true
-                    | SecondDominates -> false
-                    | MoreDetailedDominates -> first.SampleExponent < second.SampleExponent
+                let firstWins = match domination with
+                                | FirstDominates        -> true
+                                | SecondDominates       -> false
+                                | MoreDetailedDominates -> first.SampleExponent < second.SampleExponent
 
                 let handleCollision layers =
                     match Layer.Merge layers with
                     | Some z -> merged <- merged |> Map.add z.Def.Id z
-                    | None -> failwith "Invariant 830238b9-c428-4a15-bf44-08d57ace123a."
+                    | None   -> failwith "Invariant 830238b9-c428-4a15-bf44-08d57ace123a."
 
                 if second.Mapping = first.Mapping then
 
@@ -116,74 +66,69 @@ module Merge =
                     let ordered = if firstWins then [second; first] else [first; second]
                     handleCollision ordered
 
-            | None   -> merged <- merged |> Map.add x.Def.Id x
-
         for x in a do merge x
         for y in b do merge y
         merged |> Map.toArray |> Array.map (fun (_, v) -> v)
 
-    let rec private mergeSameRoot (a : QNodeRef) (b : QNodeRef) (domination : Dominance) : QNodeRef =
-        match a.TryGetInMemory(), b.TryGetInMemory() with
-        | Some a0, Some b0 ->
-            invariant (a0.SplitLimitExponent = b0.SplitLimitExponent)                           "cb56129b-089f-4f9e-a174-bf9575247277"
-            invariant (a0.Cell = b0.Cell)                                                       "641da2e5-a7ea-4692-a96b-94440453ff1e"
-            invariant (a0.SampleExponent = b0.SampleExponent)                                   "ccf5f5cc-5039-4b3d-aeba-31d0f88be037"
-            invariant (a0.Layers.Length = b0.Layers.Length)                                     "ef0512a4-a18c-46da-8983-9ed57903854c"
+    let rec private mergeOverlappingSameRoot (aRef : QNodeRef) (bRef : QNodeRef) (domination : Dominance) : QNodeRef =
 
-            let rootCell = a0.Cell
-            let ose = min a0.OriginalSampleExponent b0.OriginalSampleExponent
+        match aRef.TryGetInMemory(), bRef.TryGetInMemory() with
+        | None,   None   -> NoNode
+        | Some a, None   -> InMemoryNode a
+        | None,   Some b -> InMemoryNode b
+        | Some a, Some b ->
+
+            invariant (a.SplitLimitExponent = b.SplitLimitExponent)                             "cb56129b-089f-4f9e-a174-bf9575247277"
+            invariant (a.Cell = b.Cell)                                                         "641da2e5-a7ea-4692-a96b-94440453ff1e"
+            invariant (a.SampleExponent = b.SampleExponent)                                     "ccf5f5cc-5039-4b3d-aeba-31d0f88be037"
+            invariant (a.Layers.Length = b.Layers.Length)                                       "ef0512a4-a18c-46da-8983-9ed57903854c"
+
+            let rootCell = a.Cell
+            let ose = min a.OriginalSampleExponent b.OriginalSampleExponent
             let domination = match domination with
                              | MoreDetailedDominates ->
-                                if a0.OriginalSampleExponent < b0.OriginalSampleExponent then FirstDominates
-                                elif a0.OriginalSampleExponent > b0.OriginalSampleExponent then SecondDominates
+                                if   a.OriginalSampleExponent < b.OriginalSampleExponent then FirstDominates
+                                elif a.OriginalSampleExponent > b.OriginalSampleExponent then SecondDominates
                                 else MoreDetailedDominates
                              | _ -> domination
 
-            match a0.SubNodes, b0.SubNodes with
+            match a.SubNodes, b.SubNodes with
+            | None,    None    -> // leaf/leaf
+                let layers = mergeLayers a.Layers b.Layers domination
+                invariant (a.Layers.Length = layers.Length)                                    "10d73a3d-ce2b-4bf8-a8a5-9123011477c4"
+                QNode(Guid.NewGuid(), rootCell, a.SplitLimitExponent, ose, layers, None )
+            | Some xs, None    -> // inner/leaf
+                let lodLayers = QNode.generateLodLayers xs rootCell
+                QNode(Guid.NewGuid(), rootCell, a.SplitLimitExponent, ose, lodLayers, xs)
+            | None,    Some ys -> // leaf/inner
+                let lodLayers = QNode.generateLodLayers ys rootCell
+                QNode(Guid.NewGuid(), rootCell, a.SplitLimitExponent, ose, lodLayers, ys)
             | Some xs, Some ys -> // inner/inner
-                let layers = mergeLayers a0.Layers b0.Layers domination
-                invariant (a0.Layers.Length = layers.Length)                                    "384e9a83-4c5d-4dfc-92eb-2ebc8084dd60"
+                let layers = mergeLayers a.Layers b.Layers domination
+                invariant (a.Layers.Length = layers.Length)                                     "384e9a83-4c5d-4dfc-92eb-2ebc8084dd60"
                 let rootCellChildren = rootCell.Children
                 for i = 0 to 3 do
                     let x = xs.[i].TryGetInMemory()
                     let y = ys.[i].TryGetInMemory()
 
                     match x, y with
+                    | None,   None   -> ()
+                    | Some x, None   -> invariant (rootCellChildren.[i] = x.Cell)               "1f453ad2-9fe3-4dcb-ba97-4811d9c0c67e"
+                    | None,   Some y -> invariant (rootCellChildren.[i] = y.Cell)               "71957893-06df-41e7-b2f7-09d3274e85c7"
                     | Some x, Some y ->
                         invariant (rootCellChildren.[i] = x.Cell)                               "9d0333e3-5839-4354-a7d5-e9ed446b4e6c"
                         invariant (rootCellChildren.[i] = y.Cell)                               "431e8feb-7810-479a-bb68-22c0f33a77c4"
                         invariant (x.Cell = y.Cell)                                             "dfd994a6-f34a-4110-8b2e-752beeb1e031"
-                    | Some x, None ->
-                        invariant (rootCellChildren.[i] = x.Cell)                               "1f453ad2-9fe3-4dcb-ba97-4811d9c0c67e"
-                    | None, Some y ->
-                        invariant (rootCellChildren.[i] = y.Cell)                               "71957893-06df-41e7-b2f7-09d3274e85c7"
-                    | None, None ->
-                        ()
                         
-                let zs = Array.map2 (fun x y -> mergeSameRoot x y domination) xs ys
+                let zs = Array.map2 (fun x y -> mergeOverlappingSameRoot x y domination) xs ys
                 
-                invariant (xs.Length = 4)                                                       "84392aaf-cf49-4afc-9d6e-923d13ecd8d8"
-                invariant (ys.Length = 4)                                                       "087924cb-b42e-4f03-9385-26744c702b04"
-                invariant (zs.Length = 4)                                                       "d972f5f1-5c2d-460c-9d98-5e6fc1fade99"
+                invariant (xs.Length = 4 && ys.Length = 4 && zs.Length = 4)                     "84392aaf-cf49-4afc-9d6e-923d13ecd8d8"
 
-                QNode(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, zs) |> InMemoryNode
-            
-            | Some xs, None    -> // inner/leaf
-                let lodLayers = QNode.GenerateLodLayers xs rootCell
-                QNode(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, lodLayers, xs) |> InMemoryNode
-            
-            | None,    Some ys -> // leaf/inner
-                let lodLayers = QNode.GenerateLodLayers ys rootCell
-                QNode(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, lodLayers, ys) |> InMemoryNode
-            
-            | None,    None    -> // leaf/leaf
-                let layers = mergeLayers a0.Layers b0.Layers domination
-                invariant (a0.Layers.Length = layers.Length)                                    "10d73a3d-ce2b-4bf8-a8a5-9123011477c4"
-                QNode(Guid.NewGuid(), rootCell, a0.SplitLimitExponent, ose, layers, None) |> InMemoryNode
+                QNode(Guid.NewGuid(), rootCell, a.SplitLimitExponent, ose, layers, zs)
 
-        | Some a, None   -> InMemoryNode a
-        | None,   Some b -> InMemoryNode b
-        | None,   None   -> NoNode
+            |> InMemoryNode
+
+
     
     let private setOrMergeIthSubnode (domination : Dominance) (i : int) (node : QNode) (newSubNodeRef : QNodeRef) : QNode =
 
@@ -200,13 +145,13 @@ module Merge =
         | None -> ()
 
         let nss = node.SubNodes.Value |> Array.copy
-        nss.[i] <- mergeSameRoot nss.[i] newSubNodeRef domination
+        nss.[i] <- mergeOverlappingSameRoot nss.[i] newSubNodeRef domination
         let ose = match newSubnode with
                   | Some x -> min node.OriginalSampleExponent x.OriginalSampleExponent
                   | None   -> node.OriginalSampleExponent
         QNode(Guid.NewGuid(), node.Cell, node.SplitLimitExponent, ose, node.Layers, Some nss)
 
-    let rec private mergeIntersectingBothCentered (a : QNode) (b : QNode) (domination : Dominance) : QNode =
+    let rec private mergeOverlappingBothCentered (a : QNode) (b : QNode) (domination : Dominance) : QNode =
         invariant a.Cell.IsCenteredAtOrigin                                                     "41380857-b8c9-4f68-88d1-e279af0667b1"
         invariant b.Cell.IsCenteredAtOrigin                                                     "670db503-29bd-495e-b565-d1a0e45b3c08"
         invariant (a.SplitLimitExponent = b.SplitLimitExponent)                                 "942abce1-ac80-42d4-90e5-4ad0979c1797"
@@ -231,13 +176,13 @@ module Merge =
                 let layers = mergeLayers a.Layers b.Layers domination
                 invariant (a.Layers.Length = layers.Length)                                     "6a496764-8e7e-4250-a3d9-88ad049cd2ef"
 
-                let zs = Array.map2 (fun x y -> mergeSameRoot x y domination) xs ys
+                let zs = Array.map2 (fun x y -> mergeOverlappingSameRoot x y domination) xs ys
                 invariant (zs.Length = 4)                                                       "068e6f2e-cf1f-46f9-8a26-cc8c2e0697ec"
 
                 QNode(Guid.NewGuid(), a.Cell, a.SplitLimitExponent, ose, layers, Some zs)
 
             | Some _, None ->
-                mergeIntersectingBothCentered b a (flipDomination domination)
+                mergeOverlappingBothCentered b a (flipDomination domination)
 
             | None, Some ys ->
                 invariant (ys.Length = 4)                                                       "e57a9e39-5cdd-4620-98cd-83c7c8885c6a"
@@ -265,14 +210,14 @@ module Merge =
                     let subnodes = xs |> Array.map (fun sn -> 
                         match sn.TryGetInMemory() with 
                         | None -> NoNode
-                        | Some sn -> extendUpTo sn.Cell.Parent (InMemoryNode sn)
+                        | Some sn -> QNode.extendUpTo sn.Cell.Parent (InMemoryNode sn)
                         )
-                    let parentLodLayers = QNode.GenerateLodLayers subnodes parentCell
+                    let parentLodLayers = QNode.generateLodLayers subnodes parentCell
                     let aNew = QNode(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) |> Some
                     invariant aNew.IsSome                                                       "eed625d8-976e-4dc1-8548-70e4c3285dc1"
                     invariant (aNew.Value.Cell.Exponent = a.Cell.Exponent + 1)                  "eec56ca0-39a4-4ef6-950e-2eb25a4b4420"
                     invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)                "c4e097db-9e91-4d11-b41d-a99db892a8f4"
-                    mergeIntersectingBothCentered aNew.Value b domination
+                    mergeOverlappingBothCentered aNew.Value b domination
                 | None ->
                     let subnodes = 
                         a.Cell.Children 
@@ -286,16 +231,16 @@ module Merge =
                             else
                                 NoNode
                             )
-                    let parentLodLayers = QNode.GenerateLodLayers subnodes parentCell
+                    let parentLodLayers = QNode.generateLodLayers subnodes parentCell
                     let aNew = QNode(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) |> Some
 
                     invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)                "f2c20900-a00b-41c7-a04c-fc7e3da2ce30"
 
-                    mergeIntersectingBothCentered aNew.Value b domination
+                    mergeOverlappingBothCentered aNew.Value b domination
             else
-                mergeIntersectingBothCentered b a (flipDomination domination)
+                mergeOverlappingBothCentered b a (flipDomination domination)
                 
-    let rec private mergeIntersectingFirstCentered (a : QNode) (b : QNode) (domination : Dominance) : QNode =
+    let rec private mergeOverlappingFirstCentered (a : QNode) (b : QNode) (domination : Dominance) : QNode =
         invariant a.Cell.IsCenteredAtOrigin                                                     "d8bf0eb6-7368-4c92-99b4-b7eafa6567f8"
         invariant (not b.Cell.IsCenteredAtOrigin)                                               "39c66587-2f0f-48b4-9823-24d77df925c5"
         invariant (a.SplitLimitExponent = b.SplitLimitExponent)                                 "183c56a6-0194-4648-b3e6-2a968ec8685a"
@@ -306,14 +251,14 @@ module Merge =
             | Some xs ->
                 let subRootCell = a.Cell.GetQuadrant(qi)
                 let bExtended = 
-                    match extendUpTo subRootCell (InMemoryNode b) with
+                    match QNode.extendUpTo subRootCell (InMemoryNode b) with
                     | InMemoryNode n    -> n
                     | _                 -> failwith "Invariant 87e552e4-0a5d-495c-8a43-90e0f8aba60c."
 
                 match xs.[qi].TryGetInMemory() with
                 | Some qa ->
                     invariant (qa.Cell.Exponent = bExtended.Cell.Exponent)                      "5efd17cd-0d45-47cd-be5e-255c4a4576e7"
-                    let m = mergeSameRoot (InMemoryNode qa) (InMemoryNode bExtended) domination
+                    let m = mergeOverlappingSameRoot (InMemoryNode qa) (InMemoryNode bExtended) domination
                     invariant (match m with | NoNode -> false | _ -> true)                      "886fc65b-4b88-4ac9-80dd-467a83031535"
                     let newA = setOrMergeIthSubnode domination qi a m
                     newA
@@ -329,21 +274,21 @@ module Merge =
                 let subnodes = xs |> Array.map (fun sn -> 
                     match sn.TryGetInMemory() with 
                     | None -> NoNode 
-                    | Some sn -> match extendUpTo sn.Cell.Parent (InMemoryNode sn) with
+                    | Some sn -> match QNode.extendUpTo sn.Cell.Parent (InMemoryNode sn) with
                                  | InMemoryNode n -> InMemoryNode n
                                  | _              -> failwith "Invariant 125e2b16-01e2-4cb6-bd0e-15e50438293f."
                     )
                 let parentCell = a.Cell.Parent
-                let parentLodLayers = QNode.GenerateLodLayers subnodes parentCell
+                let parentLodLayers = QNode.generateLodLayers subnodes parentCell
                 let aNew = QNode(Guid.NewGuid(), parentCell, a.SplitLimitExponent, a.OriginalSampleExponent, parentLodLayers, Some subnodes) |> Some
                 invariant aNew.IsSome                                                           "ee364985-7daa-4837-b6cb-7bcbc21a314f"
                 invariant (aNew.Value.SampleExponent = a.SampleExponent + 1)                    "a6919ff2-07ee-4c6e-a350-b9de29953460"
-                mergeIntersectingFirstCentered aNew.Value b domination
+                mergeOverlappingFirstCentered aNew.Value b domination
             | None ->
                 // TODO: not implemented
                 failwith "No subnode. Invariant 65d23a56-f000-4989-8498-29a15d8ca85d."
 
-    let rec private mergeIntersectingNoneCentered (a : QNode) (b : QNode) (domination : Dominance) =
+    let rec private mergeOverlappingNoneCentered (a : QNode) (b : QNode) (domination : Dominance) =
 
         invariant (a.Cell.Exponent > b.Cell.Exponent)                                           "4b40bc08-b19d-4f49-b6e5-f321bf1e7dd0"
         invariant (a.Cell.Contains(b.Cell))                                                     "9a44a9ea-2996-46ff-9cc6-c9de1992465d"
@@ -357,7 +302,7 @@ module Merge =
                   else 
                     a
 
-        let extendedB = match extendUpTo qcell (InMemoryNode b) with
+        let extendedB = match QNode.extendUpTo qcell (InMemoryNode b) with
                         | InMemoryNode n -> n
                         | _ -> failwith "Invariant 8cdd673e-4ec9-439b-9c23-995dae494a09."
 
@@ -369,72 +314,85 @@ module Merge =
         let result = InMemoryNode extendedB |> setOrMergeIthSubnode domination qi a''
         result
 
-
-    let rec private mergeIntersecting (aRef : QNodeRef) (bRef : QNodeRef) (domination : Dominance) : QNodeRef =
-
-        match aRef.TryGetInMemory(), bRef.TryGetInMemory() with
+    /// Merge overlapping nodes with same roots.
+    let private mergeOverlappingNodesWithSameRoot (firstRef : QNodeRef) (secondRef : QNodeRef) (domination : Dominance) : QNodeRef =
+        match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
+        | None,       None        -> NoNode
+        | Some _,     None        -> firstRef
+        | None,       Some _      -> secondRef
         | Some first, Some second ->
 
+            invariant (first.Cell = second.Cell)                                                "ee06efff-0975-4bf4-9909-daac6a2825a3"
+
+            failwith "not implemented"
+
+    /// Merge nodes, where one node contains the other.
+    let rec private mergeOverlappingNodes (firstRef : QNodeRef) (secondRef : QNodeRef) (domination : Dominance) : QNodeRef =
+
+        match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
+        | None,   None            -> NoNode
+        | Some _, None            -> firstRef
+        | None,   Some _          -> secondRef
+        | Some first, Some second ->
+
+            invariant (first.Cell.Intersects(second.Cell) )                                     "7d7198ec-8be6-4f45-8645-06fff2034d65"
             invariant (first.SplitLimitExponent = second.SplitLimitExponent)                    "1f9e78ad-468b-4e39-8341-1dcaec7f051f"
 
-            if   first.SampleExponent = second.SampleExponent then
-            
-                // first and second node have same resolution
+            if   first.Cell = second.Cell then
 
-                match first.Cell.IsCenteredAtOrigin, second.Cell.IsCenteredAtOrigin with
-                | true, true   -> mergeIntersectingBothCentered first second domination |> InMemoryNode
-                | true, false  -> mergeIntersectingFirstCentered first second domination |> InMemoryNode
-                | false, true  -> mergeIntersectingFirstCentered second first (flipDomination domination) |> InMemoryNode
-                | false, false -> mergeSameRoot aRef bRef domination
+                mergeOverlappingNodesWithSameRoot firstRef secondRef domination
 
-            elif first.SampleExponent < second.SampleExponent then
-            
-                // first node has higher resolution than second node
+            elif first.Cell.Exponent > second.Cell.Exponent then
 
-                mergeIntersecting bRef aRef (flipDomination domination)
+                let secondRefExtended = secondRef |> QNode.extendUpTo first.Cell 
+                mergeOverlappingNodes firstRef secondRefExtended domination
 
-            else // first.SampleExponent > second.SampleExponent
+            else
 
-                // merge higher-res second node into lower-res first node
+                invariant (first.Cell.Exponent < second.Cell.Exponent)                          "eba43fbc-51fa-4531-9a9d-c3f595989571"
 
-                // how many resolution steps is first node "above" second node?
-                let deltaResolution = first.SampleExponent - second.SampleExponent
-                invariant (first.SampleExponent = second.SampleExponent + deltaResolution)      "c66ce7cd-5e8f-43d9-ad8e-53aaf0b44910"
+                let firstRefExtended = firstRef |> QNode.extendUpTo second.Cell
+                mergeOverlappingNodes firstRefExtended secondRef domination
 
-                let domination = if domination = MoreDetailedDominates then SecondDominates
-                                                                       else domination
 
-                match first.Cell.IsCenteredAtOrigin, second.Cell.IsCenteredAtOrigin with
-                | true, true   -> mergeIntersectingBothCentered  first second domination
-                | true, false  -> mergeIntersectingFirstCentered first second domination
-                | false, true  -> mergeIntersectingFirstCentered second first (flipDomination domination)
-                | false, false -> mergeIntersectingNoneCentered  first second domination
-                |> InMemoryNode
+    /// Merge nodes that do not overlap
+    let private mergeNonOverlappingNodes (firstRef : QNodeRef) (secondRef : QNodeRef) (domination : Dominance) : QNodeRef =
+        match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
+        | None,       None        -> NoNode
+        | Some _,     None        -> firstRef
+        | None,       Some _      -> secondRef
+        | Some first, Some second ->
 
-        | Some _, None   -> aRef
-        | None,   Some _ -> bRef
-        | None,   None   -> NoNode
+            if first.Cell.Intersects(second.Cell) then
+                failwith "Nodes must not overlap. Error 6ada6e09-ef33-4daf-9b0c-4c6dd30f0087."
 
-    let private mergeNonIntersecting (a : QNodeRef) (b : QNodeRef) (domination : Dominance) : QNodeRef =
-        match a.TryGetInMemory(), b.TryGetInMemory() with
-        | Some a1, Some b1 ->
-            let commonRootCell = Cell2d(Box2d(a1.Cell.BoundingBox, b1.Cell.BoundingBox))
-            let withCommonRoot n = match extendUpTo commonRootCell n with
+            let commonRootCell = Cell2d(Box2d(first.Cell.BoundingBox, second.Cell.BoundingBox))
+            let withCommonRoot n = match QNode.extendUpTo commonRootCell n with
                                    | InMemoryNode n -> n
                                    | _              -> failwith "Invariant cefba0df-3631-4da9-a19a-742e844ca8d4."
-            let a2 = (a |> withCommonRoot)
-            let b2 = (b |> withCommonRoot)
-            invariant (a2.Cell = commonRootCell)                          "7730eae1-0212-40e5-b114-ff81c0c40762"
-            invariant (b2.Cell = commonRootCell)                          "00205e51-46c2-451a-bd7c-5dc45f18acc1"
-            invariant (a2.SampleExponent = b2.SampleExponent)             "178eedaa-89e2-473b-afbb-1beee112225d"
-            mergeSameRoot (InMemoryNode a2) (InMemoryNode b2) domination
-        | Some _,  None    -> a
-        | None,    Some _  -> b
-        | None,    None    -> NoNode
+            let aRooted = (firstRef |> withCommonRoot)
+            let bRooted = (secondRef |> withCommonRoot)
 
-    let Merge (domination : Dominance) (a : QNodeRef) ( b : QNodeRef) : QNodeRef =
-        match a.TryGetInMemory(), b.TryGetInMemory() with
-        | Some a', Some b' -> (if intersecting a' b' then mergeIntersecting else mergeNonIntersecting) a b domination
-        | Some _,  None    -> a
-        | None,    Some _  -> b
+            invariant (aRooted.Cell = commonRootCell)                                           "7730eae1-0212-40e5-b114-ff81c0c40762"
+            invariant (bRooted.Cell = commonRootCell)                                           "00205e51-46c2-451a-bd7c-5dc45f18acc1"
+            invariant (aRooted.SampleExponent = bRooted.SampleExponent)                         "178eedaa-89e2-473b-afbb-1beee112225d"
+
+            mergeOverlappingSameRoot (InMemoryNode aRooted) (InMemoryNode bRooted) domination
+
+
+
+    let merge (firstRef : QNodeRef) (secondRef : QNodeRef) (domination : Dominance) : QNodeRef =
+
+        match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
         | None,    None    -> NoNode
+        | Some _,  None    -> firstRef
+        | None,    Some _  -> secondRef
+        | Some first, Some second ->
+
+            if first.SplitLimitExponent <> second.SplitLimitExponent then
+                failwith "Cannot merge quadtrees with different split limits. Error 6222eb6b-a7aa-43c1-9323-e28d6275696b."
+
+            if overlapping first second then 
+                mergeOverlappingNodes    firstRef secondRef domination
+            else
+                mergeNonOverlappingNodes firstRef secondRef domination

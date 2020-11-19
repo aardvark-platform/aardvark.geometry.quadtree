@@ -40,7 +40,7 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         member this.WithWindow (w : Box2l) =
             mapping.WithWindow(w) 
             |> Option.map (fun m -> Layer(def, data, m) :> ILayer)
-        member this.ResampleUntyped (resampleRoot : Cell2d) =
+        member this.ResampleUntyped (resampleRoot : Cell2d) : ILayer =
             let f = Resamplers.getResamplerFor def 
             let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a)) resampleRoot
             r :> ILayer
