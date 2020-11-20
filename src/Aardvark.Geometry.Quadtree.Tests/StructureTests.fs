@@ -302,7 +302,7 @@ let ``ExtendUpTo_Centered_To_Centered`` () =
 
 
 (************************************************************************************
-    leaf merges
+    leaf/leaf merges
  ************************************************************************************)
 
 [<Fact>]
@@ -509,6 +509,48 @@ let ``MergePerfectlyAlignedLeafs_NonCentered`` () =
         ]}
     |> ignore
 
+[<Fact>]
+let ``MergeLeafs_Adjacent_DifferentDepth`` () =
+    
+    let aRef = createQuadtree { Origin = (0,0,1); Size = (1,1); Data = [|
+        1.0;
+    |]}
+    let bRef = createQuadtree { Origin = (2,0,0); Size = (2,2); Data = [|
+        -1.0;  -2.0; 
+        -3.0;  -4.0;
+    |]}
+
+
+    let samples = [
+        {
+        Level = 0; Data = [
+            ((0,0,1), 1.0);
+            ((2,0,0), -1.0); ((3,0,0), -2.0)
+            ((2,1,0), -3.0); ((3,1,0), -4.0)
+        ]}
+        {
+            Level = 1; Data = [
+                ((0,0,1), 1.0);
+                ((1,0,1), -2.5);
+            ]}
+        ]
+
+    // first dominates
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = samples
+        }
+    |> ignore
+
+    // second dominates
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = samples
+        }
+    |> ignore
+
 
 (************************************************************************************
     leaf/tree merges
@@ -520,13 +562,13 @@ let ``Merge_Leaf_Tree_SamplesPerfectlyOverlap`` () =
     let aRef = createQuadtree { Origin = (0,0,1); Size = (1,1); Data = [|
         1.0;
     |]}
-    let bRef = createQuadtree { Origin = (0,0,0); Size = (2,2); Data = [|
+    let bRef = QNode.extendUpTo (Cell2d(0,0,1)) <| createQuadtree { Origin = (0,0,0); Size = (2,2); Data = [|
         -1.0;  -2.0; 
         -3.0;  -4.0;
-    |]}
+        |]}
+        
 
     // first dominates
-    
     Quadtree.Merge aRef bRef FirstDominates
     |> checkQuadtree {
         Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 9
@@ -547,6 +589,68 @@ let ``Merge_Leaf_Tree_SamplesPerfectlyOverlap`` () =
                 Level = 0; Data = [
                     ((0,0,0), -1.0); ((1,0,0), -2.0)
                     ((0,1,0), -3.0); ((1,1,0), -4.0)
+            ]}
+            {
+                Level = 1; Data = [
+                    ((0,0,1), -2.5)
+            ]}
+        ]}
+    |> ignore
+
+[<Fact>]
+let ``Merge_Leaf_Tree_SamplesReplaceOneQuadrant`` () =
+
+    let aRef = createQuadtree { Origin = (0,0,1); Size = (2,2); Data = [|
+        1.0; 2.0
+        3.0; 4.0
+    |]}
+    let bRef = QNode.extendUpTo (Cell2d(0,0,2)) <| createQuadtree { Origin = (2,0,0); Size = (2,2); Data = [|
+        -1.0;  -2.0; 
+        -3.0;  -4.0;
+        |]}
+        
+
+    // first dominates
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 9
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,1), 1.0); ((1,0,1), 2.0);
+                    ((0,1,1), 3.0); ((1,1,1), 4.0);
+            ]}
+            {
+                Level = 1; Data = [
+                    ((0,0,1), 1.0); ((1,0,1), 2.0);
+                    ((0,1,1), 3.0); ((1,1,1), 4.0);
+            ]}
+            {
+                Level = 2; Data = [
+                    ((0,0,2), 2.5);
+            ]}
+        ]}
+    |> ignore
+
+    // second dominates
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,1), 1.0); ((2,0,0), -1.0); ((3,0,0), -2.0);
+                                    ((2,1,0), -3.0); ((3,1,0), -4.0);
+                    ((0,1,1), 3.0); ((1,1,1), 4.0);
+            ]}
+            {
+                Level = 1; Data = [
+                    ((0,0,1), 1.0); ((0,0,1), 2.5);
+                    ((0,1,1), 3.0); ((1,1,1), 4.0);
+            ]}
+            {
+                Level = 2; Data = [
+                    ((0,0,2), 2.625);
             ]}
         ]}
     |> ignore
