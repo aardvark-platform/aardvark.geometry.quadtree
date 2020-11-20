@@ -76,14 +76,15 @@ module Defs =
     let Intensities1dLayer     = def "8864088c-c122-4da4-9dcb-14f6b5dd4ccc" "Quadtree.Intensities1d.Layer" "Quadtree. Intensities1d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
             
     [<Obsolete("Use HeightsBilinear4f instead.")>]
-    let BilinearParams4f       = HeightsBilinear4f
+    let BilinearParams4f       = def "67f0e87d-7ba6-47c9-b443-17e7b835bb4e" "Quadtree.BilinearParams4f" "Obsolete. Use Quadtree.HeightsBilinear4f instead." Durable.Aardvark.V4fArray
     [<Obsolete("Use HeightsBilinear4fLayer instead.")>]
-    let BilinearParams4fLayer  = HeightsBilinear4fLayer
+    let BilinearParams4fLayer  = def "376d01f1-7bfe-4bd5-b459-9a63e81a08d9" "Quadtree.BilinearParams4f.Layer" "Obsolete. Use Quadtree.HeightsBilinear4f.Layer instead." Durable.Primitives.DurableMapAligned16
                              
     [<Obsolete("Use HeightsBilinear4d instead.")>]  
-    let BilinearParams4d       = HeightsBilinear4d
+    let BilinearParams4d       = def "a9064e6e-f967-4017-8415-08193b77aea0" "Quadtree.BilinearParams4d" "Obsolete. Use Quadtree.HeightsBilinear4d instead." Durable.Aardvark.V4dArray
     [<Obsolete("Use HeightsBilinear4dLayer instead.")>]
-    let BilinearParams4dLayer  = HeightsBilinear4dLayer
+    let BilinearParams4dLayer  = def "49303969-ffa5-4c7e-89ea-8d5ad7dd6d3d" "Quadtree.BilinearParams4d.Layer" "Obsolete. Use Quadtree.HeightsBilinear4d.Layer instead." Durable.Primitives.DurableMapAligned16
+             
              
     let Volumes1f              = def "702521f3-2474-4072-9f9f-d506b6e19e7a" "Quadtree.Volumes1f" "Quadtree. Volume (height difference) value per sample. Float32[]." Durable.Primitives.Float32Array
     let Volumes1fLayer         = def "f84c4628-9969-43ad-9a93-813430bae8e1" "Quadtree.Volumes1f.Layer" "Quadtree. Volumes1f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16

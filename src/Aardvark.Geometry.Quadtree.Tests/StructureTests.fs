@@ -127,8 +127,7 @@ let ``CreateLeaf_NonCentered`` () =
         Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
-                Level = Int32.MinValue
-                Data = [
+                Level = 0; Data = [
                     ((0,0,0), 1.0); ((1,0,0), 2.0)
                     ((0,1,0), 3.0); ((1,1,0), 4.0)
             ]}
@@ -146,8 +145,7 @@ let ``CreateLeaf_Centered`` () =
         Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
-                Level = Int32.MinValue
-                Data = [
+                Level = 0; Data = [
                     ((-1,-1,0), 1.0); (( 0,-1,0), 2.0)
                     ((-1, 0,0), 3.0); (( 0, 0,0), 4.0)
             ]}
@@ -169,12 +167,9 @@ let ``ExtendUpTo_NonCentered_To_NonCentered`` () =
         Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
-                Level = Int32.MinValue
-                Data = [
-                    ((0,0,0), 1.0)
-                    ((1,0,0), 2.0)
-                    ((0,1,0), 3.0)
-                    ((1,1,0), 4.0)
+                Level = 0; Data = [
+                    ((0,0,0), 1.0); ((1,0,0), 2.0)
+                    ((0,1,0), 3.0); ((1,1,0), 4.0)
             ]}
         ]}
 
@@ -184,16 +179,14 @@ let ``ExtendUpTo_NonCentered_To_NonCentered`` () =
         Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
-                Level = 0
-                Data = [
+                Level = 0; Data = [
                     ((0,0,0), 1.0)
                     ((1,0,0), 2.0)
                     ((0,1,0), 3.0)
                     ((1,1,0), 4.0)
             ]}
             {
-                Level = 1
-                Data = [
+                Level = 1; Data = [
                     ((0,0,1), 2.5)
             ]}
         ]}
@@ -212,8 +205,7 @@ let ``ExtendUpTo_NonCentered_To_NonCentered_2_Steps`` () =
         Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
-                Level = Int32.MinValue
-                Data = [
+                Level = 0; Data = [
                     ((0,0,0),  1.0); ((1,0,0),  2.0); ((2,0,0),  3.0); ((3,0,0),  4.0)
                     ((0,1,0),  5.0); ((1,1,0),  6.0); ((2,1,0),  7.0); ((3,1,0),  8.0)
                     ((0,2,0),  9.0); ((1,2,0), 10.0); ((2,2,0), 11.0); ((3,2,0), 12.0)
@@ -235,14 +227,12 @@ let ``ExtendUpTo_NonCentered_To_NonCentered_2_Steps`` () =
                             k <- k + 1
             ]}
             {
-                Level = 1
-                Data = [
+                Level = 1; Data = [
                     ((0,0,1),  3.5); ((1,0,1),  5.5)
                     ((0,1,1), 11.5); ((1,1,1), 13.5)
             ]}
             {
-                Level = 2
-                Data = [
+                Level = 2; Data = [
                     ((0,0,2),  8.5)
             ]}
         ]}
@@ -250,78 +240,65 @@ let ``ExtendUpTo_NonCentered_To_NonCentered_2_Steps`` () =
 [<Fact>]
 let ``ExtendUpTo_NonCentered_To_Centered`` () =
 
-    let aRef = createQuadtree { Origin = (0,0,0); Size = (2,2); Data = [|
+    createQuadtree { Origin = (0,0,0); Size = (2,2); Data = [|
         1.0;  2.0; 
         3.0;  4.0;
     |]}
 
-    let a = aRef.TryGetInMemory().Value
-    Assert.True(a.Cell                   = Cell2d(0,0,8))
-    Assert.True(a.IsLeafNode             = true)
-    Assert.True(a.OriginalSampleExponent = 0)
-    Assert.True(a.SampleExponent         = 0)
-    Assert.True(a.SplitLimitExponent     = 8)
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+        ]}
 
-    let eRef = QNode.extendUpTo (Cell2d(9)) aRef
-    let e = eRef.TryGetInMemory().Value
-    Assert.True(e.Cell                   = Cell2d(9))
-    Assert.True(e.IsLeafNode             = false)
-    Assert.True(e.OriginalSampleExponent = 0)
-    Assert.True(e.SampleExponent         = 1)
-    Assert.True(e.SplitLimitExponent     = 8)
+    |> QNode.extendUpTo (Cell2d(9))
 
-    let xs = getAllSamplesAtLevel 0 eRef
-    Assert.True(xs.Length = 4)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0), 1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0), 2.0)))
-    Assert.True(xs.[2] = ((Cell2d(0,1,0), 3.0)))
-    Assert.True(xs.[3] = ((Cell2d(1,1,0), 4.0)))
+    |> checkQuadtree {
+        Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0
+                Data = [
+                    ((0,0,0), 1.0); ((1,0,0), 2.0)
+                    ((0,1,0), 3.0); ((1,1,0), 4.0)
+            ]}
+            {
+                Level = 1
+                Data = [
+                    ((0,0,1), 2.5)
+            ]}
+        ]}
 
-    let ys = getAllSamplesAtLevel 1 eRef
-    Assert.True(ys.Length = 1)
-    Assert.True(ys.[0] = ((Cell2d(0,0,1), 2.5)))
-
-    ()
 
 [<Fact>]
 let ``ExtendUpTo_Centered_To_Centered`` () =
 
-    let aRef = createQuadtree { Origin = (-1,-1,0); Size = (2,2); Data = [|
+    createQuadtree { Origin = (-1,-1,0); Size = (2,2); Data = [|
         1.0;  2.0; 
         3.0;  4.0;
     |]}
 
-    let a = aRef.TryGetInMemory().Value
-    Assert.True(a.Cell                   = Cell2d(8))
-    Assert.True(a.IsLeafNode             = true)
-    Assert.True(a.OriginalSampleExponent = 0)
-    Assert.True(a.SampleExponent         = 0)
-    Assert.True(a.SplitLimitExponent     = 8)
+    |> checkQuadtree {
+        Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+        ]}
 
-    let eRef = QNode.extendUpTo (Cell2d(9)) aRef
-    let e = eRef.TryGetInMemory().Value
-    Assert.True(e.Cell                   = Cell2d(9))
-    Assert.True(e.IsLeafNode             = false)
-    Assert.True(e.OriginalSampleExponent = 0)
-    Assert.True(e.SampleExponent         = 1)
-    Assert.True(e.SplitLimitExponent     = 8)
+    |> QNode.extendUpTo (Cell2d(9))
 
-    let xs = getAllSamplesAtLevel 0 eRef
-    Assert.True(xs.Length = 4)
-    Assert.True(xs.[0] = ((Cell2d(-1,-1,0), 1.0)))
-    Assert.True(xs.[1] = ((Cell2d( 0,-1,0), 2.0)))
-    Assert.True(xs.[2] = ((Cell2d(-1, 0,0), 3.0)))
-    Assert.True(xs.[3] = ((Cell2d( 0, 0,0), 4.0)))
-
-    let ys = getAllSamplesAtLevel 1 eRef
-    Assert.True(ys.Length = 4)
-    // centered parents again have all 4 samples, but with sample exponent + 1
-    Assert.True(ys.[0] = ((Cell2d(-1,-1,1), 1.0)))
-    Assert.True(ys.[1] = ((Cell2d( 0,-1,1), 2.0)))
-    Assert.True(ys.[2] = ((Cell2d(-1, 0,1), 3.0)))
-    Assert.True(ys.[3] = ((Cell2d( 0, 0,1), 4.0)))
-
-    ()
+    |> checkQuadtree {
+        Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((-1,-1,0), 1.0); (( 0,-1,0), 2.0)
+                    ((-1, 0,0), 3.0); (( 0, 0,0), 4.0)
+            ]}
+            {
+                Level = 1; Data = [
+                    // centered parents again have all 4 samples, but with sample exponent + 1
+                    ((-1,-1,1), 1.0); (( 0,-1,1), 2.0)
+                    ((-1, 0,1), 3.0); (( 0, 0,1), 4.0)
+            ]}
+        ]}
 
 
 (************************************************************************************
@@ -365,28 +342,28 @@ let ``MergeSingleSamples_SameLeaf_SamePosition`` () =
     |]}
 
     // first dominates
-    let nRef = Quadtree.Merge aRef bRef FirstDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 1)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0), 1.0)))
-        
-    // second dominates
-    let nRef = Quadtree.Merge aRef bRef SecondDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 1)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0), -1.0)))
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0)
+            ]}
+        ]}
+    |> ignore
 
-    ()
+    // second dominates
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), -1.0)
+            ]}
+        ]}
+    |> ignore
 
 [<Fact>]
 let ``MergeSingleSamples_SameLeaf_AdjacentPosition`` () =
@@ -399,30 +376,28 @@ let ``MergeSingleSamples_SameLeaf_AdjacentPosition`` () =
     |]}
 
     // first dominates
-    let nRef = Quadtree.Merge aRef bRef FirstDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 2)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0),  1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0), -1.0)))
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0); ((1,0,0), -1.0)
+            ]}
+        ]}
+    |> ignore
         
     // second dominates
-    let nRef = Quadtree.Merge aRef bRef SecondDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 2)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0),  1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0), -1.0)))
-
-    ()
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0); ((1,0,0), -1.0)
+            ]}
+        ]}
+    |> ignore
 
 [<Fact>]
 let ``MergeSingleSamples_SameLeaf_OneSampleUndefinedBetween`` () =
@@ -435,32 +410,28 @@ let ``MergeSingleSamples_SameLeaf_OneSampleUndefinedBetween`` () =
     |]}
 
     // first dominates
-    let nRef = Quadtree.Merge aRef bRef FirstDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 3)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0),  1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0),  0.0)))
-    Assert.True(xs.[2] = ((Cell2d(2,0,0), -1.0)))
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0); ((1,0,0), 0.0); ((2,0,0), -1.0)
+            ]}
+        ]}
+    |> ignore
         
     // second dominates
-    let nRef = Quadtree.Merge aRef bRef SecondDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 3)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0),  1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0),  0.0)))
-    Assert.True(xs.[2] = ((Cell2d(2,0,0), -1.0)))
-
-    ()
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0); ((1,0,0), 0.0); ((2,0,0), -1.0)
+            ]}
+        ]}
+    |> ignore
 
 [<Fact>]
 let ``MergePerfectlyAlignedLeafs_Centered`` () =
@@ -475,34 +446,30 @@ let ``MergePerfectlyAlignedLeafs_Centered`` () =
     |]}
 
     // first dominates
-    let nRef = Quadtree.Merge aRef bRef FirstDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 4)
-    Assert.True(xs.[0] = ((Cell2d(-1,-1,0), 1.0)))
-    Assert.True(xs.[1] = ((Cell2d( 0,-1,0), 2.0)))
-    Assert.True(xs.[2] = ((Cell2d(-1, 0,0), 3.0)))
-    Assert.True(xs.[3] = ((Cell2d( 0, 0,0), 4.0))) 
-        
-    // second dominates
-    let nRef = Quadtree.Merge aRef bRef SecondDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 4)
-    Assert.True(xs.[0] = ((Cell2d(-1,-1,0), -1.0)))
-    Assert.True(xs.[1] = ((Cell2d( 0,-1,0), -2.0)))
-    Assert.True(xs.[2] = ((Cell2d(-1, 0,0), -3.0)))
-    Assert.True(xs.[3] = ((Cell2d( 0, 0,0), -4.0)))
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((-1,-1,0), 1.0); (( 0,-1,0), 2.0)
+                    ((-1, 0,0), 3.0); (( 0, 0,0), 4.0)
+            ]}
+        ]}
+    |> ignore
 
-    ()
+    // second dominates
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((-1,-1,0), -1.0); (( 0,-1,0), -2.0)
+                    ((-1, 0,0), -3.0); (( 0, 0,0), -4.0)
+            ]}
+        ]}
+    |> ignore
 
 [<Fact>]
 let ``MergePerfectlyAlignedLeafs_NonCentered`` () =
@@ -517,34 +484,30 @@ let ``MergePerfectlyAlignedLeafs_NonCentered`` () =
     |]}
 
     // first dominates
-    let nRef = Quadtree.Merge aRef bRef FirstDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 4)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0), 1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0), 2.0)))
-    Assert.True(xs.[2] = ((Cell2d(0,1,0), 3.0)))
-    Assert.True(xs.[3] = ((Cell2d(1,1,0), 4.0)))
-        
-    // second dominates
-    let nRef = Quadtree.Merge aRef bRef SecondDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 4)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0), -1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0), -2.0)))
-    Assert.True(xs.[2] = ((Cell2d(0,1,0), -3.0)))
-    Assert.True(xs.[3] = ((Cell2d(1,1,0), -4.0)))
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0); ((1,0,0), 2.0)
+                    ((0,1,0), 3.0); ((1,1,0), 4.0)
+            ]}
+        ]}
+    |> ignore
 
-    ()
+    // second dominates
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), -1.0); ((1,0,0), -2.0)
+                    ((0,1,0), -3.0); ((1,1,0), -4.0)
+            ]}
+        ]}
+    |> ignore
 
 
 (************************************************************************************
@@ -563,28 +526,27 @@ let ``Merge_Leaf_Tree_SamplesPerfectlyOverlap`` () =
     |]}
 
     // first dominates
-    let nRef = Quadtree.Merge aRef bRef FirstDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 1)
-    Assert.True(n.SampleExponent         = 1)
-    Assert.True(n.SplitLimitExponent     = 9)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 1)
-    Assert.True(xs.[0] = ((Cell2d(0,0,1), 1.0)))
-        
-    // second dominates
-    let nRef = Quadtree.Merge aRef bRef SecondDominates
-    let n = nRef.TryGetInMemory().Value
-    Assert.True(n.IsLeafNode             = true)
-    Assert.True(n.OriginalSampleExponent = 0)
-    Assert.True(n.SampleExponent         = 0)
-    Assert.True(n.SplitLimitExponent     = 8)
-    let xs = getAllSamples nRef
-    Assert.True(xs.Length = 4)
-    Assert.True(xs.[0] = ((Cell2d(0,0,0), -1.0)))
-    Assert.True(xs.[1] = ((Cell2d(1,0,0), -2.0)))
-    Assert.True(xs.[2] = ((Cell2d(0,1,0), -3.0)))
-    Assert.True(xs.[3] = ((Cell2d(1,1,0), -4.0)))
+    
+    Quadtree.Merge aRef bRef FirstDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 9
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0)
+            ]}
+        ]}
+    |> ignore
 
-    ()
+    // second dominates
+    Quadtree.Merge aRef bRef SecondDominates
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), -1.0); ((1,0,0), -2.0)
+                    ((0,1,0), -3.0); ((1,1,0), -4.0)
+            ]}
+        ]}
+    |> ignore
