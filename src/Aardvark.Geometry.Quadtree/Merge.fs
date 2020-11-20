@@ -315,18 +315,61 @@ module Merge =
         result
 
     /// Merge overlapping nodes with same roots.
-    let private mergeOverlappingNodesWithSameRoot (firstRef : QNodeRef) (secondRef : QNodeRef) (domination : Dominance) : QNodeRef =
+    let rec private mergeOverlappingNodesWithSameRoot (firstRef : QNodeRef) (secondRef : QNodeRef) (domination : Dominance) : QNodeRef =
         match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
         | None,       None        -> NoNode
         | Some _,     None        -> firstRef
         | None,       Some _      -> secondRef
         | Some first, Some second ->
 
-            invariant (first.Cell = second.Cell)                                                "ee06efff-0975-4bf4-9909-daac6a2825a3"
+            invariant (first.Cell               = second.Cell)                                  "ee06efff-0975-4bf4-9909-daac6a2825a3"
+            invariant (first.SplitLimitExponent = second.SplitLimitExponent)                    "758ee842-b259-4a68-8fe5-0068924eaae8"
+            invariant (first.SampleExponent     = second.SampleExponent)                        "1b6b7f11-0569-499a-8174-05564e7c23ce"
 
-            failwith "not implemented"
+            let commonRootCell = first.Cell
+            let sle = first.SplitLimitExponent
+            let ose = min first.OriginalSampleExponent second.OriginalSampleExponent
 
-    /// Merge nodes, where one node contains the other.
+            let sampleWindowsIntersect = first.SampleWindow.Intersects(second.SampleWindow)
+
+            match first.IsLeafNode, second.IsLeafNode, sampleWindowsIntersect with
+            // (1) leaf, leaf, _
+            | true,  true,  _     ->
+                              
+                // -> directly merge layers and done
+                let layers = mergeLayers first.Layers second.Layers domination
+                QNode(Guid.NewGuid(), commonRootCell, sle, ose, layers, None) |> InMemoryNode
+
+            // (2.1) leaf, tree, samples DO NOT intersect
+            | true,  false, false ->
+                
+                // tree layer data does not intersect leaf layer data
+                // we can
+                // (a) directly merge root layers, and
+                let layers = mergeLayers first.Layers second.Layers domination
+                // (b) attach tree subnodes to leaf
+                QNode(Guid.NewGuid(), commonRootCell, sle, ose, layers, second.SubNodes) |> InMemoryNode
+
+            // (2.2) leaf, tree, samples DO intersect
+            | true,  false, true  ->
+                
+                failwith ""
+
+            // (3) tree, leaf, _
+            | false, true, _      ->
+
+                // -> let's flip this around, so we just have one case to implement (see cases 2.x)
+                mergeOverlappingNodesWithSameRoot secondRef firstRef (flipDomination domination)
+
+            // (4) tree + tree
+            | false, false, _     ->
+                
+                // -> recursively merge layers
+                failwith ""
+
+            
+
+    /// Merge nodes, where one node is a subnode of the other, or both nodes are the same.
     let rec private mergeOverlappingNodes (firstRef : QNodeRef) (secondRef : QNodeRef) (domination : Dominance) : QNodeRef =
 
         match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
@@ -341,18 +384,23 @@ module Merge =
             if   first.Cell = second.Cell then
 
                 mergeOverlappingNodesWithSameRoot firstRef secondRef domination
+                 
 
-            elif first.Cell.Exponent > second.Cell.Exponent then
+            elif first.Cell.Exponent < second.Cell.Exponent then
 
-                let secondRefExtended = secondRef |> QNode.extendUpTo first.Cell 
-                mergeOverlappingNodes firstRef secondRefExtended domination
+                // first is subnode of second
+                // -> let's flip this around, so we just have one case to implement (see below)
+                mergeOverlappingNodes secondRef firstRef (flipDomination domination)
 
             else
-
-                invariant (first.Cell.Exponent < second.Cell.Exponent)                          "eba43fbc-51fa-4531-9a9d-c3f595989571"
-
-                let firstRefExtended = firstRef |> QNode.extendUpTo second.Cell
-                mergeOverlappingNodes firstRefExtended secondRef domination
+            
+                // second is subnode of first
+                invariant (first.Cell.Exponent > second.Cell.Exponent)                          "eba43fbc-51fa-4531-9a9d-c3f595989571"
+                
+                // grow second tree upwards until it reaches first tree's root node
+                // ... layer data will be lodded on the way up by 'extendUpTo'
+                let secondRefExtended = QNode.extendUpTo first.Cell secondRef
+                mergeOverlappingNodesWithSameRoot firstRef secondRefExtended domination
 
 
     /// Merge nodes that do not overlap
