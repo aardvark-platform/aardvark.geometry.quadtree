@@ -117,6 +117,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
 
     member _.Cell with get() = cell
 
+    /// The maximum tile size, given as width = height = 2^SplitLimitExponent.
     member _.SplitLimitExponent with get() = splitLimitExp
 
     member _.OriginalSampleExponent with get() = originalSampleExponent
@@ -308,99 +309,143 @@ module QNode =
 
     let tryGetInMemory (n : QNodeRef) : QNode option = n.TryGetInMemory()
 
-    let generateLodLayers (subNodes : QNodeRef[]) (rootCell : Cell2d) =
+    /// Takes all layers of up to 4 quadrants of given root cell (subNodeRefs)
+    /// and generates layers for root cell (with half the resolution). 
+    let generateLodLayers (subNodeRefs : QNodeRef[]) (rootCell : Cell2d) : ILayer[] =
+    
+        if subNodeRefs.Length = 0 then
 
-        let subNodes = subNodes |> Array.choose (fun x -> x.TryGetInMemory())
-        invariant (subNodes.Length > 0) "641ef4b4-65b3-4e76-bbb6-c7046452801a"
-        
-        //let minSubNodeExponent = (subNodes |> Array.minBy (fun x -> x.SampleExponent)).SampleExponent
-        let maxSubNodeExponent = (subNodes |> Array.maxBy (fun x -> x.SampleExponent)).SampleExponent
+            // No data -> done.
+            Array.empty
 
-        let result =
-            subNodes 
-            |> Seq.collect (fun x -> x.Layers) 
-            |> Seq.groupBy (fun x -> x.Def)
-            |> Seq.choose (fun (_, xs) ->
-                let maxExponent = xs |> Seq.map (fun x -> x.SampleExponent) |> Seq.max
-                xs 
-                |> Seq.map (fun layer ->
-                    let mutable l = layer
-                    while l.SampleExponent < maxExponent do l <- l.ResampleUntyped rootCell
-                    l
-                    )
-                |> Layer.Merge
-                )
-            |> Seq.map (fun layer -> layer.ResampleUntyped rootCell)
-            |> Seq.toArray
+        else
+
+            (*
+                Get all nodes into memory (except NoNode).
+                All nodes should be unique quadrants of root cell.
+            *)
+            let subnodes = subNodeRefs |> Array.choose (fun x -> x.TryGetInMemory())
+
+            let noNodeCount = subNodeRefs |> Array.sumBy (fun x -> match x with | NoNode -> 1 | _ -> 0)
+            invariantm (subnodes.Length = subNodeRefs.Length - noNodeCount)
+                "Failed to load all nodes into memory."
+                "0607fed7-91cc-4a68-ba01-2512288c607a"
+
+            invariantm (subnodes |> Array.forall (fun n -> rootCell.Contains(n.Cell)))
+                (sprintf "All subnodes must be contained in root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
+                "8c78a230-e467-4f97-b2e0-0db79e003a46"
+
+            invariantm (subnodes |> Array.forall (fun n -> rootCell.Exponent = n.Cell.Exponent + 1))
+                (sprintf "All subnodes must be quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
+                "16a32b30-51a6-43fe-ab67-9fc854b1dde2"
+
+            invariantm (subnodes |> Array.distinctBy (fun n -> n.Cell) |> Array.length = subnodes.Length)
+                (sprintf "All subnodes must be unique quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
+                "3688841c-fe01-4d0d-b7e3-21e0c20a9c6c"
 
 
-        let resultExponents = result |> Array.groupBy (fun x -> x.SampleExponent)
-        if resultExponents.Length <> 1 then
-            failwith "Invariant abbd4b37-d816-4ba4-9427-183458ff6ad1."
+            (*
+                What is the target sample size?
+            *)
+            
+            // ... first, check if all subnodes have the same split limit exponent,
+            //     which specifies the tile size as width = height = 2^SplitLimitExponent
+            let xs = subnodes |> Array.map (fun n -> n.SplitLimitExponent) |> Array.distinct
+            
+            invariantm (xs.Length = 1) 
+                (sprintf "Can't combine nodes with different split limit exponents (%A)." xs)
+                "a9bf0243-e481-49a5-908e-d5af94cec2af"
 
-        let selfExponent = resultExponents.[0] |> fst
-        invariant (selfExponent = maxSubNodeExponent + 1) "4a8cbec0-4e14-4eb4-a21a-0af370cc1d81"
+            let splitLimitExponent = xs |> Array.exactlyOne
 
-        result
+            // ... we want to fit a tile of width = height = 2^splitLimitExponent
+            //     into a root cell of size rootCell.Exponent
+            let targetSampleSize = rootCell.Exponent - splitLimitExponent
 
-    /// Computes and attaches a parent node to given tree until given root is reached.
-    /// Returns new tree starting at root.
-    /// Newly attached nodes contains resampled layers (LoD) from given node.
+            
+            (*
+                collect all layers from all nodes
+            *)
+            let allLayers = subnodes |> Array.collect (fun x -> x.Layers) 
+
+            invariantm (allLayers |> Array.forall (fun layer -> layer.SampleExponent + 1 = targetSampleSize))
+                (sprintf "All layers must have a sample size of 1 less than the target sample size (%d). Layers are (%A)." targetSampleSize allLayers)
+                "8d206e1c-d54a-4841-829d-2e783bde0815"
+
+            (*
+                resample all layers to half the resolution
+            *)
+            let allLayersResampled = allLayers |> Array.map (fun layer -> layer.ResampleUntyped rootCell)
+
+            invariantm (allLayersResampled |> Array.forall (fun layer -> layer.SampleExponent = targetSampleSize))
+                (sprintf "All resampled layers must have target sample size (%d). Resampled layers are (%A)." targetSampleSize allLayersResampled)
+                "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
+
+
+            (*
+                finally, merge resampled layers with same definition
+            *)
+            let resampledByDef = allLayersResampled |> Array.groupBy (fun layer -> layer.Def)
+            let merged = resampledByDef |> Array.map (fun (_, xs) -> Layer.Merge xs)
+
+            invariantm (merged |> Array.forall (fun x -> x.IsSome))
+                (sprintf "There should be a merge result for each definition. Merged layers are %A." merged)
+                "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
+
+            let result = merged |> Array.map (fun x -> x.Value)
+            result
+
+
+    /// Returns new extended tree starting at root.
+    /// Root and node must not be centered.
+    /// Root must contain node.
+    /// Newly created nodes contain resampled layers (LoD).
     let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =
 
-           match nodeRef.TryGetInMemory() with
-           | None -> NoNode
-           | Some node ->
-               invariant (root.Contains(node.Cell))                                                "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
-               invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
-               invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
+        invariantm (not root.IsCenteredAtOrigin) "Root must not be centered."                   "b18fe51c-22a8-4a3b-a696-d54bf2f8cda0"
+
+        match nodeRef.TryGetInMemory() with
+        | None -> NoNode
+        | Some node ->
+            
+            invariantm (not node.Cell.IsCenteredAtOrigin) "Node must not be centered."          "c8f2a8bd-2f4f-4467-843e-1d660d6ac329"
+            invariantm (root.Contains(node.Cell)) "Root must contain node."                     "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
+            invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
+            invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
+              
+            let numberOfLevelsBelowRoot = root.Exponent - node.Cell.Exponent
+            match numberOfLevelsBelowRoot with
+                
+            | 0 -> // already at desired root -> done
+                invariant (root = node.Cell)                                                    "cede9588-7ea0-408d-89a3-86ed9d916930"
+                InMemoryNode node
+
+            | 1 -> // one level below root, both non-centered
+
+                invariant (root.Exponent = node.Cell.Exponent + 1)                              "b652d9bc-340a-4312-8407-9fdee62ffcaa"
+
+                let qi = root.GetQuadrant(node.Cell)
+                
+                invariantm qi.HasValue 
+                    (sprintf "Node %A must be quadrant of root %A." node.Cell root )            "09575aa7-38b3-4afa-bb63-389af3301fc0"
+                    
+                
+                let subnodes = Array.create 4 NoNode
+                subnodes.[qi.Value] <- InMemoryNode node
+
+                let lodlayers = generateLodLayers subnodes root
+                
+                let result = QNode(Guid.NewGuid(), root, node.SplitLimitExponent,
+                                   node.OriginalSampleExponent, lodlayers, subnodes)
+                
+                InMemoryNode result
+
+            | x ->    // more than 1 level below root
+                invariant (x > 1) "de49dcd3-a45a-4854-b71b-45866d6f82de"
+                nodeRef
+                |> extendUpTo node.Cell.Parent 
+                |> extendUpTo root
                
-               if root = node.Cell then
-                   InMemoryNode node
-               else
-                   invariant (root.Exponent > node.Cell.Exponent)                                  "b652d9bc-340a-4312-8407-9fdee62ffcaa"
-
-                   if root.IsCenteredAtOrigin && node.Cell.IsCenteredAtOrigin then
-
-                       let roots = root.Children
-                       let nodes = match node.SubNodes with
-                                   | Some xs -> xs
-                                   | None    -> node.SplitCenteredNodeIntoQuadrantNodesAtSameLevel() |> Array.map InMemoryNode
-                       let rootSubNodes  = Array.map2 extendUpTo roots nodes
-                       let rootLodLayers = generateLodLayers rootSubNodes root
-
-                       let n = QNode(Guid.NewGuid(), root, node.SplitLimitExponent,
-                                     node.OriginalSampleExponent, rootLodLayers,
-                                     rootSubNodes)
-
-                       InMemoryNode n
-
-                   else
-                       let isChildOfCenteredRoot = root.IsCenteredAtOrigin && root.Exponent = node.Cell.Exponent + 1
-
-                       let parentCell = if isChildOfCenteredRoot then root else node.Cell.Parent
-                       let qi = parentCell.GetQuadrant(node.Cell)
-                   
-                       invariantm qi.HasValue                                                      "09575aa7-38b3-4afa-bb63-389af3301fc0"
-                           (sprintf "Parent cell: %A; node cell: %A." parentCell node.Cell)
-                   
-                       let parentSubNodes = Array.create 4 NoNode
-                       parentSubNodes.[qi.Value] <- InMemoryNode node
-                       let parentLodLayers = generateLodLayers parentSubNodes root
-                   
-                       invariant (node.SampleExponent + 1 = parentLodLayers.[0].SampleExponent)    "7b0fa058-4812-4332-9547-0c33ee7ea7d5"
-                   
-                       let parentNode = QNode(Guid.NewGuid(), parentCell, node.SplitLimitExponent,
-                                              node.OriginalSampleExponent, parentLodLayers,
-                                              parentSubNodes)
-                   
-                       invariant (parentNode.Cell.Exponent = node.Cell.Exponent + 1)               "27b263d3-7fe5-49fd-96ca-422c37f9a31a"
-                       invariant (parentNode.SampleExponent = node.SampleExponent + 1)             "6076b045-9bee-4285-b583-1d3d49bb259a"
-                   
-                       match extendUpTo root (InMemoryNode parentNode) with
-                       | InMemoryNode result -> invariant (root.Exponent = result.Cell.Exponent)   "a0d249da-ed0d-4abe-8751-191ad0ffb9f9"
-                                                InMemoryNode result
-                       | _ -> failwith "Invariant 991571a4-ea05-4142-bd38-a6964319ba97."
 
     ///// Computes and attaches a parent node to given tree.
     ///// Returns new tree with parent attached.

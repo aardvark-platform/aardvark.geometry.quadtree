@@ -335,6 +335,7 @@ module Merge =
 
             let sampleWindowsIntersect = first.SampleWindow.Intersects(second.SampleWindow)
 
+
             match first.IsLeafNode, second.IsLeafNode, sampleWindowsIntersect with
             // (1) leaf, leaf, _
             | true,  true,  _     ->
@@ -359,10 +360,13 @@ module Merge =
                 // first IS NOT more detailled than second
                 invariant (first.OriginalSampleExponent >= second.OriginalSampleExponent) "3a0a63d0-b1d6-4b36-8a5f-5da78c413e68"
 
-                match domination, first.SampleWindow.Contains(second.SampleWindow) with
-                | FirstDominates, true -> firstRef // first dominates and covers all second samples -> first wins
-
-                | _                    -> failwith "not implemented"
+                let firstContainsSecond = first.SampleWindow.Contains(second.SampleWindow)
+                let secondContainsFirst = second.SampleWindow.Contains(first.SampleWindow)
+                match domination, firstContainsSecond, secondContainsFirst with
+                | FirstDominates , true, _     -> firstRef  // 1st dominates and covers all 2nd samples -> 1st wins
+                | SecondDominates,    _, true  -> secondRef // 2nd dominates and covers all 1st samples -> 2nd wins 
+                | SecondDominates, true, false -> failwith "not implemented: SecondDominates, true, false"
+                | _                            -> failwith "not implemented"
 
             // (3) tree, leaf, _
             | false, true, _      ->

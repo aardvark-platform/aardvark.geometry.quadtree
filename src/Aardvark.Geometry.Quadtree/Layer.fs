@@ -34,6 +34,11 @@ module ILayerExtensions =
 
 type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
    
+    do
+        invariantm (int64 data.Length >= mapping.WindowSize.X * mapping.WindowSize.Y) 
+            (sprintf "Mapping window %A exceeds available data (length=%d)." mapping.Window data.Length)
+            "971a69a6-cd25-43b8-b85b-7dd783456552"
+
     interface ILayer with
         member this.Def with get() = def
         member this.Mapping with get() = mapping
