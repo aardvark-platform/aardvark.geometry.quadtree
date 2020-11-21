@@ -80,7 +80,7 @@ let merge () =
     printfn "%A" (secondQuadtree.TryGetInMemory().Value.Cell)
 
     // merge both octrees
-    let mergedQtree = Quadtree.Merge firstQuadtree secondQuadtree MoreDetailedDominates
+    let mergedQtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
     printfn "%A" (mergedQtree.TryGetInMemory().Value.Cell)
 
     // enumerate all samples
@@ -313,7 +313,7 @@ let performanceTest () =
             let h  = r.Next(50) + 1
 
             let other = createQuadtreeWithRandomValues ox oy w h e 0
-            let merged = Quadtree.Merge quadtree other dominance
+            let merged = Quadtree.Merge dominance quadtree other
             quadtree <- merged
 
         ()
@@ -531,7 +531,7 @@ let cpunz20201105 () =
 
     let mainTree = createQuadTreePlanes
     let subTree = createOneCell
-    let newTree = Quadtree.Merge mainTree subTree SecondDominates
+    let newTree = Quadtree.Merge SecondDominates mainTree subTree
     //let (_, _, x0) = get pos mainTree
     //let (_, _, x1) = get pos subTree
 
@@ -542,10 +542,10 @@ let cpunz20201105 () =
         printfn "sample %A; target %A; %A" x target (x = target) 
 
     
-    Quadtree.Merge mainTree subTree FirstDominates  |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
-    Quadtree.Merge mainTree subTree SecondDominates |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
-    Quadtree.Merge subTree mainTree FirstDominates  |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
-    Quadtree.Merge subTree mainTree SecondDominates |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
+    Quadtree.Merge FirstDominates  mainTree subTree |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
+    Quadtree.Merge SecondDominates mainTree subTree |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
+    Quadtree.Merge FirstDominates  subTree mainTree |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
+    Quadtree.Merge SecondDominates subTree mainTree |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
 
     ()
 
@@ -591,7 +591,7 @@ let cpunz20201116 () =
     printfn "[subTree   ] isLeafNode = %A" subTree'.IsLeafNode
     printRaster subTree
 
-    let newTree = Quadtree.Merge mainTree subTree SecondDominates
+    let newTree = Quadtree.Merge SecondDominates mainTree subTree
     let newTree' = newTree.TryGetInMemory().Value
     printfn "[newTree   ] isLeafNode = %A" newTree'.IsLeafNode
     printRaster newTree
@@ -601,7 +601,7 @@ let cpunz20201116 () =
     printfn "[subSubTree] isLeafNode = %A" subSubTree'.IsLeafNode
     printRaster subSubTree
 
-    let subNewTree = Quadtree.Merge newTree subSubTree SecondDominates
+    let subNewTree = Quadtree.Merge SecondDominates newTree subSubTree
     let subNewTree' = subNewTree.TryGetInMemory().Value
     printfn "[subNewTree] isLeafNode = %A" subNewTree'.IsLeafNode
     printRaster subNewTree

@@ -30,12 +30,19 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
     let globalCellStepInv = 1.0 / globalCellStep
 
     do
-        if bufferOrigin.IsCenteredAtOrigin then
-            invariant (bufferSize = V2i(1,1)) "e782c751-0c45-4748-a937-c32393692659"
-        else
-            let max = bufferOrigin.XY + V2l(bufferSize)
-            if window.Min.X < bufferOrigin.X || window.Min.Y < bufferOrigin.Y || window.Max.X > max.X || window.Max.Y > max.Y then
-                failwith "Invalid window. Error 8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a."
+        invariantm (not bufferOrigin.IsCenteredAtOrigin)
+            (sprintf "Buffer origin can't be centered cell (%A)." bufferOrigin)
+            "eca25b79-d810-4712-966f-7b71cb79d257"
+
+        invariantm (bufferSize.X > 0 && bufferSize.Y > 0)
+            (sprintf "Buffer size must be greater than zero (%A)." bufferSize)
+            "eca25b79-d810-4712-966f-7b71cb79d257"
+
+        let max = bufferOrigin.XY + V2l(bufferSize)
+
+        invariantm (window.Min.X >= bufferOrigin.X && window.Min.Y >= bufferOrigin.Y && window.Max.X <= max.X && window.Max.Y <= max.Y)
+            (sprintf "Invalid window (%A). Buffer origin is %A. Buffer size is %A." window bufferOrigin bufferSize)
+            "8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a"
 
     override this.GetHashCode() =
         hash (bufferOrigin, bufferSize, window)
@@ -59,16 +66,25 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         DataMapping(Cell2d(origin, exponent), size, Box2l.FromMinAndSize(origin, V2l(size)))
 
     new (origin : Cell2d, maxIncl : Cell2d) =
-        if origin.Exponent <> maxIncl.Exponent then
-            failwith "Invalid arguments. Exponents mismatch. Invariant ea829c55-edd1-4af9-8955-6aafddb88965."
+        invariantm (not maxIncl.IsCenteredAtOrigin)
+            (sprintf "MaxIncl can't be centered cell (%A)." maxIncl)
+            "ab81389b-e227-424c-85a2-32e3190f6d2b"
+
+        invariantm (origin.Exponent = maxIncl.Exponent)
+            "Exponents of origin and maxIncl must match."
+            "ea829c55-edd1-4af9-8955-6aafddb88965"
+
         let size = maxIncl.XY - origin.XY + V2l.II
-        if size.X < 0L || size.Y < 0L || size.X > int64 Int32.MaxValue || size.Y > int64 Int32.MaxValue then
-            failwith "Invalid arguments. Invariant a447d0d5-9036-4372-ba22-19e28decbfaa."
+
+        invariantm (size.X >= 0L && size.Y >= 0L && size.X <= int64 Int32.MaxValue && size.Y <= int64 Int32.MaxValue)
+            (sprintf "Size (%A) is out of range." size)
+            "a447d0d5-9036-4372-ba22-19e28decbfaa"
+
         DataMapping(origin, V2i(size), Box2l.FromMinAndSize(origin.XY, size))
 
-    new (origin : Cell2d) =
-        invariant origin.IsCenteredAtOrigin "3bd119fe-ec23-40a8-9287-9c8d7abe49ce"
-        DataMapping(origin, V2i.II, Box2l.Invalid)
+    //new (origin : Cell2d) =
+    //    invariant origin.IsCenteredAtOrigin "3bd119fe-ec23-40a8-9287-9c8d7abe49ce"
+    //    DataMapping(origin, V2i.II, Box2l.Invalid)
 
     member ____.BufferOrigin with get() = bufferOrigin
     member ____.BufferSize with get() = bufferSize
@@ -90,8 +106,9 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         DataMapping.getBufferIndex bufferOrigin.X bufferOrigin.Y bufferSize.X bufferSize.Y (int64 s.X) (int64 s.Y)
     
     member this.GetBufferIndex (s : Cell2d) =
-        if s.Exponent <> bufferOrigin.Exponent then
-            failwith "Sample exponent out of range. Error 9d9d3741-6f26-435d-a5d2-a8cc37cbe94d."
+        invariantm (s.Exponent = bufferOrigin.Exponent)
+             (sprintf "Sample exponent (%d) out of range (must be %d)." s.Exponent bufferOrigin.Exponent)
+             "9d9d3741-6f26-435d-a5d2-a8cc37cbe94d"
         DataMapping.getBufferIndex bufferOrigin.X bufferOrigin.Y bufferSize.X bufferSize.Y s.X s.Y
     
     member this.GetBufferIndex (globalPos : V2d) =

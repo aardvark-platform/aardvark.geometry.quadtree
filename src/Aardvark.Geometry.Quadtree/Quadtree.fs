@@ -111,8 +111,8 @@ module Quadtree =
 
         build config rootCell sampleExponent layers |> InMemoryNode
 
-    let Merge (first : QNodeRef) (second : QNodeRef) (domination : Dominance) =
-        Merge.merge first second domination
+    let Merge (domination : Dominance) (first : QNodeRef) (second : QNodeRef) =
+        Merge.merge domination first second
 
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =

@@ -343,7 +343,7 @@ module QNode =
 
         result
 
-    /// Computes and attaches a parent nodes to given tree until given root is reached.
+    /// Computes and attaches a parent node to given tree until given root is reached.
     /// Returns new tree starting at root.
     /// Newly attached nodes contains resampled layers (LoD) from given node.
     let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =

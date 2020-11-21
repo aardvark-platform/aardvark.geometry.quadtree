@@ -108,15 +108,17 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
 
         if resampleRoot.IsCenteredAtOrigin && this.SampleExponent + 1 = resampleRoot.Exponent then
 
-            let win = this.SampleWindow
-            if win.Min.X >= -1L && win.Min.Y >= -1L && win.Max.X <= +1L && win.Max.Y <= +1L then
-                let inline getSample x y = this.GetSample(mode, (Cell2d(int64 x, int64 y, this.SampleExponent)))
-                let v = f (getSample -1 -1, getSample 0 -1, getSample -1 0, getSample 0 0)
-                let buffer = Array.create 1 v
-                let newMapping = DataMapping(resampleRoot) 
-                Layer(def, buffer, newMapping)
-            else
-                failwith "Invariant 43144338-8f31-4336-be48-001cf4075ab0."
+            //let win = this.SampleWindow
+            //if win.Min.X >= -1L && win.Min.Y >= -1L && win.Max.X <= +1L && win.Max.Y <= +1L then
+            //    let inline getSample x y = this.GetSample(mode, (Cell2d(int64 x, int64 y, this.SampleExponent)))
+            //    let v = f (getSample -1 -1, getSample 0 -1, getSample -1 0, getSample 0 0)
+            //    let buffer = Array.create 1 v
+            //    let newMapping = DataMapping(resampleRoot) 
+            //    Layer(def, buffer, newMapping)
+            //else
+            //    failwith "Invariant 43144338-8f31-4336-be48-001cf4075ab0."
+
+            failwith "Resample root can't be centered cell. 1df02742-9f84-40ea-973f-2093dfc8b841."
 
         else
 
