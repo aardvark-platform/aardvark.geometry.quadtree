@@ -397,18 +397,15 @@ module QNode =
 
 
     /// Returns new extended tree starting at root.
-    /// Root and node must not be centered.
     /// Root must contain node.
     /// Newly created nodes contain resampled layers (LoD).
     let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =
 
-        invariantm (not root.IsCenteredAtOrigin) "Root must not be centered."                   "b18fe51c-22a8-4a3b-a696-d54bf2f8cda0"
-
         match nodeRef.TryGetInMemory() with
-        | None -> NoNode
+        | None      -> NoNode
         | Some node ->
             
-            invariantm (not node.Cell.IsCenteredAtOrigin) "Node must not be centered."          "c8f2a8bd-2f4f-4467-843e-1d660d6ac329"
+            //invariantm (not node.Cell.IsCenteredAtOrigin) "Node must not be centered."          "c8f2a8bd-2f4f-4467-843e-1d660d6ac329"
             invariantm (root.Contains(node.Cell)) "Root must contain node."                     "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
             invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
             invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
@@ -445,27 +442,3 @@ module QNode =
                 nodeRef
                 |> extendUpTo node.Cell.Parent 
                 |> extendUpTo root
-               
-
-    ///// Computes and attaches a parent node to given tree.
-    ///// Returns new tree with parent attached.
-    ///// Parent node contains resampled layers (LoD) from given node.
-    //let attachParentNode (nodeRef : QNodeRef) : QNodeRef =
-        
-    //    match nodeRef.TryGetInMemory() with
-    //    | None      -> NoNode
-    //    | Some node ->
-
-    //        if node.Cell.IsCenteredAtOrigin then
-
-    //            extendUpTo node.Cell.Parent (InMemoryNode node)
-
-    //        else
-            
-    //            let parentCell = node.Cell.Parent
-    //            let i = parentCell.GetQuadrant(node.Cell).Value
-    //            let subNodes = Array.create 4 NoNode
-    //            subNodes.[i] <- nodeRef
-    //            let parentLayers = node.Layers |> Array.map (fun x -> x.ResampleUntyped parentCell)
-    //            let n = QNode(Guid.NewGuid(), parentCell, node.SplitLimitExponent, node.OriginalSampleExponent, parentLayers, subNodes)
-    //            InMemoryNode n

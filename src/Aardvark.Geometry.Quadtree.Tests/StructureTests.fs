@@ -239,42 +239,40 @@ let ``extendUpTo: non-centered -> non-centered, 2 levels difference`` () =
         ]}
 
 [<Fact>]
-let ``extendUpTo: non-centered -> centered; fails`` () =
+let ``extendUpTo: non-centered -> centered`` () =
 
-    Assert.ThrowsAny<Exception>(fun () ->
-        createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Data = [|
-            1.0;  2.0; 
-            3.0;  4.0;
-        |]}
+    createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Data = [|
+        1.0;  2.0; 
+        3.0;  4.0;
+    |]}
 
-        |> checkQuadtree {
-            Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
-            Samples = [
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [
+        ]}
+
+    |> QNode.extendUpTo (Cell2d(9))
+
+    |> checkQuadtree {
+        Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0
+                Data = [
+                    ((0,0,0), 1.0); ((1,0,0), 2.0)
+                    ((0,1,0), 3.0); ((1,1,0), 4.0)
             ]}
-
-        |> QNode.extendUpTo (Cell2d(9))
-
-        |> checkQuadtree {
-            Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
-            Samples = [
-                {
-                    Level = 0
-                    Data = [
-                        ((0,0,0), 1.0); ((1,0,0), 2.0)
-                        ((0,1,0), 3.0); ((1,1,0), 4.0)
-                ]}
-                {
-                    Level = 1
-                    Data = [
-                        ((0,0,1), 2.5)
-                ]}
+            {
+                Level = 1
+                Data = [
+                    ((0,0,1), 2.5)
             ]}
+        ]}
 
-        |> ignore
-    )
+    |> ignore
 
 [<Fact>]
-let ``extendUpTo: centered -> centered; fails`` () =
+let ``extendUpTo: centered -> centered`` () =
 
     Assert.ThrowsAny<Exception>(fun () ->
         createQuadtree { Origin = Cell2d(-1,-1,0); Size = (2,2); Data = [|

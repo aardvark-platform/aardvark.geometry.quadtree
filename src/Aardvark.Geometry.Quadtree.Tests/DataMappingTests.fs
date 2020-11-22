@@ -11,12 +11,10 @@ let ``create non-centered succeeds`` () =
     Assert.True(m.Window = Box2l(V2l(1000,500), V2l(1020, 510)))
 
 [<Fact>]
-let ``create centered fails`` () =
-    Assert.ThrowsAny<Exception>(fun () ->
-        let m = DataMapping(Cell2d(2), V2i(1,1))
-        Assert.True(m.BufferOrigin.IsCenteredAtOrigin)
-        Assert.True(m.BufferOrigin.Exponent = 2)
-    )
+let ``create centered succeeds`` () =
+    let m = DataMapping(Cell2d(2), V2i(1,1))
+    Assert.True(m.BufferOrigin.IsCenteredAtOrigin)
+    Assert.True(m.BufferOrigin.Exponent = 2)
 
 [<Fact>]
 let ``eq 1`` () =

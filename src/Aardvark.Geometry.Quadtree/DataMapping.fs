@@ -30,19 +30,20 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
     let globalCellStepInv = 1.0 / globalCellStep
 
     do
-        invariantm (not bufferOrigin.IsCenteredAtOrigin)
-            (sprintf "Buffer origin can't be centered cell (%A)." bufferOrigin)
-            "eca25b79-d810-4712-966f-7b71cb79d257"
+        if bufferOrigin.IsCenteredAtOrigin then
+            invariantm (bufferSize = V2i.II && window = Box2l.Invalid)
+                (sprintf "If buffer origin is centered cell (%A), then buffer (%A) size must be 1x1, and window (%A) must be invalid." bufferOrigin bufferSize window)
+                "eca25b79-d810-4712-966f-7b71cb79d257"
+        else
+            invariantm (bufferSize.X > 0 && bufferSize.Y > 0)
+                (sprintf "Buffer size must be greater than zero (%A)." bufferSize)
+                "eca25b79-d810-4712-966f-7b71cb79d257"
 
-        invariantm (bufferSize.X > 0 && bufferSize.Y > 0)
-            (sprintf "Buffer size must be greater than zero (%A)." bufferSize)
-            "eca25b79-d810-4712-966f-7b71cb79d257"
+            let max = bufferOrigin.XY + V2l(bufferSize)
 
-        let max = bufferOrigin.XY + V2l(bufferSize)
-
-        invariantm (window.Min.X >= bufferOrigin.X && window.Min.Y >= bufferOrigin.Y && window.Max.X <= max.X && window.Max.Y <= max.Y)
-            (sprintf "Invalid window (%A). Buffer origin is %A. Buffer size is %A." window bufferOrigin bufferSize)
-            "8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a"
+            invariantm (window.Min.X >= bufferOrigin.X && window.Min.Y >= bufferOrigin.Y && window.Max.X <= max.X && window.Max.Y <= max.Y)
+                (sprintf "Invalid window (%A). Buffer origin is %A. Buffer size is %A." window bufferOrigin bufferSize)
+                "8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a"
 
     override this.GetHashCode() =
         hash (bufferOrigin, bufferSize, window)
@@ -82,9 +83,9 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
 
         DataMapping(origin, V2i(size), Box2l.FromMinAndSize(origin.XY, size))
 
-    //new (origin : Cell2d) =
-    //    invariant origin.IsCenteredAtOrigin "3bd119fe-ec23-40a8-9287-9c8d7abe49ce"
-    //    DataMapping(origin, V2i.II, Box2l.Invalid)
+    new (origin : Cell2d) =
+        invariant origin.IsCenteredAtOrigin "3bd119fe-ec23-40a8-9287-9c8d7abe49ce"
+        DataMapping(origin, V2i.II, Box2l.Invalid)
 
     member ____.BufferOrigin with get() = bufferOrigin
     member ____.BufferSize with get() = bufferSize
