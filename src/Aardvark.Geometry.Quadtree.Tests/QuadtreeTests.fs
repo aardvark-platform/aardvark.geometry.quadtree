@@ -4,6 +4,7 @@ open Xunit
 open Aardvark.Geometry.Quadtree
 open Aardvark.Base
 open Aardvark.Data
+open System
 
 #nowarn "44"
 
@@ -225,8 +226,8 @@ let ``Build_VolumesBilinear4d`` () =
 *)
 
 let private genQuadtree () =
-    let a1 = Layer(Defs.Colors4f,         [| V4f(0,1,0,1) |], DataMapping(V2l.OO, V2i.II, exponent = 0))
-    let a2 = Layer(Defs.BilinearParams4f, [| V4f(1,2,3,4) |], DataMapping(V2l.OO, V2i.II, exponent = 0))
+    let a1 = Layer(Defs.Colors4f,         [| C4f.Chocolate |], DataMapping(V2l.OO, V2i.II, exponent = 0))
+    let a2 = Layer(Defs.BilinearParams4f, [| V4f(1,2,3,4)  |], DataMapping(V2l.OO, V2i.II, exponent = 0))
     Quadtree.Build BuildConfig.Default [| a1; a2 |]
 
 [<Fact>]
@@ -322,7 +323,7 @@ let ``Quadtree.UpdateLayerSemantic, non-existing -> existing, nop`` () =
 
     // non-existing -> existing
     let (updated, r) = q.UpdateLayerSemantic(Defs.VolumesBilinear4f, Defs.BilinearParams4f)
-       
+
     updated                                                         |> Assert.False
     r.Id = q.Id                                                     |> Assert.True
     r.TryGetInMemory().Value.Layers.Length = 2                      |> Assert.True
@@ -330,3 +331,43 @@ let ``Quadtree.UpdateLayerSemantic, non-existing -> existing, nop`` () =
     r.ContainsLayer(Defs.BilinearParams4f)                          |> Assert.True
     r.GetLayer<V4f>(Defs.BilinearParams4f).Data.[0] = V4f(1,2,3,4)  |> Assert.True
     r.ContainsLayer(Defs.HeightsBilinear4f)   
+
+[<Fact>]
+let ``Workflow. upgrade old semantic on load from store`` () =
+    
+    let upgrade config (x : QNodeRef) =
+        match x.UpdateLayerSemantic(Defs.BilinearParams4f, Defs.HeightsBilinear4f) with
+        | false, unchangedTree ->
+            printfn "  nothing changed"
+            Assert.True (unchangedTree.Id = x.Id)
+            unchangedTree
+        | true , changedTree   ->
+            let newId = changedTree |> Quadtree.Save config
+            Assert.True (changedTree.Id = newId)
+            Assert.False(changedTree.Id = x.Id)
+            printfn "  saved changed tree %A" newId
+            changedTree
+
+    let config = SerializationOptions.NewInMemoryStore false
+
+    printfn "[save old-style tree]"
+    let q = genQuadtree ()
+    let id = q |> Quadtree.Save config
+    printfn "  id = %A" id
+
+    printfn "[load old-style tree]"
+    let oldTree = Quadtree.Load config id
+    printfn "  id = %A" oldTree.Id
+
+    printfn "[upgrade and save changed tree]"
+    let newTree = oldTree |> upgrade config
+
+    printfn "[load upgraded tree]"
+    let upgradedTree = Quadtree.Load config newTree.Id
+    printfn "  id = %A" upgradedTree.Id
+
+    printfn "[upgrade already upgraded tree]"
+    let newTree2 = upgradedTree |> upgrade config
+
+    ()
+   
