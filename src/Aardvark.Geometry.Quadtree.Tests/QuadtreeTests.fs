@@ -339,12 +339,12 @@ let ``Workflow. upgrade old semantic on load from store`` () =
         match x.UpdateLayerSemantic(Defs.BilinearParams4f, Defs.HeightsBilinear4f) with
         | false, unchangedTree ->
             printfn "  nothing changed"
-            Assert.True (unchangedTree.Id = x.Id)
+            unchangedTree.Id = x.Id                     |> Assert.True
             unchangedTree
         | true , changedTree   ->
             let newId = changedTree |> Quadtree.Save config
-            Assert.True (changedTree.Id = newId)
-            Assert.False(changedTree.Id = x.Id)
+            changedTree.Id = newId                      |> Assert.True
+            changedTree.Id = x.Id                       |> Assert.False
             printfn "  saved changed tree %A" newId
             changedTree
 
@@ -352,22 +352,36 @@ let ``Workflow. upgrade old semantic on load from store`` () =
 
     printfn "[save old-style tree]"
     let q = genQuadtree ()
+    q.ContainsLayer(Defs.BilinearParams4f)              |> Assert.True
+    q.ContainsLayer(Defs.HeightsBilinear4f)             |> Assert.False
     let id = q |> Quadtree.Save config
     printfn "  id = %A" id
 
     printfn "[load old-style tree]"
     let oldTree = Quadtree.Load config id
+    oldTree.Id = q.Id                                   |> Assert.True
+    oldTree.ContainsLayer(Defs.BilinearParams4f)        |> Assert.True
+    oldTree.ContainsLayer(Defs.HeightsBilinear4f)       |> Assert.False
     printfn "  id = %A" oldTree.Id
 
     printfn "[upgrade and save changed tree]"
     let newTree = oldTree |> upgrade config
+    newTree.Id <> oldTree.Id                            |> Assert.True
+    newTree.ContainsLayer(Defs.BilinearParams4f)        |> Assert.False
+    newTree.ContainsLayer(Defs.HeightsBilinear4f)       |> Assert.True
 
     printfn "[load upgraded tree]"
     let upgradedTree = Quadtree.Load config newTree.Id
     printfn "  id = %A" upgradedTree.Id
+    upgradedTree.Id = newTree.Id                        |> Assert.True
+    upgradedTree.ContainsLayer(Defs.BilinearParams4f)   |> Assert.False
+    upgradedTree.ContainsLayer(Defs.HeightsBilinear4f)  |> Assert.True
 
     printfn "[upgrade already upgraded tree]"
     let newTree2 = upgradedTree |> upgrade config
+    newTree.Id = upgradedTree.Id                        |> Assert.True
+    newTree2.ContainsLayer(Defs.BilinearParams4f)       |> Assert.False
+    newTree2.ContainsLayer(Defs.HeightsBilinear4f)      |> Assert.True
 
     ()
    
