@@ -5,6 +5,8 @@ open Aardvark.Geometry.Quadtree
 open Aardvark.Base
 open Aardvark.Data
 
+#nowarn "44"
+
 let private createQuadtree (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) =
     let size = V2i(w, h)
     let xs = Array.zeroCreate<float32> (w * h)
@@ -215,3 +217,116 @@ let ``Build_VolumesBilinear4d`` () =
     let q = createQuadtree' 0 0 10 7 0 2 Defs.VolumesBilinear4d (fun x y -> V4d.Zero)
     Assert.True(Quadtree.CountLeafs q = 6)
     Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+
+
+
+(* 
+    Quadtree.[ContainsLayer|UpdateLayerSemantic]
+*)
+
+let private genQuadtree () =
+    let a1 = Layer(Defs.Colors4f,         [| V4f(0,1,0,1) |], DataMapping(V2l.OO, V2i.II, exponent = 0))
+    let a2 = Layer(Defs.BilinearParams4f, [| V4f(1,2,3,4) |], DataMapping(V2l.OO, V2i.II, exponent = 0))
+    Quadtree.Build BuildConfig.Default [| a1; a2 |]
+
+[<Fact>]
+let ``Quadtree.ContainsLayer`` () =
+    
+    let q = genQuadtree ()
+    
+    (q |> Quadtree.ContainsLayer(Defs.Colors4f))                                    |> Assert.True
+    (q |> Quadtree.ContainsLayer(Defs.BilinearParams4f))                            |> Assert.True
+    (q |> Quadtree.GetLayer<V4f>(Defs.BilinearParams4f)).Data.[0] = V4f(1,2,3,4)    |> Assert.True
+    (q |> Quadtree.ContainsLayer(Defs.HeightsBilinear4f))                           |> Assert.False
+
+    (q |> Quadtree.TryGetLayer<V4f>(Defs.BilinearParams4f)).IsSome                  |> Assert.True
+    (q |> Quadtree.TryGetLayer<V4f>(Defs.HeightsBilinear4f)).IsSome                 |> Assert.False
+
+    (q |> Quadtree.TryGetLayer<V4f>(Defs.BilinearParams4f)).IsSome                  |> Assert.True
+    (q |> Quadtree.TryGetLayer<V4f>(Defs.HeightsBilinear4f)).IsSome                 |> Assert.False
+
+[<Fact>]
+let ``Quadtree.GetLayer`` () =
+    
+    let q = genQuadtree ()
+    
+    q |> Quadtree.GetLayer<V4f>(Defs.BilinearParams4f) |> ignore
+    Assert.ThrowsAny<exn>(fun () -> q |> Quadtree.GetLayer<V4f>(Defs.HeightsBilinear4f) |> ignore)  |> ignore
+
+    q |> Quadtree.GetLayerUntyped(Defs.BilinearParams4f) |> ignore
+    Assert.ThrowsAny<exn>(fun () -> q |> Quadtree.GetLayer(Defs.HeightsBilinear4f) |> ignore) |> ignore
+
+[<Fact>]
+let ``Quadtree.TryGetLayer`` () =
+    
+    let q = genQuadtree ()
+    
+    (q |> Quadtree.TryGetLayer<V4f>(Defs.BilinearParams4f )).IsSome  |> Assert.True
+    (q |> Quadtree.TryGetLayer<V4f>(Defs.HeightsBilinear4f)).IsSome  |> Assert.False
+
+    (q |> Quadtree.TryGetLayerUntyped(Defs.BilinearParams4f )).IsSome  |> Assert.True
+    (q |> Quadtree.TryGetLayerUntyped(Defs.HeightsBilinear4f)).IsSome  |> Assert.False
+
+[<Fact>]
+let ``Quadtree.UpdateLayerSemantic, existing -> non-existing, works`` () =
+    
+    let q = genQuadtree ()
+    
+    (q.TryGetInMemory().Value.Layers.Length = 2)                                    |> Assert.True
+    (q |> Quadtree.ContainsLayer(Defs.Colors4f))                                    |> Assert.True
+    (q |> Quadtree.ContainsLayer(Defs.BilinearParams4f))                            |> Assert.True
+    (q |> Quadtree.GetLayer<V4f>(Defs.BilinearParams4f)).Data.[0] = V4f(1,2,3,4)    |> Assert.True
+    (q |> Quadtree.ContainsLayer(Defs.HeightsBilinear4f))                           |> Assert.False
+
+    // existing -> non-existing
+    let (updated, r) = q.UpdateLayerSemantic(Defs.BilinearParams4f, Defs.HeightsBilinear4f)
+    
+    updated                                                                         |> Assert.True
+    r.Id = q.Id                                                                     |> Assert.False
+    (r.TryGetInMemory().Value.Layers.Length = 2)                                    |> Assert.True
+    (r |> Quadtree.ContainsLayer(Defs.Colors4f))                                    |> Assert.True
+    (r |> Quadtree.ContainsLayer(Defs.HeightsBilinear4f))                           |> Assert.True
+    (r |> Quadtree.GetLayer<V4f>(Defs.HeightsBilinear4f)).Data.[0] = V4f(1,2,3,4)   |> Assert.True
+    (r |> Quadtree.ContainsLayer(Defs.BilinearParams4f))                            |> Assert.False
+
+[<Fact>]
+let ``Quadtree.UpdateLayerSemantic, existing -> existing, fails`` () =
+    
+    let q = genQuadtree ()
+
+    // existing -> existing
+    Assert.ThrowsAny<exn>(fun () ->
+        q |> Quadtree.UpdateLayerSemantic(Defs.Colors4f, Defs.BilinearParams4f) |> ignore
+        ) |> ignore
+
+[<Fact>]
+let ``Quadtree.UpdateLayerSemantic, non-existing -> non-existing, nop`` () =
+    
+    let q = genQuadtree ()
+
+    // non-existing -> non-existing
+    let (updated, r) = q.UpdateLayerSemantic(Defs.VolumesBilinear4f, Defs.HeightsBilinear4f)
+    
+    updated                                                         |> Assert.False
+    r.Id = q.Id                                                     |> Assert.True
+    r.TryGetInMemory().Value.Layers.Length = 2                      |> Assert.True
+    r.ContainsLayer(Defs.Colors4f)                                  |> Assert.True
+    r.ContainsLayer(Defs.BilinearParams4f)                          |> Assert.True
+    r.GetLayer<V4f>(Defs.BilinearParams4f).Data.[0] = V4f(1,2,3,4)  |> Assert.True
+    r.ContainsLayer(Defs.HeightsBilinear4f)                         |> Assert.False
+
+[<Fact>]
+let ``Quadtree.UpdateLayerSemantic, non-existing -> existing, nop`` () =
+    
+    let q = genQuadtree ()
+
+    // non-existing -> existing
+    let (updated, r) = q.UpdateLayerSemantic(Defs.VolumesBilinear4f, Defs.BilinearParams4f)
+       
+    updated                                                         |> Assert.False
+    r.Id = q.Id                                                     |> Assert.True
+    r.TryGetInMemory().Value.Layers.Length = 2                      |> Assert.True
+    r.ContainsLayer(Defs.Colors4f)                                  |> Assert.True
+    r.ContainsLayer(Defs.BilinearParams4f)                          |> Assert.True
+    r.GetLayer<V4f>(Defs.BilinearParams4f).Data.[0] = V4f(1,2,3,4)  |> Assert.True
+    r.ContainsLayer(Defs.HeightsBilinear4f)   
