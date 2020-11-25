@@ -158,7 +158,8 @@ let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
     Assert.True(Quadtree.CountLeafs b = 1)
 
     let m = Quadtree.Merge MoreDetailedDominates a b
-    Assert.True(Quadtree.CountLeafs m = 4)
+    let leafcount = Quadtree.CountLeafs m
+    Assert.True((leafcount = 4))
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,0))
@@ -421,6 +422,7 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
     let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 1 0 2 1 -1 0<powerOfTwo> 20.0f
 
+
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 2)
 
@@ -449,7 +451,7 @@ let ``Merge_LayersWithDifferentResolution_256`` () =
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 10.0f))
+    Assert.True((x = 20.0f))
 
     ()
 
