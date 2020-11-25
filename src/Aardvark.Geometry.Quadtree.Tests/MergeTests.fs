@@ -60,15 +60,15 @@ let ``Merge_NonOverlapping_Adjacent_SameDepth`` () =
     Assert.True(q01.Cell = Cell2d(0L, 1L, 3))
     Assert.True(q11.Cell = Cell2d(1L, 1L, 3))
 
-    let m1 = Merge MoreDetailedDominates q00 q10
+    let m1 = Quadtree.Merge MoreDetailedDominates q00 q10
     Assert.True(Quadtree.CountLeafs m1 = 8)
     Assert.True(Quadtree.CountNodes m1 = Quadtree.CountInner m1 + Quadtree.CountLeafs m1)
 
-    let m2 = Merge MoreDetailedDominates m1 q01
+    let m2 = Quadtree.Merge MoreDetailedDominates m1 q01
     Assert.True(Quadtree.CountLeafs m2 = 12)
     Assert.True(Quadtree.CountNodes m2 = Quadtree.CountInner m2 + Quadtree.CountLeafs m2)
 
-    let m = Merge MoreDetailedDominates m2 q11
+    let m = Quadtree.Merge MoreDetailedDominates m2 q11
     Assert.True(Quadtree.CountLeafs m = 16)
     Assert.True(Quadtree.CountNodes m = Quadtree.CountInner m + Quadtree.CountLeafs m)
     Assert.True(m.Cell = Cell2d(0L,0L,4))
@@ -88,15 +88,15 @@ let ``Merge_NonOverlapping_NonAdjacent_SameDepth`` () =
     Assert.True(q01.Cell = Cell2d(0L, 1L, 2))
     Assert.True(q11.Cell = Cell2d(1L, 1L, 2))
 
-    let m1 = Merge MoreDetailedDominates q00 q10
+    let m1 = Quadtree.Merge MoreDetailedDominates q00 q10
     Assert.True(Quadtree.CountLeafs m1 = 2)
     Assert.True(Quadtree.CountNodes m1 = Quadtree.CountInner m1 + Quadtree.CountLeafs m1)
 
-    let m2 = Merge MoreDetailedDominates m1 q01
+    let m2 = Quadtree.Merge MoreDetailedDominates m1 q01
     Assert.True(Quadtree.CountLeafs m2 = 3)
     Assert.True(Quadtree.CountNodes m2 = Quadtree.CountInner m2 + Quadtree.CountLeafs m2)
 
-    let m = Merge MoreDetailedDominates m2 q11
+    let m = Quadtree.Merge MoreDetailedDominates m2 q11
     Assert.True(Quadtree.CountLeafs m = 4)
     Assert.True(Quadtree.CountNodes m = Quadtree.CountInner m + Quadtree.CountLeafs m)
     Assert.True(m.Cell = Cell2d(0L,0L,3))
@@ -121,13 +121,13 @@ let ``Merge_NonOverlapping_Adjacent_DifferentExp`` () =
     Assert.True(Quadtree.CountLeafs q01 = 16)
     Assert.True(Quadtree.CountLeafs q11 = 64)
 
-    let m1 = Merge MoreDetailedDominates q00 q10
+    let m1 = Quadtree.Merge MoreDetailedDominates q00 q10
     Assert.True(Quadtree.CountLeafs m1 = 5)
 
-    let m2 = Merge MoreDetailedDominates m1 q01
+    let m2 = Quadtree.Merge MoreDetailedDominates m1 q01
     Assert.True(Quadtree.CountLeafs m2 = 21)
 
-    let m = Merge MoreDetailedDominates m2 q11
+    let m = Quadtree.Merge MoreDetailedDominates m2 q11
     Assert.True(Quadtree.CountLeafs m = 85)
     Assert.True(m.Cell = Cell2d(0L,0L,4))
 
@@ -142,7 +142,7 @@ let ``Merge_Overlapping_1x1_SameDepth`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     Assert.True(Quadtree.CountLeafs m = 1)
 
     ()
@@ -157,8 +157,9 @@ let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
     Assert.True(Quadtree.CountLeafs a = 4)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Merge MoreDetailedDominates a b
-    Assert.True(Quadtree.CountLeafs m = 4)
+    let m = Quadtree.Merge MoreDetailedDominates a b
+    let leafcount = Quadtree.CountLeafs m
+    Assert.True((leafcount = 4))
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,0))
@@ -175,7 +176,7 @@ let ``Merge_Overlapping_1x1_DifferentDepth_SecondMoreDetailed`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 4)
 
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     let mLeafCount = Quadtree.CountLeafs m
     Assert.True((mLeafCount = 4))
     
@@ -191,7 +192,7 @@ let ``Merge_Overlapping_1x1_SameDepth_FirstDominates`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 20.0f
 
-    let m = Merge FirstDominates a b
+    let m = Quadtree.Merge FirstDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 10.0f)
 
@@ -203,7 +204,7 @@ let ``Merge_Overlapping_1x1_SameDepth_FirstDominates_2_e0`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
 
-    let m = Merge FirstDominates a b
+    let m = Quadtree.Merge FirstDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 10.0f)
 
@@ -215,7 +216,7 @@ let ``Merge_Overlapping_1x1_SameDepth_FirstDominates_2_e1`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 1<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 1<powerOfTwo> 20.0f
 
-    let m = Merge FirstDominates a b
+    let m = Quadtree.Merge FirstDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 10.0f)
 
@@ -227,7 +228,7 @@ let ``Merge_Overlapping_1x1_SameDepth_FirstDominates_3_e0`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
 
-    let m = Merge FirstDominates b a
+    let m = Quadtree.Merge FirstDominates b a
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
@@ -239,7 +240,7 @@ let ``Merge_Overlapping_1x1_SameDepth_FirstDominates_3_e1`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 1<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 1<powerOfTwo> 20.0f
 
-    let m = Merge FirstDominates b a
+    let m = Quadtree.Merge FirstDominates b a
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
@@ -251,7 +252,7 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 20.0f
 
-    let m = Merge SecondDominates a b
+    let m = Quadtree.Merge SecondDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
@@ -263,7 +264,7 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates_2_e0`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
 
-    let m = Merge SecondDominates a b
+    let m = Quadtree.Merge SecondDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
@@ -275,7 +276,7 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates_2_e1`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 1<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 1<powerOfTwo> 20.0f
 
-    let m = Merge SecondDominates a b
+    let m = Quadtree.Merge SecondDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
@@ -287,7 +288,7 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates_3_e0`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 0<powerOfTwo> 20.0f
 
-    let m = Merge SecondDominates b a
+    let m = Quadtree.Merge SecondDominates b a
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 10.0f)
 
@@ -299,7 +300,7 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates_3_e1`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 1<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 1 1 -1 1<powerOfTwo> 20.0f
 
-    let m = Merge SecondDominates b a
+    let m = Quadtree.Merge SecondDominates b a
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 10.0f)
 
@@ -311,7 +312,7 @@ let ``Merge_Overlapping_1x1_SameDepth_NoneDominates`` () =
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 20.0f
 
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
@@ -324,7 +325,7 @@ let ``Merge_Overlapping_BothCentered_DifferentDepth_SecondMoreDetailed`` () =
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -2 -2 4 4 -1 0<powerOfTwo> 20.0f
     
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
     
@@ -336,7 +337,7 @@ let ``Merge_Overlapping_BothCentered_DifferentDepth_FirstMoreDetailed`` () =
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -2 -2 4 4 -1 0<powerOfTwo> 20.0f
     
-    let m = Merge MoreDetailedDominates b a
+    let m = Quadtree.Merge MoreDetailedDominates b a
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
     
@@ -348,7 +349,7 @@ let ``Merge_Overlapping_BothCentered_SameDetail_FirstDominates`` () =
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 20.0f
 
-    let m = Merge FirstDominates a b
+    let m = Quadtree.Merge FirstDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 10.0f)
 
@@ -360,7 +361,7 @@ let ``Merge_Overlapping_BothCentered_SameDetail_SecondDominates`` () =
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 20.0f
 
-    let m = Merge SecondDominates a b
+    let m = Quadtree.Merge SecondDominates a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
@@ -372,7 +373,7 @@ let ``Merge_Overlapping_BothCentered_SameDetail_NoneDominates`` () =
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 20.0f
 
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(1))
     Assert.True((x = 20.0f))
@@ -388,7 +389,7 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_1`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     Assert.True(Quadtree.CountLeafs m = 1)
 
     let l = m.GetLayer<float32> Defs.Heights1f
@@ -406,7 +407,7 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_2`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Merge MoreDetailedDominates b a
+    let m = Quadtree.Merge MoreDetailedDominates b a
     Assert.True(Quadtree.CountLeafs m = 1)
 
     let l = m.GetLayer<float32> Defs.Heights1f
@@ -421,10 +422,11 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
     let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 1 0 2 1 -1 0<powerOfTwo> 20.0f
 
+
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 2)
 
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     Assert.True(Quadtree.CountLeafs m = 2)
     Assert.True(m.Cell = Cell2d(0,0,1))
 
@@ -443,13 +445,13 @@ let ``Merge_LayersWithDifferentResolution_256`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedDominates a b
     Assert.True(Quadtree.CountLeafs m = 1)
     Assert.True(m.Cell = Cell2d(0,0,8))
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 10.0f))
+    Assert.True((x = 20.0f))
 
     ()
 
@@ -468,7 +470,7 @@ let ``Merge_Random_SplitLimit1`` dominance =
         let h  = r.Next(100) + 1
 
         let other = createQuadtreeWithRandomValues ox oy w h e 0<powerOfTwo>
-        let merged = Merge dominance quadtree other
+        let merged = Quadtree.Merge dominance quadtree other
         quadtree <- merged
 
     ()
@@ -500,7 +502,7 @@ let ``Merge_Random_SplitLimit256`` dominance =
         let h  = r.Next(500) + 1
 
         let other = createQuadtreeWithRandomValues ox oy w h e 8<powerOfTwo>
-        let merged = Merge dominance quadtree other
+        let merged = Quadtree.Merge dominance quadtree other
         quadtree <- merged
 
     ()
@@ -533,7 +535,7 @@ let ``Merge_Random_Centered_SplitLimit1`` dominance =
             let h  = r.Next(50) + 1
 
             let other = createQuadtreeWithRandomValues ox oy w h e 0<powerOfTwo>
-            let merged = Merge dominance quadtree other
+            let merged = Quadtree.Merge dominance quadtree other
             quadtree <- merged
 
     ()
@@ -565,7 +567,7 @@ let ``Merge_Random_Centered_SplitLimit64`` dominance =
         let h  = r.Next(100) + 1
 
         let other = createQuadtreeWithRandomValues ox oy w h e 6<powerOfTwo>
-        let merged = Merge dominance quadtree other
+        let merged = Quadtree.Merge dominance quadtree other
         quadtree <- merged
 
     ()
