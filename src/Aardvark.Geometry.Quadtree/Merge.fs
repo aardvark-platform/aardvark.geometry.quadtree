@@ -319,6 +319,7 @@ module Merge =
 
     /// Merge overlapping nodes with same roots.
     let rec private mergeOverlappingNodesWithSameRoot (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
+        
         match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
         | None,       None        -> NoNode
         | Some _,     None        -> firstRef
@@ -347,8 +348,7 @@ module Merge =
             // (2.1) leaf, tree, samples DO NOT intersect
             | true,  false, false ->
                 
-                // tree layer data does not intersect leaf layer data
-                // we can
+                // 1st layer data does not intersect 2nd layer data, we can
                 // (a) directly merge root layers, and
                 let layers = mergeLayers domination first.Layers second.Layers
                 // (b) attach tree subnodes to leaf
@@ -357,16 +357,33 @@ module Merge =
             // (2.2) leaf, tree, samples DO intersect
             | true,  false, true  ->
                 
-                // first IS NOT more detailled than second
-                invariant (first.OriginalSampleExponent >= second.OriginalSampleExponent) "3a0a63d0-b1d6-4b36-8a5f-5da78c413e68"
-
                 let firstContainsSecond = first.SampleWindow.Contains(second.SampleWindow)
                 let secondContainsFirst = second.SampleWindow.Contains(first.SampleWindow)
                 match domination, firstContainsSecond, secondContainsFirst with
-                | FirstDominates , true, _     -> firstRef  // 1st dominates and covers all 2nd samples -> 1st wins
-                | SecondDominates,    _, true  -> secondRef // 2nd dominates and covers all 1st samples -> 2nd wins 
-                | SecondDominates, true, false -> failwith "not implemented: SecondDominates, true, false"
-                | _                            -> failwith "not implemented"
+                
+                | FirstDominates , true, _     -> firstRef  // 1st dominates and covers all     2nd samples -> 1st wins
+
+                | FirstDominates, false, true  ->
+                    let layers = mergeLayers domination first.Layers second.Layers
+                    QNode(Guid.NewGuid(), commonRootCell, sle, ose, layers, second.SubNodes) |> InMemoryNode
+                
+                | SecondDominates,    _, true  -> secondRef // 2nd dominates and covers all     1st samples -> 2nd wins 
+                
+                | SecondDominates, true, false ->           // 2nd dominates and covers part of 1st samples
+
+                    let layers = mergeLayers domination first.Layers second.Layers
+                    QNode(Guid.NewGuid(), commonRootCell, sle, ose, layers, second.SubNodes) |> InMemoryNode
+
+                | MoreDetailedDominates, _, _  ->
+                    if first.OriginalSampleExponent < second.OriginalSampleExponent then
+                        mergeOverlappingNodesWithSameRoot FirstDominates firstRef secondRef
+                    elif first.OriginalSampleExponent > second.OriginalSampleExponent then
+                        mergeOverlappingNodesWithSameRoot SecondDominates firstRef secondRef
+                    else
+                        sprintf "not implemented: %A, %A, %A" domination firstContainsSecond secondContainsFirst  |> failwith
+                
+                | _                            ->
+                    sprintf "not implemented: %A, %A, %A" domination firstContainsSecond secondContainsFirst  |> failwith
 
             // (3) tree, leaf, _
             | false, true, _      ->
@@ -378,7 +395,7 @@ module Merge =
             | false, false, _     ->
                 
                 // -> recursively merge layers
-                failwith "not implemented"
+                failwith "not implemented: recursively merge layers"
 
             
 
