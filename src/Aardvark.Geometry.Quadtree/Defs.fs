@@ -74,7 +74,7 @@ module Defs =
                                
     let Intensities1d          = def "acdea865-c4ef-441d-804e-18187548a418" "Quadtree.Intensities1d" "Quadtree. Intensity value per sample. Float64[]." Durable.Primitives.Int64Array
     let Intensities1dLayer     = def "8864088c-c122-4da4-9dcb-14f6b5dd4ccc" "Quadtree.Intensities1d.Layer" "Quadtree. Intensities1d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
-            
+      
     [<Obsolete("Use HeightsBilinear4f instead.")>]
     let BilinearParams4f       = def "67f0e87d-7ba6-47c9-b443-17e7b835bb4e" "Quadtree.BilinearParams4f" "Obsolete. Use Quadtree.HeightsBilinear4f instead." Durable.Aardvark.V4fArray
     [<Obsolete("Use HeightsBilinear4fLayer instead.")>]

@@ -11,6 +11,7 @@ type ILayer =
     abstract member Def : Durable.Def
     abstract member Mapping : DataMapping
     abstract member WithWindow : Box2l -> ILayer option
+    abstract member WithSemantic : Durable.Def -> ILayer
     abstract member ResampleUntyped : Cell2d -> ILayer
     abstract member Materialize : unit -> ILayer
     abstract member ToDurableMap : unit -> seq<KeyValuePair<Durable.Def, obj>>
@@ -45,7 +46,9 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         member this.WithWindow (w : Box2l) =
             mapping.WithWindow(w) 
             |> Option.map (fun m -> Layer(def, data, m) :> ILayer)
-        member this.ResampleUntyped (resampleRoot : Cell2d) : ILayer =
+        member this.WithSemantic (newSemantic : Durable.Def) =
+            Layer(newSemantic, data, mapping) :> ILayer
+        member this.ResampleUntyped (resampleRoot : Cell2d) =
             let f = Resamplers.getResamplerFor def 
             let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a)) resampleRoot
             r :> ILayer

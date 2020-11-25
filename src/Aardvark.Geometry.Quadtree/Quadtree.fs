@@ -1,9 +1,10 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
-#nowarn "1337"
-
 open Aardvark.Base
+open Aardvark.Data
 open System
+
+#nowarn "1337"
 
 (*
     Quadtree.
@@ -128,3 +129,30 @@ module Quadtree =
     let Load (options : SerializationOptions) (id : Guid) : QNodeRef =
         Defs.init ()
         QNode.Load options id
+
+    /// Returns true if quadtree contains a layer with given semantic.
+    let ContainsLayer (semantic : Durable.Def) (qtree : QNodeRef) : bool =
+        qtree.ContainsLayer(semantic)
+
+    /// Throws if no such layer.
+    let GetLayer<'a> (semantic : Durable.Def) (qtree : QNodeRef) : Layer<'a> =
+        qtree.GetLayer<'a>(semantic)
+
+    /// Throws if no such layer.
+    let GetLayerUntyped (semantic : Durable.Def) (qtree : QNodeRef) : ILayer =
+        qtree.GetLayer(semantic)
+
+    /// Throws if no such layer.
+    let TryGetLayer<'a> (semantic : Durable.Def) (qtree : QNodeRef) : Layer<'a> option =
+        qtree.TryGetLayer<'a>(semantic)
+
+    /// Throws if no such layer.
+    let TryGetLayerUntyped (semantic : Durable.Def) (qtree : QNodeRef) : ILayer option =
+        qtree.TryGetLayer(semantic)
+
+    /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
+    /// Returns (true, <newUpdatedOctree>) if 'oldSemantic' exists and is replaced.
+    /// Returns (false, 'qtree') if 'oldSemantic' does not exist.
+    /// Throws if quadtree contains both 'oldSemantic' and 'newSemantic'.
+    let UpdateLayerSemantic (oldSemantic : Durable.Def, newSemantic : Durable.Def) (qtree : QNodeRef) : bool * QNodeRef =
+        qtree.UpdateLayerSemantic(oldSemantic, newSemantic)

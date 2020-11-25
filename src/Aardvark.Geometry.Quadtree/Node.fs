@@ -140,8 +140,20 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
 
     member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes)
 
-    member this.GetLayer<'a>(def : Durable.Def) : Layer<'a> =
-        layers |> Array.find (fun x -> x.Def.Id = def.Id) :?> Layer<'a>
+    member this.ContainsLayer (semantic : Durable.Def) : bool =
+        this.TryGetLayer(semantic) |> Option.isSome
+
+    member this.TryGetLayer (semantic : Durable.Def) : ILayer option =
+        layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id)
+
+    member this.TryGetLayer<'a> (semantic : Durable.Def) : Layer<'a> option =
+        layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id) |> Option.map (fun x -> x :?> Layer<'a>)
+
+    member this.GetLayer(semantic : Durable.Def) : ILayer =
+        layers |> Array.find    (fun x -> x.Def.Id = semantic.Id)
+
+    member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
+        layers |> Array.find    (fun x -> x.Def.Id = semantic.Id) :?> Layer<'a>
 
     member this.Save options : Guid =
         let map = List<KeyValuePair<Durable.Def, obj>>()
@@ -223,6 +235,42 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
     member this.GetSample (p : V2d) : Cell2d =
         this.Mapping.GetSampleCell(p)
 
+    /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
+    /// Returns 'Some <newUpdatedOctree>' if 'oldSemantic' exists and is replaced.
+    /// Returns 'None' if 'oldSemantic' does not exist.
+    /// Throws if quadtree contains both 'oldSemantic' and 'newSemantic'.
+    member this.UpdateLayerSemantic (oldSemantic : Durable.Def, newSemantic : Durable.Def) : QNode option =
+
+        match this.TryGetLayer(oldSemantic) with
+        | None          -> None
+        | Some oldLayer ->
+
+            if this.ContainsLayer(newSemantic) then
+                sprintf "Can't update layer semantic from %A to %A. This node already contains the target semantic." oldSemantic newSemantic
+                |> failwith
+
+            let id = Guid.NewGuid()
+
+            let newLayers =
+                let l = oldLayer.WithSemantic(newSemantic)
+                layers |> Seq.filter (fun x -> x.Def.Id <> oldSemantic.Id) |> Seq.append [l] |> Seq.toArray
+
+            let newChildren = 
+                match subNodes with
+                | None -> None
+                | Some xs ->
+                    xs |> Array.map (fun n ->
+                        match n.TryGetInMemory() with
+                        | None -> NoNode
+                        | Some x -> 
+                            match x.UpdateLayerSemantic(oldSemantic, newSemantic) with
+                            | None   -> n
+                            | Some y -> InMemoryNode y
+                        )
+                    |> Some
+
+            QNode(id, cell, splitLimitExp, originalSampleExponent, newLayers, newChildren) |> Some
+        
     static member Load (options: SerializationOptions) (id : Guid) : QNodeRef =
         if id = Guid.Empty then
             NoNode
@@ -281,6 +329,24 @@ and
     | InMemoryNode of QNode
     | OutOfCoreNode of Guid * (unit -> QNode)
     with
+
+        member this.ContainsLayer (semantic : Durable.Def) =
+            match this.TryGetInMemory() with
+            | Some n -> n.ContainsLayer semantic
+            | None   -> false
+
+        /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
+        /// Returns (true, <newUpdatedOctree>) if 'oldSemantic' exists and is replaced.
+        /// Returns (false, 'qtree') if 'oldSemantic' does not exist.
+        /// Throws if quadtree contains both 'oldSemantic' and 'newSemantic'.
+        member this.UpdateLayerSemantic (oldSemantic : Durable.Def, newSemantic : Durable.Def) : bool * QNodeRef =
+            match this.TryGetInMemory() with
+            | None   -> (false, NoNode)
+            | Some n -> 
+                match n.UpdateLayerSemantic(oldSemantic, newSemantic) with
+                | None   -> (false, this)
+                | Some x -> (true,  InMemoryNode x)
+
         /// Get referenced node (from memory or load out-of-core), or None if NoNode.
         member this.TryGetInMemory () : QNode option =
             match this with
@@ -297,8 +363,15 @@ and
         /// Forces property SampleWindowBoundingBox. Throws exception if NoNode.
         member this.SampleWindowBoundingBox with get() = this.TryGetInMemory().Value.SampleWindowBoundingBox
 
-        /// Forces GetLayer. Throws exception if NoNode.
+        /// Throws if no such layer.
         member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
+
+        /// Throws if no such layer.
+        member this.GetLayer def = this.TryGetInMemory().Value.GetLayer def
+
+        member this.TryGetLayer<'a> def = this.TryGetInMemory().Value.TryGetLayer<'a> def
+
+        member this.TryGetLayer def = this.TryGetInMemory().Value.TryGetLayer def
 
 module QNode =
 
