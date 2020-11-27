@@ -1,6 +1,7 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
 open Aardvark.Base
+open Aardvark.Data
 
 (*
     Merge.
@@ -21,10 +22,61 @@ with
 
 module Merge =
 
-    /// Creates new node from two sets of subnodes.
-    let private create (cell : Cell2d) (domination : Dominance) 
+    /// all parts must have same semantic ...
+    let private createLayer (def : Durable.Def) (domination : Dominance)
+                            (l1o : ILayer option) (slo1 : array<ILayer option>)
+                            (l2o : ILayer option) (slo2 : array<ILayer option>) : ILayer =
+
+        sprintf "todo createLayer (%A)" def.Name |> failwith
+
+    let private createLayers (domination : Dominance)
+                             (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
+                             (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ILayer[] =
+
+        // ensure that all parts have the same layers ...
+        let getLayerSemantics (x : ILayer[]) = x |> Seq.map (fun x -> x.Def) |> Set.ofSeq
+        let semsets = [l1o; l2o] |> Seq.append slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.map getLayerSemantics |> Seq.distinct |> Seq.toArray
+        invariantm (semsets.Length = 1) 
+                   (sprintf "Parts have different layers. %A." semsets) "53fea9ea-521b-4eaa-85d4-07169f2d3f26"
+
+        // group by semantic
+        let toLayerMap (ls : ILayer[] option) = match ls with | Some ls -> ls |> Seq.map (fun l -> (l.Def, l)) |> Map.ofSeq | None -> Map.empty
+        let l1om  = l1o  |>           toLayerMap
+        let slo1m = slo1 |> Array.map toLayerMap
+        let l2om  = l2o  |>           toLayerMap
+        let slo2m = slo2 |> Array.map toLayerMap
+
+        let semantics = semsets |> Seq.exactlyOne
+        let result = 
+            semantics 
+            |> Seq.map (fun sem ->
+                let f = Map.tryFind sem
+                let arg0 = l1om  |>           f
+                let arg1 = slo1m |> Array.map f
+                let arg2 = l2om  |>           f
+                let arg3 = slo2m |> Array.map f
+                let r = createLayer sem domination arg0 arg1 arg2 arg3
+                r
+                )
+            |> Seq.toArray
+
+        result
+
+
+    /// Creates new node from two nodes.
+    let private create (cell : Cell2d) (splitLimitExponent : int) (domination : Dominance) 
                        (n1o : QNode option) (sno1 : QNode option[])
                        (n2o : QNode option) (sno2 : QNode option[]) =
+
+        // ensure that optional root nodes coincide with specified root cell
+        let check s (n : QNode option) = 
+            match n with 
+            | None -> ()
+            | Some n -> invariantm (n.Cell = cell) 
+                            (sprintf "%s node (%A) does not coincide with specified root (%A)." s n.Cell cell) 
+                            "3294c70f-7a89-4f75-83d5-ead39cad9ac6"
+        check "1st" n1o
+        check "2nd" n2o
 
         // ensure that all subnodes are correctly placed ... 
         for qi = 0 to 3 do
@@ -37,7 +89,18 @@ module Merge =
             ((sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> (n.SampleExponent, n.SplitLimitExponent))) |> Seq.distinct |> Seq.length < 2)
             "Subnodes have different resolution or split limit." "018b42e9-34a5-4791-94d2-374d7e246f6c"
         
-        failwith "todo implement"
+        // compute originalSampleExponent (as smallest of all parts)
+        let ose = [n1o; n2o] |> Seq.append sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> n.OriginalSampleExponent) |> Seq.min
+
+        // compute node layers
+        let l1o = n1o |> Option.map (fun n -> n.Layers)
+        let slo1 = sno1 |> Array.map (Option.map (fun n -> n.Layers))
+        let l2o = n1o |> Option.map (fun n -> n.Layers)
+        let slo2 = sno2 |> Array.map (Option.map (fun n -> n.Layers))
+        let layers = createLayers domination l1o slo1 l2o slo2
+
+        // result
+        QNode(cell, splitLimitExponent, ose, layers) |> InMemoryNode
 
 
     /// Merge nodes that do not overlap.
@@ -47,6 +110,8 @@ module Merge =
         | Some _,  None    -> nr1
         | None,    Some _  -> nr2
         | Some n1, Some n2 ->
+
+            invariant (n1.SplitLimitExponent = n2.SplitLimitExponent) "5a057fc7-fe39-4c6e-a759-1a49054c34e7"
 
             invariantm (QNode.Overlap(n1, n2) |> not)
                 (sprintf "Nodes must not overlap. First %A. Second %A" n1.Cell n2.Cell)
@@ -68,7 +133,7 @@ module Merge =
             sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
 
             // create root node from two sets of subnodes
-            create rc domination None sno1 None sno2
+            create rc n1.SplitLimitExponent domination None sno1 None sno2
 
     /// Merge nodes, where one node is a subnode of the other, or both nodes are the same.
     let rec private mergeOverlappingNodes (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
@@ -78,6 +143,8 @@ module Merge =
         | Some _,  None    -> firstRef
         | None,    Some _  -> secondRef
         | Some n1, Some n2 ->
+
+            invariant (n1.SplitLimitExponent = n2.SplitLimitExponent) "6b6b74c6-f8dc-4177-93ba-99bea3328332"
 
             invariantm (QNode.Overlap(n1, n2)) 
                 (sprintf "Nodes must overlap. First %A. Second %A" n1.Cell n2.Cell)
@@ -124,8 +191,7 @@ module Merge =
 
                     (None, sno2)
 
-
-            create rc domination n1o sno1 n2o sno2
+            create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
 
     /// Immutable merge.
     let merge (outOfCore : bool) (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
