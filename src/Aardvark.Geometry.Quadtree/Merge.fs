@@ -22,11 +22,82 @@ with
 
 module Merge =
 
+    let composeLayersInOrderTyped<'a> (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
+                                      (rootLayers : Layer<'a> list) (slo1 : Layer<'a> option[]) (slo2 : Layer<'a> option[]) 
+                                      :  Layer<'a> =
+
+        let hasSlo1 = slo1 |> Array.exists Option.isSome
+        let hasSlo2 = slo2 |> Array.exists Option.isSome
+
+        match rootLayers, hasSlo1, hasSlo2 with
+
+        | [],    false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
+        | [_],   false, false -> failwith "At least two layers are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
+        | [a;b], false, false -> failwith "todo implement"
+        | _, _, _            -> failwith "missing case in composeLayersInOrderTyped"
+
+        
+
+
 
     let composeLayersInOrder (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
-                             (rootLayers : ILayer list) (slo1 : array<ILayer option>) (slo2 : array<ILayer option>) 
+                             (rootLayers : ILayer list) (slo1 : ILayer option[]) (slo2 : ILayer option[]) 
                              : ILayer =
-        failwith "composeLayersInOrder"
+
+        let e = sampleExponent
+
+        // ensure that all sample exponents are consistent ...
+        let checkExp (x : ILayer) = x.SampleExponent = e
+        let checkExpChild (x : ILayer option) = match x with | Some x -> x.SampleExponent = e - 1 | None -> true
+        invariant (rootLayers |> List.forall checkExp) "5ec641c3-da8f-4757-bed0-fc5a527572fb"
+        invariant (slo1 |> Array.forall checkExpChild) "a44be7b6-330e-4687-b06c-9131f3fbeec6"
+
+        let compose convert =
+            let rootLayers' = rootLayers |> List.map convert
+            let slo1' = slo1 |> Array.map (Option.map convert)
+            let slo2' = slo2 |> Array.map (Option.map convert)
+            composeLayersInOrderTyped def sampleExponent targetWindowAtChildLevel rootLayers' slo1' slo2'
+
+        let someLayer = rootLayers |> Seq.append (slo1 |> Seq.choose id) |> Seq.append (slo2 |> Seq.choose id) |> Seq.head
+        match someLayer with
+
+        | :? Layer<bool>    -> (compose (fun x -> x :?> Layer<bool>   )) :> ILayer
+        | :? Layer<int8>    -> (compose (fun x -> x :?> Layer<int8>   )) :> ILayer
+        | :? Layer<uint8>   -> (compose (fun x -> x :?> Layer<uint8>  )) :> ILayer
+        | :? Layer<int16>   -> (compose (fun x -> x :?> Layer<int16>  )) :> ILayer
+        | :? Layer<uint16>  -> (compose (fun x -> x :?> Layer<uint16> )) :> ILayer
+        | :? Layer<int32>   -> (compose (fun x -> x :?> Layer<int32>  )) :> ILayer
+        | :? Layer<uint32>  -> (compose (fun x -> x :?> Layer<uint32> )) :> ILayer
+        | :? Layer<int64>   -> (compose (fun x -> x :?> Layer<int64>  )) :> ILayer
+        | :? Layer<uint64>  -> (compose (fun x -> x :?> Layer<uint64> )) :> ILayer
+        | :? Layer<float>   -> (compose (fun x -> x :?> Layer<float>  )) :> ILayer
+        | :? Layer<float32> -> (compose (fun x -> x :?> Layer<float32>)) :> ILayer
+        | :? Layer<decimal> -> (compose (fun x -> x :?> Layer<decimal>)) :> ILayer
+        
+        | :? Layer<V2d>     -> (compose (fun x -> x :?> Layer<V2d>    )) :> ILayer
+        | :? Layer<V2f>     -> (compose (fun x -> x :?> Layer<V2f>    )) :> ILayer
+        | :? Layer<V2i>     -> (compose (fun x -> x :?> Layer<V2i>    )) :> ILayer
+        | :? Layer<V2l>     -> (compose (fun x -> x :?> Layer<V2l>    )) :> ILayer
+
+        | :? Layer<V3d>     -> (compose (fun x -> x :?> Layer<V3d>    )) :> ILayer
+        | :? Layer<V3f>     -> (compose (fun x -> x :?> Layer<V3f>    )) :> ILayer
+        | :? Layer<V3i>     -> (compose (fun x -> x :?> Layer<V3i>    )) :> ILayer
+        | :? Layer<V3l>     -> (compose (fun x -> x :?> Layer<V3l>    )) :> ILayer
+
+        | :? Layer<V4d>     -> (compose (fun x -> x :?> Layer<V4d>    )) :> ILayer
+        | :? Layer<V4f>     -> (compose (fun x -> x :?> Layer<V4f>    )) :> ILayer
+        | :? Layer<V4i>     -> (compose (fun x -> x :?> Layer<V4i>    )) :> ILayer
+        | :? Layer<V4l>     -> (compose (fun x -> x :?> Layer<V4l>    )) :> ILayer
+
+        | :? Layer<C3b>     -> (compose (fun x -> x :?> Layer<C3b>    )) :> ILayer
+        | :? Layer<C3f>     -> (compose (fun x -> x :?> Layer<C3f>    )) :> ILayer
+        | :? Layer<C4b>     -> (compose (fun x -> x :?> Layer<C4b>    )) :> ILayer
+        | :? Layer<C4f>     -> (compose (fun x -> x :?> Layer<C4f>    )) :> ILayer
+
+        | _ -> failwith <| sprintf "Unsupported layer type %A. Invariant d31887e6-6c87-4b5a-87d7-0cab1fe9ec55." someLayer
+
+
+
 
     /// all parts must have same semantic ...
     let private createLayer (bounds : Cell2d) (def : Durable.Def) (domination : Dominance)
@@ -78,8 +149,6 @@ module Merge =
         | MoreDetailedDominates ->
             failwith "MoreDetailedDominates is not allowed here. Invariant 63adc5f3-119d-4830-8701-7ce30d16c37f."
 
-
-
     /// all parts must have same layer set ...
     let private createLayers (bounds : Cell2d) (domination : Dominance)
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
@@ -115,7 +184,6 @@ module Merge =
             |> Seq.toArray
 
         result
-
 
     /// Creates new node from two nodes.
     let private create (cell : Cell2d) (splitLimitExponent : int) (domination : Dominance) 
@@ -158,7 +226,6 @@ module Merge =
         // result
         QNode(cell, splitLimitExponent, ose, layers) |> InMemoryNode
 
-
     /// Merge nodes that do not overlap.
     let private mergeNonOverlappingNodes (domination : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
         match nr1.TryGetInMemory(), nr2.TryGetInMemory() with
@@ -193,6 +260,7 @@ module Merge =
                       | MoreDetailedDominates -> if n1.OriginalSampleExponent < n2.OriginalSampleExponent then FirstDominates else SecondDominates 
                       | x -> x
             create rc n1.SplitLimitExponent dom None sno1 None sno2
+
 
     /// Merge nodes, where one node is a subnode of the other, or both nodes are the same.
     let rec private mergeOverlappingNodes (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
@@ -254,6 +322,7 @@ module Merge =
                       | MoreDetailedDominates -> if n1.OriginalSampleExponent < n2.OriginalSampleExponent then FirstDominates else SecondDominates 
                       | x -> x
             create rc n1.SplitLimitExponent dom n1o sno1 n2o sno2
+
 
     /// Immutable merge.
     let merge (outOfCore : bool) (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
