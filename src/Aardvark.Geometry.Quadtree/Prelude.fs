@@ -44,17 +44,24 @@ type Cell2dExtensions =
     [<Extension>]
     static member GetBoundsForExponent (self : Cell2d, e : int) : Box2l =
         let d = self.Exponent - e
-        if d < 0 then 
-            let mutable cell = self
-            while cell.Exponent < e do cell <- cell.Parent
-            Box2l.FromMinAndSize(cell.XY, 1L, 1L)
-        elif d = 0 then
-            Box2l.FromMinAndSize(self.XY, 1L, 1L)
+        if self.IsCenteredAtOrigin then
+            if d > 0 then
+                let f = 1L <<< (d - 1)
+                Box2l(-f, -f, +f, +f)
+            else
+                sprintf "Undefined result for %A.GetBoundsForExponent(%d). Error e1ae7574-6268-4674-90ae-5530eec29066." self e |> failwith
         else
-            let f = 1L <<< d
-            let x = self.X <<< d
-            let y = self.Y <<< d
-            Box2l(x, y, x + f, y + f)
+            if d < 0 then 
+                let mutable cell = self
+                while cell.Exponent < e do cell <- cell.Parent
+                Box2l.FromMinAndSize(cell.XY, 1L, 1L)
+            elif d = 0 then
+                Box2l.FromMinAndSize(self.XY, 1L, 1L)
+            else
+                let f = 1L <<< d
+                let x = self.X <<< d
+                let y = self.Y <<< d
+                Box2l(x, y, x + f, y + f)
 
 [<Extension>]
 type Box2dExtensions =
