@@ -142,11 +142,14 @@ module Merge =
                    "d3a934ed-5e51-45e1-ad97-a28ee8ca575b"
 
 
-        let rootLayers = match l1o, l2o with
-                         | Some l1, Some l2 -> [l2; l1]
-                         | Some l1, None    -> [l1    ]
-                         | None,    Some l2 -> [l2    ]
-                         | None,    None    -> [      ]
+        let rootLayers = match l1o, l2o, domination with
+                         | Some l1, Some l2, FirstDominates  -> [l2; l1]
+                         | Some l1, Some l2, SecondDominates -> [l1; l2]
+                         | Some l1, None,    _               -> [l1    ]
+                         | None,    Some l2, _               -> [l2    ]
+                         | None,    None,    _               -> [      ]
+                         | _,       _, MoreDetailedDominates -> 
+                            failwith "MoreDetailedDominates is not allowed here. Invariant eaa7d1d8-f5e8-4083-aa4b-b1c1b6033911." 
 
         let compose = composeLayersInOrder def sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
 
