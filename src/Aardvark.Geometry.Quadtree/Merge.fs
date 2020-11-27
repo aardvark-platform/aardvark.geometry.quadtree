@@ -25,10 +25,52 @@ module Merge =
     /// all parts must have same semantic ...
     let private createLayer (def : Durable.Def) (domination : Dominance)
                             (l1o : ILayer option) (slo1 : array<ILayer option>)
-                            (l2o : ILayer option) (slo2 : array<ILayer option>) : ILayer =
+                            (l2o : ILayer option) (slo2 : array<ILayer option>) 
+                            : ILayer =
+
+        invariant (l1o.IsNone || l1o.Value.Def = def) "c8931d12-5472-4f11-ab64-b5c49e1ebbb5"
+        invariant (l2o.IsNone || l2o.Value.Def = def) "c9e6f48e-763c-482a-8cb2-909490b978f2"
+        invariant (slo1 |> Seq.choose id |> Seq.forall (fun x -> x.Def = def)) "5739daef-3c13-4409-9ba0-78a5a311634c"
+        invariant (slo2 |> Seq.choose id |> Seq.forall (fun x -> x.Def = def)) "c2aaadbd-86aa-4115-9d04-42e50ab0f414"
+
+        // ensure that all parts have consistent sample exponents ...
+        let f0 = Option.map (fun (x : ILayer) -> x.SampleExponent)
+        let f1 = Option.map (fun (x : ILayer) -> x.SampleExponent + 1)
+        let sampleExponents = [l1o |> f0; l2o |> f0]|> Seq.append (slo1 |> Seq.map f1) |> Seq.append (slo2 |> Seq.map f1) |> Seq.choose id |> Seq.distinct |> Seq.toArray
+        invariantm (sampleExponents.Length = 1) (sprintf "Inconsistent sample exponents. %A" sampleExponents) "b8269ff8-55f6-4ddc-aacc-7a584d46f598"
+
+        // get sample exponent (for result layer)
+        let sampleExponent = sampleExponents |> Array.exactlyOne
+
+        // compute result 
+
+
+        let hasSubLayers1 = slo1 |> Array.exists (fun x -> x.IsSome)
+        let hasSubLayers2 = slo2 |> Array.exists (fun x -> x.IsSome)
+        let mapWindowToChildLevel (w : Box2l) = Box2l(w.Min * 2L, w.Max * 2L)
+
+        match l1o, l2o with
+
+        | Some l1, Some l2 ->
+            let w1 = l1.SampleWindow |> mapWindowToChildLevel
+            let w2 = l2.SampleWindow |> mapWindowToChildLevel
+            let w = Box2l(w1,w2)
+            sprintf "todo A: %A + %A -> %A" w1 w2 w |> failwith
+
+        | Some l1, None    ->
+            failwith "todo B"
+
+        | None,    Some l2 ->
+            failwith "todo C"
+
+        | None,    None    ->
+            failwith "todo D"
 
         sprintf "todo createLayer (%A)" def.Name |> failwith
 
+
+
+    /// all parts must have same layer set ...
     let private createLayers (domination : Dominance)
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
                              (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ILayer[] =
@@ -95,7 +137,7 @@ module Merge =
         // compute node layers
         let l1o = n1o |> Option.map (fun n -> n.Layers)
         let slo1 = sno1 |> Array.map (Option.map (fun n -> n.Layers))
-        let l2o = n1o |> Option.map (fun n -> n.Layers)
+        let l2o = n2o |> Option.map (fun n -> n.Layers)
         let slo2 = sno2 |> Array.map (Option.map (fun n -> n.Layers))
         let layers = createLayers domination l1o slo1 l2o slo2
 
