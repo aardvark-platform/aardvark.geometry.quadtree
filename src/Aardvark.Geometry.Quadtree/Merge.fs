@@ -32,9 +32,16 @@ module Merge =
         match rootLayers, hasSlo1, hasSlo2 with
 
         | [],    false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
+
         | [_],   false, false -> failwith "At least two layers are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
-        | [a;b], false, false -> failwith "todo implement"
-        | _, _, _            -> failwith "missing case in composeLayersInOrderTyped"
+
+        | [a;b], false, false ->
+            if b.SampleWindow.Contains(a.SampleWindow) then
+                b
+            else
+                failwith "todo"
+
+        | _, _, _             -> failwith "missing case in composeLayersInOrderTyped"
 
         
 
