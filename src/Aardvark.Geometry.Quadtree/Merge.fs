@@ -31,8 +31,6 @@ module Merge =
 
         match rootLayers, hasSlo1, hasSlo2 with
 
-        | [],      false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
-
         | [],      true,  true  -> failwith "todo: sub1, sub2"
 
         | [r],     true,  false -> failwith "todo: r, sub1"
@@ -52,12 +50,12 @@ module Merge =
         | [r1;r2], false, true  -> failwith "todo: r1, r2, sub2"
 
         | [r1;r2], true,  true  -> failwith "todo: r1, r2, sub1, sub2"
-
-        | [_],     false, false -> failwith "At least two layers are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
-        | [],      true,  false -> failwith "At least two layers are required for merge. Error 0e6b8ba5-739a-4c5d-87ef-460911be6c85."
-        | [],      false, true  -> failwith "At least two layers are required for merge. Error da0fcb1f-c6d5-4885-8aa8-5c3a6ebf1f9b."
-
-        | _, _, _             -> failwith "missing case in composeLayersInOrderTyped"
+        
+        | [],      false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
+        | [],      true,  false -> failwith "At least two parts are required for merge. Error 0e6b8ba5-739a-4c5d-87ef-460911be6c85."
+        | [],      false, true  -> failwith "At least two parts are required for merge. Error da0fcb1f-c6d5-4885-8aa8-5c3a6ebf1f9b."
+        | [_],     false, false -> failwith "At least two parts are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
+        | _,       _,     _     -> failwith "More than 2 root layers. Error 5c352ed3-485c-4889-9821-da9429f90d8f."
 
         
 
