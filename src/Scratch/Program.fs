@@ -620,7 +620,13 @@ let cpunz20201116 () =
 [<EntryPoint>]
 let main argv =
 
-    cpunz20201116 ()
+    let x = Seq.empty<Box2l> |> Box2l
+    let y = Box2l.Unit
+    printfn "%A" x
+    printfn "%A" y
+    printfn "%A" (Box2l(x, y, x, y))
+
+    //cpunz20201116 ()
 
     //cpunz20201105 ()
 

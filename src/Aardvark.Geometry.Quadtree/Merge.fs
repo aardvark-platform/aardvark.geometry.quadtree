@@ -22,6 +22,12 @@ with
 
 module Merge =
 
+
+    let composeLayersInOrder (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
+                             (rootLayers : ILayer list) (slo1 : array<ILayer option>) (slo2 : array<ILayer option>) 
+                             : ILayer =
+        failwith "composeLayersInOrder"
+
     /// all parts must have same semantic ...
     let private createLayer (def : Durable.Def) (domination : Dominance)
                             (l1o : ILayer option) (slo1 : array<ILayer option>)
@@ -44,32 +50,29 @@ module Merge =
         let sampleExponent = sampleExponents |> Array.exactlyOne
 
         // compute result 
+        let mapWinToChildLevel (lo : ILayer option) = match lo with | Some l -> let w = l.SampleWindow
+                                                                                Box2l(w.Min * 2L, w.Max * 2L)
+                                                                    | None -> Box2l.Invalid
+        let w1 = l1o |> mapWinToChildLevel
+        let w2 = l2o |> mapWinToChildLevel
+        let ws1 = slo1 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
+        let ws2 = slo2 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
+        
+        let finalWindowAtChildLevel = Box2l(w1, w2, ws1, ws2)
 
+        let rootLayers = match l1o, l2o with
+                         | Some l1, Some l2 -> [l2; l1]
+                         | Some l1, None    -> [l1    ]
+                         | None,    Some l2 -> [l2    ]
+                         | None,    None    -> [      ]
 
-        let hasSubLayers1 = slo1 |> Array.exists (fun x -> x.IsSome)
-        let winSubLayers1 = slo1 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
-        let hasSubLayers2 = slo2 |> Array.exists (fun x -> x.IsSome)
-        let winSubLayers2 = slo2 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
-        let mapWindowToChildLevel (w : Box2l) = Box2l(w.Min * 2L, w.Max * 2L)
+        let compose = composeLayersInOrder def sampleExponent finalWindowAtChildLevel rootLayers
 
-        match l1o, l2o with
-
-        | Some l1, Some l2 ->
-            let w1 = l1.SampleWindow |> mapWindowToChildLevel
-            let w2 = l2.SampleWindow |> mapWindowToChildLevel
-            let w = Box2l(w1,w2)
-            sprintf "todo A: %A + %A -> %A" w1 w2 w |> failwith
-
-        | Some l1, None    ->
-            failwith "todo B"
-
-        | None,    Some l2 ->
-            failwith "todo C"
-
-        | None,    None    ->
-            failwith "todo D"
-
-        sprintf "todo createLayer (%A)" def.Name |> failwith
+        match domination with
+        | FirstDominates        -> compose slo2 slo1
+        | SecondDominates       -> compose slo1 slo2
+        | MoreDetailedDominates ->
+            failwith "MoreDetailedDominates is not allowed here. Invariant 63adc5f3-119d-4830-8701-7ce30d16c37f."
 
 
 
