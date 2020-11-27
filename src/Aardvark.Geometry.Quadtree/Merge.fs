@@ -22,7 +22,7 @@ with
 
 module Merge =
 
-    let composeLayersInOrderTyped<'a> (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
+    let private composeLayersInOrderTyped<'a> (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
                                       (rootLayers : Layer<'a> list) (slo1 : Layer<'a> option[]) (slo2 : Layer<'a> option[]) 
                                       :  Layer<'a> =
 
@@ -31,15 +31,31 @@ module Merge =
 
         match rootLayers, hasSlo1, hasSlo2 with
 
-        | [],    false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
+        | [],      false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
 
-        | [_],   false, false -> failwith "At least two layers are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
+        | [],      true,  true  -> failwith "todo: sub1, sub2"
 
-        | [a;b], false, false ->
-            if b.SampleWindow.Contains(a.SampleWindow) then
-                b
+        | [r],     true,  false -> failwith "todo: r, sub1"
+
+        | [r],     false, true  -> failwith "todo: r, sub2"
+
+        | [r],     true,  true  -> failwith "todo: r, sub1, sub2"
+
+        | [r1;r2], false, false ->
+            if r2.SampleWindow.Contains(r1.SampleWindow) then
+                r2
             else
-                failwith "todo"
+                failwith "todo: r1, r2"
+
+        | [r1;r2], true,  false -> failwith "todo: r1, r2, sub1"
+
+        | [r1;r2], false, true  -> failwith "todo: r1, r2, sub2"
+
+        | [r1;r2], true,  true  -> failwith "todo: r1, r2, sub1, sub2"
+
+        | [_],     false, false -> failwith "At least two layers are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
+        | [],      true,  false -> failwith "At least two layers are required for merge. Error 0e6b8ba5-739a-4c5d-87ef-460911be6c85."
+        | [],      false, true  -> failwith "At least two layers are required for merge. Error da0fcb1f-c6d5-4885-8aa8-5c3a6ebf1f9b."
 
         | _, _, _             -> failwith "missing case in composeLayersInOrderTyped"
 
@@ -47,7 +63,7 @@ module Merge =
 
 
 
-    let composeLayersInOrder (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
+    let private composeLayersInOrder (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
                              (rootLayers : ILayer list) (slo1 : ILayer option[]) (slo2 : ILayer option[]) 
                              : ILayer =
 
