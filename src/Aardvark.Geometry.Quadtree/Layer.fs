@@ -29,10 +29,18 @@ module ILayerExtensions =
                                                      this.Mapping.BufferOrigin.BoundingBox
                                                    else
                                                      Box2d(this.SampleMin.BoundingBox, this.SampleMaxIncl.BoundingBox)
+
         member this.CellBounds        with get() = if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
                                                      this.Mapping.BufferOrigin
                                                    else
                                                      Cell2d(this.BoundingBox)
+
+        member this.SampleWindowAtChildLevel with get() =
+                if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
+                    Box2l(-1L, -1L, +1L, +1L)
+                else
+                    let w = this.SampleWindow
+                    Box2l(w.Min * 2L, w.Max * 2L)
 
 type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
    

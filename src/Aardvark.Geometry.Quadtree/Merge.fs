@@ -29,7 +29,7 @@ module Merge =
         failwith "composeLayersInOrder"
 
     /// all parts must have same semantic ...
-    let private createLayer (def : Durable.Def) (domination : Dominance)
+    let private createLayer (bounds : Cell2d) (def : Durable.Def) (domination : Dominance)
                             (l1o : ILayer option) (slo1 : array<ILayer option>)
                             (l2o : ILayer option) (slo2 : array<ILayer option>) 
                             : ILayer =
@@ -47,18 +47,22 @@ module Merge =
         invariantm (sampleExponents.Length = 1) (sprintf "Inconsistent sample exponents. %A" sampleExponents) "b8269ff8-55f6-4ddc-aacc-7a584d46f598"
 
         // get sample exponent (for result layer)
-        let sampleExponent = sampleExponents |> Array.exactlyOne
+        let sampleExponentAtResultLevel = sampleExponents |> Array.exactlyOne
 
         // compute result 
-        let mapWinToChildLevel (lo : ILayer option) = match lo with | Some l -> let w = l.SampleWindow
-                                                                                Box2l(w.Min * 2L, w.Max * 2L)
-                                                                    | None -> Box2l.Invalid
-        let w1 = l1o |> mapWinToChildLevel
-        let w2 = l2o |> mapWinToChildLevel
+        let getWinAtChildLevel (lo : ILayer option) = match lo with | Some l -> l.SampleWindowAtChildLevel | None -> Box2l.Invalid
+        let w1 = l1o |> getWinAtChildLevel
+        let w2 = l2o |> getWinAtChildLevel
         let ws1 = slo1 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
         let ws2 = slo2 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
         
         let finalWindowAtChildLevel = Box2l(w1, w2, ws1, ws2)
+        
+        let boundsAtChildLevel = bounds.GetBoundsForExponent(sampleExponentAtResultLevel - 1)
+        invariantm (boundsAtChildLevel.Contains finalWindowAtChildLevel) 
+                   (sprintf "Final window (%A) is out of bounds (%A)." finalWindowAtChildLevel boundsAtChildLevel) 
+                   "d3a934ed-5e51-45e1-ad97-a28ee8ca575b"
+
 
         let rootLayers = match l1o, l2o with
                          | Some l1, Some l2 -> [l2; l1]
@@ -66,7 +70,7 @@ module Merge =
                          | None,    Some l2 -> [l2    ]
                          | None,    None    -> [      ]
 
-        let compose = composeLayersInOrder def sampleExponent finalWindowAtChildLevel rootLayers
+        let compose = composeLayersInOrder def sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
 
         match domination with
         | FirstDominates        -> compose slo2 slo1
@@ -77,7 +81,7 @@ module Merge =
 
 
     /// all parts must have same layer set ...
-    let private createLayers (domination : Dominance)
+    let private createLayers (bounds : Cell2d) (domination : Dominance)
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
                              (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ILayer[] =
 
@@ -105,7 +109,7 @@ module Merge =
                 let arg1 = slo1m |> Array.map f
                 let arg2 = l2om  |>           f
                 let arg3 = slo2m |> Array.map f
-                let r = createLayer sem domination arg0 arg1 arg2 arg3
+                let r = createLayer bounds sem domination arg0 arg1 arg2 arg3
                 r
                 )
             |> Seq.toArray
@@ -149,7 +153,7 @@ module Merge =
         let slo1 = sno1 |> Array.map (Option.map (fun n -> n.Layers))
         let l2o = n2o |> Option.map (fun n -> n.Layers)
         let slo2 = sno2 |> Array.map (Option.map (fun n -> n.Layers))
-        let layers = createLayers domination l1o slo1 l2o slo2
+        let layers = createLayers cell domination l1o slo1 l2o slo2
 
         // result
         QNode(cell, splitLimitExponent, ose, layers) |> InMemoryNode
