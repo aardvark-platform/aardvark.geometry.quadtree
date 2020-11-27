@@ -19,6 +19,7 @@ type ILayer =
 [<AutoOpen>]
 module ILayerExtensions =
     type ILayer with
+        /// Resolution (=size of a sample).
         member this.SampleExponent    with get() = this.Mapping.BufferOrigin.Exponent
         member this.SampleMin         with get() = Cell2d(this.Mapping.Window.Min, this.SampleExponent)
         member this.SampleMaxExcl     with get() = Cell2d(this.Mapping.Window.Max, this.SampleExponent)
@@ -287,6 +288,7 @@ module Layer =
 
     let private mergeUntyped_<'a> xs = xs |> toTyped<'a> |> mergeTyped :> ILayer
     
+    /// Merge layers of same type (def).
     let Merge (layers : ILayer seq) : ILayer option =
         let ls = layers |> Array.ofSeq
         match ls.Length with
@@ -297,6 +299,8 @@ module Layer =
             if verbose then printfn "[Layer.Merge] 1 layer  -> Some ls.[0]"
             Some ls.[0]
         | n ->
+            let distinctDefCount = ls |> Seq.distinctBy (fun l -> l.Def) |> Seq.length
+            if distinctDefCount <> 1 then failwith "Can only merge layers of same type (def). Error 68bf8529-e9c5-4b7b-a100-3e4850fc9c33."
             if verbose then printfn "[Layer.Merge] %d layers" n
             match ls.[0] with
             | :? Layer<int>     -> ls |> mergeUntyped_<int>

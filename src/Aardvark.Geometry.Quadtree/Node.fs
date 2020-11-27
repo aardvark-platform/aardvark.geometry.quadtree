@@ -140,6 +140,14 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
 
     member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes)
 
+    member this.Contains (other : QNode) : bool =
+        this.Cell.Contains(other.Cell)
+
+    /// True if both trees fully overlap.
+    /// There is no "partial" overlap in quadtrees.
+    static member Overlap (first : QNode, second : QNode) : bool =
+        first.Contains(second) || second.Contains(first)
+
     member this.ContainsLayer (semantic : Durable.Def) : bool =
         this.TryGetLayer(semantic) |> Option.isSome
 
@@ -468,10 +476,8 @@ module QNode =
             let result = merged |> Array.map (fun x -> x.Value)
             result
 
-
-    /// Returns new extended tree starting at root.
-    /// Root must contain node.
-    /// Newly created nodes contain resampled layers (LoD).
+    /// Returns same tree if already starting at root, or new extended tree starting at root.
+    /// Root must contain node. Newly created nodes contain resampled layers (LoD).
     let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =
 
         match nodeRef.TryGetInMemory() with
