@@ -28,6 +28,7 @@ module Merge =
                             (l2o : ILayer option) (slo2 : array<ILayer option>) 
                             : ILayer =
 
+        invariant (domination <> MoreDetailedDominates) "58d9ee5a-ba81-4e45-b03f-4e2dd780175a"
         invariant (l1o.IsNone || l1o.Value.Def = def) "c8931d12-5472-4f11-ab64-b5c49e1ebbb5"
         invariant (l2o.IsNone || l2o.Value.Def = def) "c9e6f48e-763c-482a-8cb2-909490b978f2"
         invariant (slo1 |> Seq.choose id |> Seq.forall (fun x -> x.Def = def)) "5739daef-3c13-4409-9ba0-78a5a311634c"
@@ -46,7 +47,9 @@ module Merge =
 
 
         let hasSubLayers1 = slo1 |> Array.exists (fun x -> x.IsSome)
+        let winSubLayers1 = slo1 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
         let hasSubLayers2 = slo2 |> Array.exists (fun x -> x.IsSome)
+        let winSubLayers2 = slo2 |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
         let mapWindowToChildLevel (w : Box2l) = Box2l(w.Min * 2L, w.Max * 2L)
 
         match l1o, l2o with
@@ -74,6 +77,8 @@ module Merge =
     let private createLayers (domination : Dominance)
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
                              (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ILayer[] =
+
+        invariant (domination <> MoreDetailedDominates) "de263f01-fd18-41d5-b061-f301aed7cf4e"
 
         // ensure that all parts have the same layers ...
         let getLayerSemantics (x : ILayer[]) = x |> Seq.map (fun x -> x.Def) |> Set.ofSeq
@@ -109,6 +114,8 @@ module Merge =
     let private create (cell : Cell2d) (splitLimitExponent : int) (domination : Dominance) 
                        (n1o : QNode option) (sno1 : QNode option[])
                        (n2o : QNode option) (sno2 : QNode option[]) =
+
+        invariant (domination <> MoreDetailedDominates) "c134db85-643a-420d-8205-a795a7bce5ca"
 
         // ensure that optional root nodes coincide with specified root cell
         let check s (n : QNode option) = 
@@ -175,7 +182,10 @@ module Merge =
             sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
 
             // create root node from two sets of subnodes
-            create rc n1.SplitLimitExponent domination None sno1 None sno2
+            let dom = match domination with 
+                      | MoreDetailedDominates -> if n1.OriginalSampleExponent < n2.OriginalSampleExponent then FirstDominates else SecondDominates 
+                      | x -> x
+            create rc n1.SplitLimitExponent dom None sno1 None sno2
 
     /// Merge nodes, where one node is a subnode of the other, or both nodes are the same.
     let rec private mergeOverlappingNodes (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
@@ -233,7 +243,10 @@ module Merge =
 
                     (None, sno2)
 
-            create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
+            let dom = match domination with 
+                      | MoreDetailedDominates -> if n1.OriginalSampleExponent < n2.OriginalSampleExponent then FirstDominates else SecondDominates 
+                      | x -> x
+            create rc n1.SplitLimitExponent dom n1o sno1 n2o sno2
 
     /// Immutable merge.
     let merge (outOfCore : bool) (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
