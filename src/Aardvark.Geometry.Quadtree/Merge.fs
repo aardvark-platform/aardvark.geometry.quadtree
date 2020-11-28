@@ -74,12 +74,14 @@ module Merge =
         match rootLayers, hasSlo1, hasSlo2 with
 
         | [],      true,  true  ->
-            //let b = 
-            //  create semantic targetWindowAtChildLevel (e - 1)
-            //  |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
-            //  |> toLayer
-            //b.Resample Fail 
-            failwith "todo: sub1, sub2"
+            let b = 
+              create semantic targetWindowAtChildLevel (e - 1)
+              |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
+              |> toLayer
+
+            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+            let result = b.Resample ClampToEdge resampler
+            result
 
         | [r],     true,  false -> failwith "todo: r, sub1"
 
@@ -296,8 +298,23 @@ module Merge =
         let slo2 = sno2 |> Array.map (Option.map (fun n -> n.Layers))
         let layers = createLayers cell domination l1o slo1 l2o slo2
 
+        // merge subnodes
+        let subnodes = Array.zeroCreate 4
+        let mutable hasSubNodes = false
+        for i = 0 to 3 do
+            let n = match sno1.[i], sno2.[i] with
+                    | None,   None   -> None
+                    | Some a, None
+                    | None,   Some a -> hasSubNodes <- true
+                                        Some a
+                    | Some a, Some b -> failwith "todo: resolve subnode collision"
+            subnodes.[i] <- n
+
         // result
-        QNode(cell, splitLimitExponent, ose, layers) |> InMemoryNode
+        if hasSubNodes then
+            QNode(cell, splitLimitExponent, ose, layers, subnodes) |> InMemoryNode
+        else
+            QNode(cell, splitLimitExponent, ose, layers) |> InMemoryNode
 
     /// Merge nodes that do not overlap.
     let private mergeNonOverlappingNodes (domination : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
