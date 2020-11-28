@@ -38,19 +38,37 @@ module Merge =
         }
 
         let add (layer : Layer<'a>) (buffer : Buffer<'a>)  =
-            invariant (buffer.Mapping.BufferOrigin.Exponent = layer.SampleExponent) "748e4991-b657-493a-8118-e1d37185038a"
-            let w = layer.Mapping.Window
-            let e = buffer.Mapping.BufferOrigin.Exponent
-            let data = buffer.Data
-            let xMaxIncl = int w.SizeX - 1
-            let yMaxIncl = int w.SizeY - 1
-            for y = 0 to yMaxIncl do
-                for x = 0 to xMaxIncl do
-                    let c = Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
-                    let i = buffer.Mapping.GetBufferIndex c
-                    let v = layer.GetSample(Fail, c)
-                    data.[i] <- v
-            buffer
+            let layerSampleExponent = layer.SampleExponent
+            let layerWindow = layer.Mapping.Window
+            let bufferSampleExponent = buffer.Mapping.BufferOrigin.Exponent
+            let bufferData = buffer.Data
+            let xMaxIncl = int layerWindow.SizeX - 1
+            let yMaxIncl = int layerWindow.SizeY - 1
+
+            // layer has SAME RESOLUTION as buffer -> direct copy
+            if bufferSampleExponent = layerSampleExponent then
+                for y = 0 to yMaxIncl do
+                    for x = 0 to xMaxIncl do
+                        let c = Cell2d(layerWindow.Min.X + int64 x, layerWindow.Min.Y + int64 y, layerSampleExponent)
+                        let i = buffer.Mapping.GetBufferIndex c
+                        let v = layer.GetSample(Fail, c)
+                        bufferData.[i] <- v
+                buffer
+
+            // layer has PARENT RESOLUTION of buffer -> copy each sample 2x2 times
+            elif bufferSampleExponent = layerSampleExponent - 1 then
+                for y = 0 to yMaxIncl do
+                    for x = 0 to xMaxIncl do
+                        let cLayer = Cell2d(layerWindow.Min.X + int64 x, layerWindow.Min.Y + int64 y, layerSampleExponent)
+                        let v = layer.GetSample(Fail, cLayer)
+                        for qi = 0 to 3 do
+                            let c = cLayer.GetQuadrant(qi)
+                            let i = buffer.Mapping.GetBufferIndex c
+                            bufferData.[i] <- v
+                buffer
+
+            else
+                failwith "Invariant 7634631b-cd33-43e9-844b-52c2faba8ddf."
 
         let addMany (layers : Layer<'a> seq) (buffer : Buffer<'a>) =
             let mutable b = buffer
@@ -62,7 +80,7 @@ module Merge =
 
     open Buffer
     let private composeLayersInOrderTyped<'a> 
-        (semantic : Durable.Def) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
+        (semantic : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
         (rootLayers : Layer<'a> list) (slo1 : Layer<'a> option[]) (slo2 : Layer<'a> option[]) 
         : Layer<'a> =
         
@@ -80,12 +98,32 @@ module Merge =
               |> toLayer
 
             let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
-            let result = b.Resample ClampToEdge resampler
+            let result = b.Resample ClampToEdge resampler bounds
             result
 
-        | [r],     true,  false -> failwith "todo: r, sub1"
+        | [r],     true,  false ->
+            
+            let b = 
+                create semantic targetWindowAtChildLevel (e - 1)
+                |> add r
+                |> addMany (slo1 |> Seq.choose id)
+                |> toLayer
 
-        | [r],     false, true  -> failwith "todo: r, sub2"
+            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+            let result = b.Resample ClampToEdge resampler bounds
+            result
+
+        | [r],     false, true  ->
+
+            let b = 
+                create semantic targetWindowAtChildLevel (e - 1)
+                |> add r
+                |> addMany (slo2 |> Seq.choose id)
+                |> toLayer
+
+            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+            let result = b.Resample ClampToEdge resampler bounds
+            result
 
         | [r],     true,  true  -> failwith "todo: r, sub1, sub2"
 
@@ -112,7 +150,7 @@ module Merge =
 
 
 
-    let private composeLayersInOrder (def : Durable.Def) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
+    let private composeLayersInOrder (def : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
                              (rootLayers : ILayer list) (slo1 : ILayer option[]) (slo2 : ILayer option[]) 
                              : ILayer =
 
@@ -128,7 +166,7 @@ module Merge =
             let rootLayers' = rootLayers |> List.map convert
             let slo1' = slo1 |> Array.map (Option.map convert)
             let slo2' = slo2 |> Array.map (Option.map convert)
-            composeLayersInOrderTyped def sampleExponentResult targetWindowAtChildLevel rootLayers' slo1' slo2'
+            composeLayersInOrderTyped def bounds sampleExponentResult targetWindowAtChildLevel rootLayers' slo1' slo2'
 
         let someLayer = rootLayers |> Seq.append (slo1 |> Seq.choose id) |> Seq.append (slo2 |> Seq.choose id) |> Seq.head
         match someLayer with
@@ -216,7 +254,7 @@ module Merge =
                          | _,       _, MoreDetailedDominates -> 
                             failwith "MoreDetailedDominates is not allowed here. Invariant eaa7d1d8-f5e8-4083-aa4b-b1c1b6033911." 
 
-        let compose = composeLayersInOrder def sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
+        let compose = composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
 
         match domination with
         | FirstDominates        -> compose slo2 slo1
