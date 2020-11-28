@@ -125,7 +125,17 @@ module Merge =
             let result = b.Resample ClampToEdge resampler bounds
             result
 
-        | [r],     true,  true  -> failwith "todo: r, sub1, sub2"
+        | [r],     true,  true  -> 
+
+            let b = 
+                create semantic targetWindowAtChildLevel (e - 1)
+                |> add r
+                |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
+                |> toLayer
+
+            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+            let result = b.Resample ClampToEdge resampler bounds
+            result
 
         | [r1;r2], false, false ->
             if r2.SampleWindow.Contains(r1.SampleWindow) then
@@ -134,11 +144,41 @@ module Merge =
                 create semantic (Box2l(r1.SampleWindow, r2.SampleWindow)) e
                 |> add r1 |> add r2 |> toLayer
 
-        | [r1;r2], true,  false -> failwith "todo: r1, r2, sub1"
+        | [r1;r2], true,  false ->
 
-        | [r1;r2], false, true  -> failwith "todo: r1, r2, sub2"
+            let b = 
+                create semantic targetWindowAtChildLevel (e - 1)
+                |> add r1 |> add r2
+                |> addMany (slo1 |> Seq.choose id)
+                |> toLayer
 
-        | [r1;r2], true,  true  -> failwith "todo: r1, r2, sub1, sub2"
+            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+            let result = b.Resample ClampToEdge resampler bounds
+            result
+
+        | [r1;r2], false, true  ->
+
+            let b = 
+                create semantic targetWindowAtChildLevel (e - 1)
+                |> add r1 |> add r2
+                |> addMany (slo2 |> Seq.choose id)
+                |> toLayer
+
+            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+            let result = b.Resample ClampToEdge resampler bounds
+            result
+
+        | [r1;r2], true,  true  ->
+
+                let b = 
+                    create semantic targetWindowAtChildLevel (e - 1)
+                    |> add r1 |> add r2
+                    |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
+                    |> toLayer
+
+                let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+                let result = b.Resample ClampToEdge resampler bounds
+                result
         
         | [],      false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
         | [],      true,  false -> failwith "At least two parts are required for merge. Error 0e6b8ba5-739a-4c5d-87ef-460911be6c85."

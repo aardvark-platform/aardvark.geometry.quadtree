@@ -660,7 +660,7 @@ let ``merge: leaf 1x1 / tree 2x2, samples perfectly overlap`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
