@@ -326,15 +326,27 @@ let ``merge: NoNode`` () =
         -3.0;  -4.0;
     |]}
 
-    match Quadtree.Merge MoreDetailedDominates NoNode NoNode with
+    match Quadtree.Merge FirstDominates NoNode NoNode with
     | NoNode -> Assert.True(true)
     | _      -> Assert.True(false)
 
-    match (Quadtree.Merge MoreDetailedDominates aRef NoNode).TryGetInMemory() with
+    match Quadtree.Merge SecondDominates NoNode NoNode with
+    | NoNode -> Assert.True(true)
+    | _      -> Assert.True(false)
+
+    match (Quadtree.Merge FirstDominates aRef NoNode).TryGetInMemory() with
     | None   -> Assert.True(false)
     | Some n -> Assert.True(n.Id = aRef.Id)
 
-    match (Quadtree.Merge MoreDetailedDominates NoNode bRef).TryGetInMemory() with
+    match (Quadtree.Merge SecondDominates aRef NoNode).TryGetInMemory() with
+    | None   -> Assert.True(false)
+    | Some n -> Assert.True(n.Id = aRef.Id)
+
+    match (Quadtree.Merge FirstDominates NoNode bRef).TryGetInMemory() with
+    | None   -> Assert.True(false)
+    | Some n -> Assert.True(n.Id = bRef.Id)
+
+    match (Quadtree.Merge SecondDominates NoNode bRef).TryGetInMemory() with
     | None   -> Assert.True(false)
     | Some n -> Assert.True(n.Id = bRef.Id)
 
@@ -556,7 +568,7 @@ let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs`` () =
         }
     |> ignore
 
-[<Fact>]
+[<Fact(Skip = "Centered cells are currently not supported.")>]
 let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs, cross-origin`` () =
     
     let aRef = createQuadtree { Origin = Cell2d(-2,0,0); Size = (2,2); Split = 8; Data = [|

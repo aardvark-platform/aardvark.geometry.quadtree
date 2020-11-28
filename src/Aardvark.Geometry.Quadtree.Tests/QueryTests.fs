@@ -55,29 +55,38 @@ let ``cpunz_20200829`` () =
 [<Fact>]
 let ``All`` () =
     let q = createQuadtree ()
-    let r = Query.All Query.Config.Default q |> Array.ofSeq
-    Assert.True(r.Length = 6)
-    Assert.True(r |> Array.forall (fun x -> match x.Selection with | Query.FullySelected -> true | _ -> false ))
+    let rs = Query.All Query.Config.Default q |> Seq.toArray
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 70)
 
 
 [<Fact>]
 let ``InsideCell2d_FullyInside`` () =
     let q = createQuadtree ()
-    let r = Query.InsideCell Query.Config.Default (Cell2d(0L, 0L, 4)) q |> Array.ofSeq
-    Assert.True(r.Length = 6)
-    Assert.True(r |> Array.forall (fun x -> match x.Selection with | Query.FullySelected -> true | _ -> false ))
+    let rs = Query.InsideCell Query.Config.Default (Cell2d(0L, 0L, 4)) q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 70)
 
 [<Fact>]
 let ``InsideCell2d_FullyOutside`` () =
     let q = createQuadtree ()
-    let r = Query.InsideCell Query.Config.Default (Cell2d(1L, 0L, 4)) q |> Array.ofSeq
-    Assert.True(r.Length = 0)
+    let rs = Query.InsideCell Query.Config.Default (Cell2d(1L, 0L, 4)) q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 0)
 
 [<Fact>]
 let ``InsideCell2d_Partial`` () =
     let q = createQuadtree ()
-    let r = Query.InsideCell Query.Config.Default (Cell2d(0L, 0L, 3)) q |> Array.ofSeq
-    Assert.True(r.Length = 4)
+    let rs = Query.InsideCell Query.Config.Default (Cell2d(0L, 0L, 3)) q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 56)
 
 [<Fact>]
 let ``InsideCell2d_ExactCellMatch`` () =
@@ -105,9 +114,11 @@ let ``InsideCell2d_Supersampling`` () =
 [<Fact>]
 let ``IntersectsCell2d_FullyInside`` () =
     let q = createQuadtree ()
-    let r = Query.IntersectsCell Query.Config.Default (Cell2d(0L, 0L, 4)) q |> Array.ofSeq
-    Assert.True(r.Length = 6)
-    Assert.True(r |> Array.forall (fun x -> match x.Selection with | Query.FullySelected -> true | _ -> false ))
+    let rs = Query.IntersectsCell Query.Config.Default (Cell2d(0L, 0L, 4)) q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 70)
 
 [<Fact>]
 let ``IntersectsCell2d_FullyOutside`` () =
@@ -118,22 +129,21 @@ let ``IntersectsCell2d_FullyOutside`` () =
 [<Fact>]
 let ``IntersectsCell2d_Partial`` () =
     let q = createQuadtree ()
-    let r = Query.IntersectsCell Query.Config.Default (Cell2d(0L, 0L, 3)) q |> Array.ofSeq
-    Assert.True(r.Length = 4)
+    let rs = Query.IntersectsCell Query.Config.Default (Cell2d(0L, 0L, 3)) q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 56)
 
 [<Fact>]
 let ``IntersectsCell2d_ExactCellMatch`` () =
     let q = createQuadtree ()
     
-    let r = Query.IntersectsCell Query.Config.Default (Cell2d(2L, 1L, 0)) q |> Array.ofSeq
-    Assert.True(r.Length = 1)
-    
-    let resultCells = r.[0].GetSampleCells()
-    Assert.True(resultCells.Length = 1)
-    Assert.True(resultCells.[0] = Cell2d(2L, 1L, 0))
-
-    let xs = r.[0].GetSamples<float32> Defs.Heights1f
+    let rs = Query.IntersectsCell Query.Config.Default (Cell2d(2L, 1L, 0)) q |> Array.ofSeq
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
     Assert.True(xs.Length = 1)
+    
     let (c, x) = xs.[0]
     Assert.True(Cell2d(2L, 1L, 0) = c)
     Assert.True(2.01f = x)
@@ -142,14 +152,11 @@ let ``IntersectsCell2d_ExactCellMatch`` () =
 let ``IntersectsCell2d_Supersampling`` () =
     let q = createQuadtree ()
     
-    let r = Query.IntersectsCell Query.Config.Default (Cell2d(4L, 2L, -1)) q |> Array.ofSeq
-    Assert.True(r.Length = 1)
-
-    let resultCells = r.[0].GetSampleCells()
-    Assert.True(resultCells.Length = 1)
-
-    let xs = r.[0].GetSamples<float32> Defs.Heights1f
+    let rs = Query.IntersectsCell Query.Config.Default (Cell2d(4L, 2L, -1)) q |> Array.ofSeq
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
     Assert.True(xs.Length = 1)
+
     let (c, x) = xs.[0]
     Assert.True(Cell2d(2L, 1L, 0) = c)
     Assert.True(2.01f = x)
@@ -157,9 +164,11 @@ let ``IntersectsCell2d_Supersampling`` () =
 [<Fact>]
 let ``InsideBox2d_FullyInside`` () =
     let q = createQuadtree ()
-    let r = Query.InsideBox Query.Config.Default (Box2d(V2d(0,0),V2d(10,7))) q |> Array.ofSeq
-    Assert.True(r.Length = 6)
-    Assert.True(r |> Array.forall (fun x -> match x.Selection with | Query.FullySelected -> true | _ -> false ))
+    let rs = Query.InsideBox Query.Config.Default (Box2d(V2d(0,0),V2d(10,7))) q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 70)
 
 [<Fact>]
 let ``InsideBox2d_FullyOutside`` () =
@@ -170,18 +179,22 @@ let ``InsideBox2d_FullyOutside`` () =
 [<Fact>]
 let ``InsideBox2d_Partial`` () =
     let q = createQuadtree ()
-    let r = Query.InsideBox Query.Config.Default (Box2d(V2d(-1,-1),V2d(5,3))) q |> Array.ofSeq
-    Assert.True(r.Length = 2)
-
+    let rs = Query.InsideBox Query.Config.Default (Box2d(V2d(-1,-1),V2d(5,3))) q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 15)
 
 
 [<Fact>]
 let ``InsidePolygon2d_FullyInside`` () =
     let q = createQuadtree ()
     let filter = Polygon2d([|V2d(3.9,-0.1);V2d(10.1,-0.1);V2d(10.1,7.1);V2d(8.1,7.1);V2d(8.1,4.1);V2d(3.9,4.1)|])
-    let r = Query.InsidePolygon Query.Config.Default filter q |> Array.ofSeq
-    Assert.True(r.Length = 3)
-    //Assert.True(r |> Array.forall (fun x -> match x.Selection with | Query.FullySelected -> true | _ -> false ))
+    let rs = Query.InsidePolygon Query.Config.Default filter q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 30)
 
 [<Fact>]
 let ``InsidePolygon2d_FullyOutside`` () =
@@ -194,35 +207,43 @@ let ``InsidePolygon2d_FullyOutside`` () =
 let ``InsidePolygon2d_Partial`` () =
     let q = createQuadtree ()
     let filter = Polygon2d([|V2d(0,0);V2d(5,0);V2d(4,4);V2d(4.0,4.5);V2d(0,4)|])
-    let r = Query.InsidePolygon Query.Config.Default filter q |> Array.ofSeq
-    Assert.True(r.Length = 2)
-
+    let rs = Query.InsidePolygon Query.Config.Default filter q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 18)
 
 
 [<Fact>]
 let ``NearLine2d_FullyInside`` () =
     let q = createQuadtree ()
     let filter = Ray2d(origin = V2d.OO, direction = V2d(10,7).Normalized)
-    let r = Query.NearLine Query.Config.Default filter 10.0 q |> Array.ofSeq
-    Assert.True(r.Length = 6)
-    Assert.True(r |> Array.forall (fun x -> match x.Selection with | Query.FullySelected -> true | _ -> false ))
+    let rs = Query.NearLine Query.Config.Default filter 10.0 q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 70)
 
 [<Fact>]
 let ``NearLine2d_FullyOutside`` () =
     let q = createQuadtree ()
     let filter = Ray2d(origin = V2d(10,-2), direction = V2d(10,7).Normalized)
-    let r = Query.NearLine Query.Config.Default filter 1.0 q |> Array.ofSeq
-    Assert.True(r.Length = 0)
+    let rs = Query.NearLine Query.Config.Default filter 1.0 q |> Array.ofSeq
+    
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 0)
 
 [<Fact>]
 let ``NearLine2d_Partial`` () =
     let q = createQuadtree ()
     let filter = Ray2d(origin = V2d(0,0), direction = V2d(3,4).Normalized)
-    let r = Query.NearLine Query.Config.Default filter 1.0 q |> Array.ofSeq
-    Assert.True(r.Length = 3)
+    let rs = Query.NearLine Query.Config.Default filter 1.0 q |> Array.ofSeq
 
-    let foo = r |> Array.collect (fun x -> x.GetSamples<float32> Defs.Heights1f)
-    Assert.True(foo.Length = 16)
+    let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(xs.Length = 16)
+
 
 
 

@@ -60,15 +60,15 @@ let ``Merge_NonOverlapping_Adjacent_SameDepth`` () =
     Assert.True(q01.Cell = Cell2d(0L, 1L, 3))
     Assert.True(q11.Cell = Cell2d(1L, 1L, 3))
 
-    let m1 = Quadtree.Merge MoreDetailedDominates q00 q10
+    let m1 = Quadtree.Merge SecondDominates q00 q10
     Assert.True(Quadtree.CountLeafs m1 = 8)
     Assert.True(Quadtree.CountNodes m1 = Quadtree.CountInner m1 + Quadtree.CountLeafs m1)
 
-    let m2 = Quadtree.Merge MoreDetailedDominates m1 q01
+    let m2 = Quadtree.Merge SecondDominates m1 q01
     Assert.True(Quadtree.CountLeafs m2 = 12)
     Assert.True(Quadtree.CountNodes m2 = Quadtree.CountInner m2 + Quadtree.CountLeafs m2)
 
-    let m = Quadtree.Merge MoreDetailedDominates m2 q11
+    let m = Quadtree.Merge SecondDominates m2 q11
     Assert.True(Quadtree.CountLeafs m = 16)
     Assert.True(Quadtree.CountNodes m = Quadtree.CountInner m + Quadtree.CountLeafs m)
     Assert.True(m.Cell = Cell2d(0L,0L,4))
@@ -88,15 +88,15 @@ let ``Merge_NonOverlapping_NonAdjacent_SameDepth`` () =
     Assert.True(q01.Cell = Cell2d(0L, 1L, 2))
     Assert.True(q11.Cell = Cell2d(1L, 1L, 2))
 
-    let m1 = Quadtree.Merge MoreDetailedDominates q00 q10
+    let m1 = Quadtree.Merge SecondDominates q00 q10
     Assert.True(Quadtree.CountLeafs m1 = 2)
     Assert.True(Quadtree.CountNodes m1 = Quadtree.CountInner m1 + Quadtree.CountLeafs m1)
 
-    let m2 = Quadtree.Merge MoreDetailedDominates m1 q01
+    let m2 = Quadtree.Merge SecondDominates m1 q01
     Assert.True(Quadtree.CountLeafs m2 = 3)
     Assert.True(Quadtree.CountNodes m2 = Quadtree.CountInner m2 + Quadtree.CountLeafs m2)
 
-    let m = Quadtree.Merge MoreDetailedDominates m2 q11
+    let m = Quadtree.Merge SecondDominates m2 q11
     Assert.True(Quadtree.CountLeafs m = 4)
     Assert.True(Quadtree.CountNodes m = Quadtree.CountInner m + Quadtree.CountLeafs m)
     Assert.True(m.Cell = Cell2d(0L,0L,3))
@@ -121,13 +121,13 @@ let ``Merge_NonOverlapping_Adjacent_DifferentExp`` () =
     Assert.True(Quadtree.CountLeafs q01 = 16)
     Assert.True(Quadtree.CountLeafs q11 = 64)
 
-    let m1 = Quadtree.Merge MoreDetailedDominates q00 q10
+    let m1 = Quadtree.Merge SecondDominates q00 q10
     Assert.True(Quadtree.CountLeafs m1 = 5)
 
-    let m2 = Quadtree.Merge MoreDetailedDominates m1 q01
+    let m2 = Quadtree.Merge SecondDominates m1 q01
     Assert.True(Quadtree.CountLeafs m2 = 21)
 
-    let m = Quadtree.Merge MoreDetailedDominates m2 q11
+    let m = Quadtree.Merge SecondDominates m2 q11
     Assert.True(Quadtree.CountLeafs m = 85)
     Assert.True(m.Cell = Cell2d(0L,0L,4))
 
@@ -142,7 +142,7 @@ let ``Merge_Overlapping_1x1_SameDepth`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge SecondDominates a b
     Assert.True(Quadtree.CountLeafs m = 1)
 
     ()
@@ -157,7 +157,7 @@ let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
     Assert.True(Quadtree.CountLeafs a = 4)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge FirstDominates a b
     let leafcount = Quadtree.CountLeafs m
     Assert.True((leafcount = 4))
 
@@ -176,7 +176,7 @@ let ``Merge_Overlapping_1x1_DifferentDepth_SecondMoreDetailed`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 4)
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge SecondDominates a b
     let mLeafCount = Quadtree.CountLeafs m
     Assert.True((mLeafCount = 4))
     
@@ -389,7 +389,7 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_1`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge SecondDominates a b
     Assert.True(Quadtree.CountLeafs m = 1)
 
     let l = m.GetLayer<float32> Defs.Heights1f
@@ -407,7 +407,7 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_2`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Quadtree.Merge MoreDetailedDominates b a
+    let m = Quadtree.Merge SecondDominates b a
     Assert.True(Quadtree.CountLeafs m = 1)
 
     let l = m.GetLayer<float32> Defs.Heights1f

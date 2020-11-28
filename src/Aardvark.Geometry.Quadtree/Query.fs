@@ -137,8 +137,11 @@ module Query =
                     //    would actually cover the
                     if unsafeSamples.Length > 0 then
                         
+                        let exactSubBounds = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.ExactBoundingBox))
+
                         let notCoveredBySubSamples (s : Cell2d) =
-                            let isNotCovered = subWindows |> Array.exists (fun sw -> s.X < sw.Min.X || s.Y < sw.Min.Y || s.X >= sw.Max.X || s.Y >= sw.Max.Y)
+                            let sb = s.BoundingBox
+                            let isNotCovered = exactSubBounds |> Array.exists (fun sw -> sw.Contains(sb)) |> not
                             isNotCovered
 
                         //let foo1 = unsafeSamples |> Seq.collect (fun x -> x.Children) |> Seq.toArray
@@ -151,6 +154,8 @@ module Query =
                             |> Seq.collect (fun x -> x.Children)
                         // ... and keeping those not already covered by subnode samples
                             |> Seq.filter notCoveredBySubSamples
+                        // .. and fully inside the whole tree's footprint (to avoid "border" cases ;-))
+                            |> Seq.filter (fun x -> n.ExactBoundingBox.Contains(x.BoundingBox))
                             |> Seq.toArray
 
                         let result = { Node = n; Selection = SubCellsSelected holeFillingSamples }

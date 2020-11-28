@@ -93,9 +93,15 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
     member this.WithWindow = (this :> ILayer).WithWindow
     member this.CellBounds with get() = (this :> ILayer).CellBounds
 
-    member this.GetSample (mode : BorderMode<'a>, s : Cell2d) : 'a =
+    member this.GetSample (mode : BorderMode<'a>, c : Cell2d) : 'a =
+    
         let min = this.SampleMin
         let maxIncl = this.SampleMaxIncl
+
+        let s = if c.Exponent = min.Exponent then c
+                elif c.Exponent + 1 = min.Exponent then c.Parent
+                else failwith "Invariant 4d59a076-37ee-42d4-8326-2341be922a6c."
+
         let inline inside () = s.X >= min.X && s.Y >= min.Y && s.X <= maxIncl.X && s.Y <= maxIncl.Y
 
         match mode with
