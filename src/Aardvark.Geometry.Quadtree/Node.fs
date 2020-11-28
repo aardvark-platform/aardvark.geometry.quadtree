@@ -106,6 +106,9 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
         QNode(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
 
+    new (cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNode option[]) =
+        QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, subNodes)
+
     new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNodeRef[]) =
         QNode(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
 
