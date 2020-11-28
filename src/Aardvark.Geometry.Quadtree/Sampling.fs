@@ -2,6 +2,9 @@
 
 open Aardvark.Base
 open Aardvark.Data
+open System.Collections.Generic
+open System.Collections.Immutable
+open System
 
 #nowarn "44"
 
@@ -101,7 +104,32 @@ module internal Resamplers =
         (Defs.VolumesBilinear4d.Id, resampleV4dNorm :> obj)
     ]
 
+    let typeToResampler =
+      ImmutableDictionary<Type, obj>.Empty
+        .Add(typeof<int32>  , resampleInt32)
+        .Add(typeof<int64>  , resampleInt64)
+
+        .Add(typeof<float32>, resampleFloat32)
+        .Add(typeof<float>  , resampleFloat64)
+
+        .Add(typeof<V3d>    , resampleV3dNorm)
+        .Add(typeof<V3f>    , resampleV3fNorm)
+        .Add(typeof<V4d>    , resampleV4dNorm)
+        .Add(typeof<V4f>    , resampleV4fNorm)
+
+        .Add(typeof<C3b>    , resampleC3b)
+        .Add(typeof<C3f>    , resampleC3f)
+        .Add(typeof<C4b>    , resampleC4b)
+        .Add(typeof<C4f>    , resampleC4f)
+
     let getResamplerFor (def : Durable.Def) =
         match resamplers |> Map.tryFind def.Id with
         | Some x -> x
         | None   -> failwith <| sprintf "Resampling not supported for %A. Invariant 16ff1f91-b678-41d5-a223-e5bcf69609fa." def
+
+    let getTypedResamplerFor<'a> (def : Durable.Def) =
+        match resamplers |> Map.tryFind def.Id with
+        | Some f -> f :?> ('a*'a*'a*'a->'a)
+        | None   ->  match typeToResampler.TryGetValue(typeof<'a>) with
+                     | true, f  -> f :?> ('a*'a*'a*'a->'a)
+                     | false, _ -> failwith <| sprintf "Resampling not supported for %A. Invariant 30e40cd4-388c-4aa6-b753-5a263d10763e." def
