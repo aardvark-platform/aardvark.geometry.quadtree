@@ -9,14 +9,14 @@ module DataMapping =
         let dx = x - bufferOriginX
         let dy = y - bufferOriginY
         if dx < 0L || dy < 0L || dx >= int64 bufferSizeX || dy >= int64 bufferSizeY then
-            failwith "Sample position out of range. Error 4899ad5b-9fa3-420a-a645-b1126871f1b2."
+            sprintf "Sample position (%d, %d) out of range. Error 4899ad5b-9fa3-420a-a645-b1126871f1b2." x y |> failwith
         int(dy) * bufferSizeX + int(dx)
 
     let inline getSampleCell (bufferOrigin : Cell2d) (bufferSizeX : int) (bufferSizeY : int) (x : int64) (y : int64) =
         let dx = x - bufferOrigin.X
         let dy = y - bufferOrigin.Y
         if dx < 0L || dy < 0L || dx >= int64 bufferSizeX || dy >= int64 bufferSizeY then
-            failwith "Sample position out of range. Error 6a8c8bfc-faac-4252-884e-8e2da8b247e8."
+            sprintf "Sample position (%d, %d) out of range. Error 6a8c8bfc-faac-4252-884e-8e2da8b247e8." x y |> failwith
         Cell2d(x, y, bufferOrigin.Exponent)
 
     ()
