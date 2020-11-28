@@ -366,9 +366,6 @@ module Merge =
             ((sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> (n.SampleExponent, n.SplitLimitExponent))) |> Seq.distinct |> Seq.length < 2)
             "Subnodes have different resolution or split limit." "018b42e9-34a5-4791-94d2-374d7e246f6c"
         
-        // compute originalSampleExponent (as smallest of all parts)
-        let ose = [n1o; n2o] |> Seq.append sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> n.OriginalSampleExponent) |> Seq.min
-
         // compute node layers
         let l1o = n1o |> Option.map (fun n -> n.Layers)
         let slo1 = sno1 |> Array.map (Option.map (fun n -> n.Layers))
@@ -390,9 +387,9 @@ module Merge =
 
         // result
         if hasSubNodes then
-            QNode(cell, splitLimitExponent, ose, layers, subnodes) |> InMemoryNode
+            QNode(cell, splitLimitExponent, layers, subnodes) |> InMemoryNode
         else
-            QNode(cell, splitLimitExponent, ose, layers) |> InMemoryNode
+            QNode(cell, splitLimitExponent, layers) |> InMemoryNode
 
     /// Merge nodes that do not overlap.
     let private mergeNonOverlappingNodes (domination : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
@@ -410,6 +407,8 @@ module Merge =
 
             // common root cell
             let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
+            if rc.IsCenteredAtOrigin then
+                failwith "Centered cells are currently not supported. Error f312f2bd-4464-4156-973f-21cdd3b97886."
             invariant (rc.Contains n1.Cell && rc.Exponent > n1.Cell.Exponent) "e93e27b4-f9a3-484f-a3fa-6e28cb4e803b"
             invariant (rc.Contains n2.Cell && rc.Exponent > n2.Cell.Exponent) "6e4b0a9a-c059-4ba3-8fde-029482326669"
 
@@ -424,10 +423,7 @@ module Merge =
             sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
 
             // create root node from two sets of subnodes
-            let dom = match domination with 
-                      | MoreDetailedDominates -> if n1.OriginalSampleExponent < n2.OriginalSampleExponent then FirstDominates else SecondDominates 
-                      | x -> x
-            create rc n1.SplitLimitExponent dom None sno1 None sno2
+            create rc n1.SplitLimitExponent domination None sno1 None sno2
 
 
     /// Merge nodes, where one node is a subnode of the other, or both nodes are the same.
@@ -447,6 +443,8 @@ module Merge =
 
             // common root cell
             let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
+            if rc.IsCenteredAtOrigin then
+                failwith "Centered cells are currently not supported. Error 20364c6b-c265-4e08-be21-fc69a0f96758."
 
             let (n1o, sno1) =
                 if rc = n1.Cell then
@@ -486,14 +484,13 @@ module Merge =
 
                     (None, sno2)
 
-            let dom = match domination with 
-                      | MoreDetailedDominates -> if n1.OriginalSampleExponent < n2.OriginalSampleExponent then FirstDominates else SecondDominates 
-                      | x -> x
-            create rc n1.SplitLimitExponent dom n1o sno1 n2o sno2
+            create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
 
 
     /// Immutable merge.
     let merge (outOfCore : bool) (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
+
+        if domination = MoreDetailedDominates then failwith "MoreDetailedDominates mode is currently not supported. Error 37f67384-7bdc-44f0-b31d-6a347cb5b0c2."
 
         match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
         | None,       None        -> NoNode

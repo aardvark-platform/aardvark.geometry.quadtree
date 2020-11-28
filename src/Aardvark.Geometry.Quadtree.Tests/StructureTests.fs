@@ -40,7 +40,6 @@ let checkQuadtree spec (rootRef : QNodeRef) =
     let root = rootRef.TryGetInMemory().Value
     Assert.True(spec.Cell                   = rootRef.Cell)
     Assert.True(spec.IsLeafNode             = root.IsLeafNode)
-    Assert.True(spec.OriginalSampleExponent = root.OriginalSampleExponent)
     Assert.True(spec.SampleExponent         = root.SampleExponent)
     Assert.True(spec.SplitLimitExponent     = root.SplitLimitExponent)
 

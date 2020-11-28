@@ -70,7 +70,7 @@ with
             Exists  = fun id        -> store.Contains(id.ToString())
         }
 
-type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNodeRef[] option) =
+type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
 
     do
         invariantm (layers.Length > 0) "No layers." "fe0e56d7-9bc2-4f61-8b36-0ed7fcc4bc56"
@@ -102,19 +102,19 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
                     invariant (cell.Exponent = x.Cell.Exponent + 1)             "780d98cc-ecab-43fc-b492-229fb0e208a3"
                 | OutOfCoreNode _ -> ()
 
-    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNode option[]) =
+    new (id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
-        QNode(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
+        QNode(id, cell, splitLimitExp, layers, Some subNodes)
 
-    new (cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNode option[]) =
-        QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, subNodes)
+    new (cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
+        QNode(Guid.NewGuid(), cell, splitLimitExp, layers, subNodes)
 
-    new (id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[], subNodes : QNodeRef[]) =
-        QNode(id, cell, splitLimitExp, originalSampleExponent, layers, Some subNodes)
+    new (id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[]) =
+        QNode(id, cell, splitLimitExp, layers, Some subNodes)
 
     /// Create leaf node.
-    new (cell : Cell2d, splitLimitExp : int, originalSampleExponent : int, layers : ILayer[]) =
-        QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, layers, None)
+    new (cell : Cell2d, splitLimitExp : int, layers : ILayer[]) =
+        QNode(Guid.NewGuid(), cell, splitLimitExp, layers, None)
 
     member _.Id with get() = id
 
@@ -122,8 +122,6 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
 
     /// The maximum tile size, given as width = height = 2^SplitLimitExponent.
     member _.SplitLimitExponent with get() = splitLimitExp
-
-    member _.OriginalSampleExponent with get() = originalSampleExponent
 
     member _.Layers with get() = layers
 
@@ -141,7 +139,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
 
     member _.IsLeafNode  with get() = subNodes.IsNone
 
-    member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, originalSampleExponent, newLayers, subNodes)
+    member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, newLayers, subNodes)
 
     member this.Contains (other : QNode) : bool =
         this.Cell.Contains(other.Cell)
@@ -173,7 +171,6 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
         map.Add(kvp Defs.NodeId id)
         map.Add(kvp Defs.CellBounds cell)
         map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
-        map.Add(kvp Defs.OriginalSampleExponent originalSampleExponent)
             
         // layers
         for layer in layers do
@@ -215,7 +212,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
                 (cell, subLayers) 
                 )
             subLayers |> Array.map (fun (subCell, subLayers) ->
-                QNode(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None)
+                QNode(Guid.NewGuid(), subCell, splitLimitExp, subLayers, None)
                 )
         else
             failwith "Node must be centered at origin to split into quadrant nodes at same level. Invariant 6a4321b1-0f59-4574-bf51-fcce423fa389."
@@ -228,7 +225,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
             (subCell, subLayers) 
             )
         let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
-            QNode(Guid.NewGuid(), subCell, splitLimitExp, originalSampleExponent, subLayers, None)
+            QNode(Guid.NewGuid(), subCell, splitLimitExp, subLayers, None)
             )
 
         subNodes
@@ -280,7 +277,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
                         )
                     |> Some
 
-            QNode(id, cell, splitLimitExp, originalSampleExponent, newLayers, newChildren) |> Some
+            QNode(id, cell, splitLimitExp, newLayers, newChildren) |> Some
         
     static member Load (options: SerializationOptions) (id : Guid) : QNodeRef =
         if id = Guid.Empty then
@@ -295,7 +292,6 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
                     let id                  = map.Get(Defs.NodeId)                  :?> Guid
                     let cell                = map.Get(Defs.CellBounds)              :?> Cell2d
                     let splitLimitExp       = map.Get(Defs.SplitLimitExponent)      :?> int
-                    let originalSampleExp   = map.Get(Defs.OriginalSampleExponent)  :?> int
                 
                     let layers : ILayer[] =  
                         map 
@@ -328,7 +324,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, originalSampleExponent
                                 )
                             Some xs
 
-                    let n = QNode(id, cell, splitLimitExp, originalSampleExp, layers, subNodes)
+                    let n = QNode(id, cell, splitLimitExp, layers, subNodes)
                     InMemoryNode n
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
@@ -514,8 +510,7 @@ module QNode =
 
                 let lodlayers = generateLodLayers subnodes root
                 
-                let result = QNode(Guid.NewGuid(), root, node.SplitLimitExponent,
-                                   node.OriginalSampleExponent, lodlayers, subnodes)
+                let result = QNode(Guid.NewGuid(), root, node.SplitLimitExponent, lodlayers, subnodes)
                 
                 InMemoryNode result
 

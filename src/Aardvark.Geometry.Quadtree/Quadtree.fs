@@ -33,7 +33,7 @@ module Quadtree =
 
 
 
-    let rec private build (config : BuildConfig) (rootCell : Cell2d) (originalSampleExponent : int) (layers : ILayer[]) : QNode =
+    let rec private build (config : BuildConfig) (rootCell : Cell2d) (layers : ILayer[]) : QNode =
     
         invariant (layers.Length > 0)                                                       "dccf4ce3-b163-41b7-9bd9-0a3e7b76e3a5"
         invariant (layers |> Array.groupBy (fun l -> l.SampleExponent) |> Array.length = 1) "4071f97e-1809-422a-90df-29c774cedc7b"
@@ -67,7 +67,7 @@ module Quadtree =
             let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
                 match subLayers.Length with
                 | 0 -> NoNode
-                | _ -> let n = build config subCell originalSampleExponent subLayers
+                | _ -> let n = build config subCell subLayers
                        InMemoryNode n
                     //printfn "  sub cell %A"  subCell
                     //for layer in subLayers do
@@ -84,11 +84,11 @@ module Quadtree =
 
             let lodLayers = QNode.generateLodLayers subNodes rootCell
 
-            QNode(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, lodLayers, Some subNodes)
+            QNode(Guid.NewGuid(), rootCell, config.SplitLimitPowerOfTwo, lodLayers, Some subNodes)
         
         else
         
-            QNode(rootCell, config.SplitLimitPowerOfTwo, originalSampleExponent, layers)
+            QNode(rootCell, config.SplitLimitPowerOfTwo, layers)
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.
@@ -110,7 +110,7 @@ module Quadtree =
         while rootCell.Exponent < minRootExponent do
             rootCell <- rootCell.Parent
 
-        build config rootCell sampleExponent layers |> InMemoryNode
+        build config rootCell layers |> InMemoryNode
 
     /// Returns new merged quadtree. Immutable merge.
     let Merge (domination : Dominance) (first : QNodeRef) (second : QNodeRef) =
