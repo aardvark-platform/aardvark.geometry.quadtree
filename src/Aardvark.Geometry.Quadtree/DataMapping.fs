@@ -107,10 +107,15 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         DataMapping.getBufferIndex bufferOrigin.X bufferOrigin.Y bufferSize.X bufferSize.Y (int64 s.X) (int64 s.Y)
     
     member this.GetBufferIndex (s : Cell2d) =
-        invariantm (s.Exponent = bufferOrigin.Exponent)
-             (sprintf "Sample exponent (%d) out of range (must be %d)." s.Exponent bufferOrigin.Exponent)
-             "9d9d3741-6f26-435d-a5d2-a8cc37cbe94d"
-        DataMapping.getBufferIndex bufferOrigin.X bufferOrigin.Y bufferSize.X bufferSize.Y s.X s.Y
+        if s.Exponent = bufferOrigin.Exponent then
+            DataMapping.getBufferIndex bufferOrigin.X bufferOrigin.Y bufferSize.X bufferSize.Y s.X s.Y
+        elif s.Exponent + 1 = bufferOrigin.Exponent then
+            let s = s.Parent
+            DataMapping.getBufferIndex bufferOrigin.X bufferOrigin.Y bufferSize.X bufferSize.Y s.X s.Y
+        else
+            sprintf "Sample exponent (%d) out of range (must be %d or %d). Error df65746d-96c9-4669-8194-8bebe700cec3."
+                s.Exponent bufferOrigin.Exponent (bufferOrigin.Exponent - 1)
+            |> failwith
     
     member this.GetBufferIndex (globalPos : V2d) =
         let x = globalPos.X * globalCellStepInv |> floor |> int64

@@ -30,7 +30,6 @@ type QuadtreeCheckSamples = { Level : int; Data : ((int*int*int)*float) seq }
 type QuadtreeCheck = {
     Cell : Cell2d
     IsLeafNode : bool
-    OriginalSampleExponent : int
     SampleExponent : int
     SplitLimitExponent : int
     Samples : QuadtreeCheckSamples seq
@@ -84,25 +83,25 @@ let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel`` () =
     Assert.True(ls.Length = 4)
 
     ls.[0] |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(-1,-1,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(-1,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [ { Level = 0; Data = [ ((-1,-1,0), 1.0) ]} ]
         } |> ignore
     Assert.True(ls.[0].SampleWindow = Box2l(V2l(-1,-1), V2l(0,0)))
 
     ls.[1] |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(0,-1,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [ { Level = 0; Data = [ (( 0,-1,0), 2.0) ]} ]
         } |> ignore
     Assert.True(ls.[1].SampleWindow = Box2l(V2l( 0,-1), V2l(1,0)))
 
     ls.[2] |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(-1,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(-1,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [ { Level = 0; Data = [ ((-1, 0,0), 3.0) ]} ]
         } |> ignore
     Assert.True(ls.[2].SampleWindow = Box2l(V2l(-1, 0), V2l(0,1)))
 
     ls.[3] |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [ { Level = 0; Data = [ (( 0, 0,0), 4.0) ]} ]
         } |> ignore
     Assert.True(ls.[3].SampleWindow = Box2l(V2l( 0, 0), V2l(1,1)))
@@ -130,7 +129,7 @@ let ``leaf non-centered 2`` () =
     |]}
 
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -148,7 +147,7 @@ let ``leaf centered`` () =
     |]}
 
     |> checkQuadtree {
-        Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -170,7 +169,7 @@ let ``extendUpTo: non-centered -> non-centered`` () =
     |]}
 
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -182,7 +181,7 @@ let ``extendUpTo: non-centered -> non-centered`` () =
      
     |> QNode.extendUpTo (Cell2d(0,0,9)) 
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -208,7 +207,7 @@ let ``extendUpTo: non-centered -> non-centered, 2 levels difference`` () =
     |]}
 
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -221,7 +220,7 @@ let ``extendUpTo: non-centered -> non-centered, 2 levels difference`` () =
 
     |> QNode.extendUpTo (Cell2d(0,0,10))
     |> checkQuadtree {
-        Cell = Cell2d(0,0,10); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 2; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,10); IsLeafNode = false; SampleExponent = 2; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0
@@ -252,14 +251,14 @@ let ``extendUpTo: non-centered -> centered`` () =
     |]}
 
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
         ]}
 
     |> QNode.extendUpTo (Cell2d(9))
 
     |> checkQuadtree {
-        Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0
@@ -286,14 +285,14 @@ let ``extendUpTo: centered -> centered`` () =
         |]}
 
         |> checkQuadtree {
-            Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+            Cell = Cell2d(8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
             Samples = [
             ]}
 
         |> QNode.extendUpTo (Cell2d(9))
 
         |> checkQuadtree {
-            Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+            Cell = Cell2d(9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
             Samples = [
                 {
                     Level = 0; Data = [
@@ -354,7 +353,7 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, same sample`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -366,7 +365,7 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, same sample`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -388,7 +387,7 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, adjacent sample`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef 
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -400,7 +399,7 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, adjacent sample`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -422,7 +421,7 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, 1 undefined sample between`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -434,7 +433,7 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, 1 undefined sample between`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -458,7 +457,7 @@ let ``merge: leaf 2x2 / leaf 2x2, same leaf, same samples`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -471,7 +470,7 @@ let ``merge: leaf 2x2 / leaf 2x2, same leaf, same samples`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -496,7 +495,7 @@ let ``merge: leaf 2x2 / leaf 2x2, same leaf, same samples, cross-origin`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -509,7 +508,7 @@ let ``merge: leaf 2x2 / leaf 2x2, same leaf, same samples, cross-origin`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -544,7 +543,7 @@ let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = samples
         }
     |> ignore
@@ -552,7 +551,7 @@ let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = samples
         }
     |> ignore
@@ -584,7 +583,7 @@ let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs, cross-origin`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = samples
         }
     |> ignore
@@ -592,7 +591,7 @@ let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs, cross-origin`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = samples
         }
     |> ignore
@@ -625,7 +624,7 @@ let ``merge: leaf 1x1 / leaf 2x2, adjacent leafs, different depth`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = samples
         }
     |> ignore
@@ -633,7 +632,7 @@ let ``merge: leaf 1x1 / leaf 2x2, adjacent leafs, different depth`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = samples
         }
     |> ignore
@@ -659,7 +658,7 @@ let ``merge: leaf 1x1 / tree 2x2, samples perfectly overlap`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = true; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -671,7 +670,7 @@ let ``merge: leaf 1x1 / tree 2x2, samples perfectly overlap`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -702,7 +701,7 @@ let ``merge: leaf 1x1 / tree 2x2, adjacent`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -721,7 +720,7 @@ let ``merge: leaf 1x1 / tree 2x2, adjacent`` () =
     // second dominates
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -746,16 +745,44 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L-1, replace, fully overlapping, 2 levels`` 
         |]}
     let c = createQuadtree { Origin = Cell2d(2,0,-1); Size = (2,2); Split = 8; Data = [|
         91.0; 92.0; 
-        33.0; 94.0;
+        93.0; 94.0;
         |]}
 
     Quadtree.Merge FirstDominates a c
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = true; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
+                Level = 1; Data = [
+                    ((0,0,1), 1.0); ((1,0,1), 2.0);
+                    ((0,1,1), 3.0); ((1,1,1), 4.0);
+            ]}
+        ]}
+    |> ignore
+
+    Quadtree.Merge SecondDominates a c
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 1; Data = [
+                    ((0,0,1), 23.875); ((1,0,1), 2.0);
+                    ((0,1,1),  3.000); ((1,1,1), 4.0);
+            ]}
+            {
                 Level = 0; Data = [
-                    ((0,0,0), 1.0)
+                    ((0,0,0), 23.875); ((1,0,0), 92.5);     ((1,0,1), 2.0);
+                    ((0,1,0), 23.875); ((1,1,0), 23.875);    
+
+                    ((0,1,1), 3.0);                         ((1,1,1), 4.0);
+            ]}
+            {
+                Level = -1; Data = [
+                    ((0,0,0), 23.875); ((2,0,-1),93.0);((3,0,-1),94.0);    ((1,0,1), 2.0);
+                                       ((2,1,-1),95.0);((3,1,-1),96.0);
+                    ((0,1,0), 23.875); ((1,1,0), 23.875);    
+
+                    ((0,1,1),   3.0);                                      ((1,1,1), 4.0);
             ]}
         ]}
     |> ignore
@@ -782,7 +809,7 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 level
 
     merge a b c FirstDominates FirstDominates
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = true; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -794,7 +821,7 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 level
 
     merge a b c FirstDominates SecondDominates
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = -1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -805,7 +832,7 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 level
 
     merge a b c SecondDominates FirstDominates
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -821,7 +848,7 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 level
 
     merge a b c SecondDominates SecondDominates
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 0; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -876,7 +903,7 @@ let ``merge: leaf 2x2 L1 / tree 2x2 L0, samples replace 1 quadrant`` () =
         
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = true; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -893,7 +920,7 @@ let ``merge: leaf 2x2 L1 / tree 2x2 L0, samples replace 1 quadrant`` () =
 
     Quadtree.Merge SecondDominates bRef aRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = true; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -910,7 +937,7 @@ let ``merge: leaf 2x2 L1 / tree 2x2 L0, samples replace 1 quadrant`` () =
 
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = -1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -941,33 +968,31 @@ let ``merge: leaf 8x8 L-1 / tree 2x2 L0, samples replace 1 quadrant`` () =
         
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,7); IsLeafNode = true; SampleExponent = -1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = -1; Data = [
                     for j = 0 to 7 do for i = 0 to 7 do yield ((i,j,-1), 1.0)
-                    yield ((0,0,0), -1.0); yield ((1,0,0), -2.0);
-                    yield ((0,1,0), -3.0); yield ((1,1,0), -4.0);
             ]}
         ]}
     |> ignore
-
-    Quadtree.Merge SecondDominates bRef aRef
-    |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
-        Samples = [
-            {
-                Level = -1; Data = [
-                    for j = 0 to 7 do for i = 0 to 7 do yield ((i,j,-1), 1.0)
-                    yield ((0,0,0), -1.0); yield ((1,0,0), -2.0);
-                    yield ((0,1,0), -3.0); yield ((1,1,0), -4.0);
-            ]}
-        ]}
-    |> ignore
-
+    
     Quadtree.Merge SecondDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; OriginalSampleExponent = 0; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = true; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = -1; Data = [
+                    for j = 0 to 7 do for i = 0 to 7 do yield ((i,j,-1), 1.0)
+                    yield ((0,0,0), -1.0); yield ((1,0,0), -2.0);
+                    yield ((0,1,0), -3.0); yield ((1,1,0), -4.0);
+            ]}
+        ]}
+    |> ignore
+
+    Quadtree.Merge FirstDominates bRef aRef
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -983,6 +1008,17 @@ let ``merge: leaf 8x8 L-1 / tree 2x2 L0, samples replace 1 quadrant`` () =
             {
                 Level = 2; Data = [
                     ((0,0,2), 2.625);
+            ]}
+        ]}
+    |> ignore
+
+    Quadtree.Merge SecondDominates bRef aRef
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,7); IsLeafNode = true; SampleExponent = -1; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = -1; Data = [
+                    for j = 0 to 7 do for i = 0 to 7 do yield ((i,j,-1), 1.0)
             ]}
         ]}
     |> ignore

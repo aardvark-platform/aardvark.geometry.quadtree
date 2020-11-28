@@ -40,6 +40,7 @@ module Query =
     type NodeSelection =
         | FullySelected
         | CellsSelected of Cell2d[]
+        | SubCellsSelected of Cell2d[]
         | WindowSelected of Box2l
         | SubtractionSelected of Box2l // full node except given box
         | NotSelected
@@ -53,6 +54,7 @@ module Query =
             match this.Selection with
             | NotSelected -> Array.empty
             | CellsSelected cells -> cells
+            | SubCellsSelected cells -> cells
             | WindowSelected window -> this.Node.GetAllSamplesInsideWindow(window)
             | SubtractionSelected second -> this.Node.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.SampleExponent)
             | FullySelected -> this.Node.GetAllSamples()
@@ -113,13 +115,49 @@ module Query =
                         let sampleWindow = Box2l.FromMinAndSize(sample.XY * 2L, V2l(2, 2))
                         subWindow.Intersects sampleWindow
                     let inline notContainedBySubWindows (s : Cell2d) = subWindows |> Array.exists (subWindowContainsSample s) |> not
-                    let xs = n.GetAllSamples() |> Array.filter (fun s -> isSampleInside s && notContainedBySubWindows s)
-                    if xs.Length > 0 then
-                        let result = { Node = n; Selection = CellsSelected xs }
+                    
+                    // get all samples _inside_ the query
+                    let allSamples = n.GetAllSamples() |> Array.filter isSampleInside
+
+                    // partition by whether samples are
+                    // - intersecting subnode-samples (-> unsafe), or 
+                    // - not intersecting subnode-samples (safe)
+                    let (safeSamples, unsafeSamples) = allSamples |> Array.partition notContainedBySubWindows
+                    
+                    // safe samples can simply be returned ...
+                    if safeSamples.Length > 0 then
+                        let result = { Node = n; Selection = CellsSelected safeSamples }
                         if config.Verbose then printfn "[Generic ] YIELD %A" result
                         yield result
 
-                    // recursively return samples from children
+                    // an unsafe sample may only be partially covered by subnode samples
+                    // -> in this case we cannot simply return the subnode samples, because
+                    //    the not-covered part of the sample would appear as a HOLE, i.e.
+                    //    not be covered by any samples at all (although the discarded sample
+                    //    would actually cover the
+                    if unsafeSamples.Length > 0 then
+                        
+                        let notCoveredBySubSamples (s : Cell2d) =
+                            let isNotCovered = subWindows |> Array.exists (fun sw -> s.X < sw.Min.X || s.Y < sw.Min.Y || s.X >= sw.Max.X || s.Y >= sw.Max.Y)
+                            isNotCovered
+
+                        //let foo1 = unsafeSamples |> Seq.collect (fun x -> x.Children) |> Seq.toArray
+                        //let foo2 = foo1 |> Array.filter notCoveredBySubSamples
+
+                        // fill holes ...
+                        let holeFillingSamples = 
+                            unsafeSamples
+                        // ... by splitting each unsafe sample into 4 subsamples, ...
+                            |> Seq.collect (fun x -> x.Children)
+                        // ... and keeping those not already covered by subnode samples
+                            |> Seq.filter notCoveredBySubSamples
+                            |> Seq.toArray
+
+                        let result = { Node = n; Selection = SubCellsSelected holeFillingSamples }
+                        if config.Verbose then printfn "[Generic ] YIELD %A" result
+                        yield result
+
+                    // recursively return samples from children (a.k.a. subnode samples)
                     match n.SubNodes with
                     | None -> failwith "Invariant 4f33151d-e387-40a1-a1b7-c04e2335bd91."
                     | Some subnodes ->
