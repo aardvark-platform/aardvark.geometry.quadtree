@@ -659,7 +659,7 @@ let ``merge: leaf 1x1 / tree 2x2, samples perfectly overlap`` () =
     // first dominates
     Quadtree.Merge FirstDominates aRef bRef
     |> checkQuadtree {
-        Cell = Cell2d(0,0,9); IsLeafNode = false; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
+        Cell = Cell2d(0,0,9); IsLeafNode = true; OriginalSampleExponent = 1; SampleExponent = 1; SplitLimitExponent = 8
         Samples = [
             {
                 Level = 0; Data = [
@@ -760,6 +760,10 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L-1, replace, fully overlapping, 2 levels`` 
         ]}
     |> ignore
 
+
+/// (x d1 y) d2 z
+let private merge x y z d1 d2 = Quadtree.Merge d2 (Quadtree.Merge d1 x y) z
+
 [<Fact>]
 let ``merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 levels`` () =
 
@@ -775,9 +779,6 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 level
         91.0; 92.0; 
         93.0; 94.0;
         |]}
-
-    /// (x d1 y) d2 z
-    let merge x y z d1 d2 = Quadtree.Merge d2 (Quadtree.Merge d1 x y) z
 
     merge a b c FirstDominates FirstDominates
     |> checkQuadtree {

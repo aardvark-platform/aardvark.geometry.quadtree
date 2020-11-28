@@ -441,50 +441,58 @@ module Merge =
                 (sprintf "Nodes must overlap. First %A. Second %A" n1.Cell n2.Cell)
                 "740fb9b2-de34-4c83-85fd-f4149da25c83"
 
-            // common root cell
-            let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
-            if rc.IsCenteredAtOrigin then
-                failwith "Centered cells are currently not supported. Error 20364c6b-c265-4e08-be21-fc69a0f96758."
 
-            let (n1o, sno1) =
-                if rc = n1.Cell then
-                    invariant (rc.Exponent >= n2.Cell.Exponent)  "16e4749b-2f55-40a1-90d3-4f07701ae146"
+            if domination = FirstDominates && n1.ExactBoundingBox.Contains(n2.ExactBoundingBox) then
+                firstRef  // first fully occludes second
+            
+            elif domination = SecondDominates && n2.ExactBoundingBox.Contains(n1.ExactBoundingBox) then
+                secondRef // second fully occludes first
+
+            else
+                // common root cell
+                let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
+                if rc.IsCenteredAtOrigin then
+                    failwith "Centered cells are currently not supported. Error 20364c6b-c265-4e08-be21-fc69a0f96758."
+
+                let (n1o, sno1) =
+                    if rc = n1.Cell then
+                        invariant (rc.Exponent >= n2.Cell.Exponent)  "16e4749b-2f55-40a1-90d3-4f07701ae146"
                 
-                    (Some n1, match n1.SubNodes with
-                              | None    -> Array.create 4 None
-                              | Some ns -> ns |> Array.map (fun n -> n.TryGetInMemory())
-                              )
+                        (Some n1, match n1.SubNodes with
+                                  | None    -> Array.create 4 None
+                                  | Some ns -> ns |> Array.map (fun n -> n.TryGetInMemory())
+                                  )
 
-                else
-                    invariant (rc = n2.Cell)                    "51a10ae0-1cdf-47de-ab56-8845a801e141"
-                    invariant (rc.Exponent > n1.Cell.Exponent)  "58773c53-749a-478e-9f24-12bc701c4a10"
+                    else
+                        invariant (rc = n2.Cell)                    "51a10ae0-1cdf-47de-ab56-8845a801e141"
+                        invariant (rc.Exponent > n1.Cell.Exponent)  "58773c53-749a-478e-9f24-12bc701c4a10"
                 
-                    let sno1 = Array.create 4 None
-                    let qi1 = rc.GetQuadrant(n1.Cell).Value
-                    sno1.[qi1] <- (firstRef |> QNode.extendUpTo (rc.GetQuadrant(qi1))).TryGetInMemory().Value |> Some
+                        let sno1 = Array.create 4 None
+                        let qi1 = rc.GetQuadrant(n1.Cell).Value
+                        sno1.[qi1] <- (firstRef |> QNode.extendUpTo (rc.GetQuadrant(qi1))).TryGetInMemory().Value |> Some
 
-                    (None, sno1)
+                        (None, sno1)
 
-            let (n2o, sno2) = 
-                if rc = n2.Cell then
-                    invariant (rc.Exponent >= n1.Cell.Exponent)  "4f24c550-87aa-4772-9463-ea886f1bb81e"
+                let (n2o, sno2) = 
+                    if rc = n2.Cell then
+                        invariant (rc.Exponent >= n1.Cell.Exponent)  "4f24c550-87aa-4772-9463-ea886f1bb81e"
                 
-                    (Some n2, match n2.SubNodes with
-                              | None    -> Array.create 4 None
-                              | Some ns -> ns |> Array.map (fun n -> n.TryGetInMemory())
-                              )
+                        (Some n2, match n2.SubNodes with
+                                  | None    -> Array.create 4 None
+                                  | Some ns -> ns |> Array.map (fun n -> n.TryGetInMemory())
+                                  )
 
-                else
-                    invariant (rc = n1.Cell)                    "1f9777be-9ea0-4117-beb3-0630c2fd8094"
-                    invariant (rc.Exponent > n2.Cell.Exponent)  "f263af3f-d77e-4820-b03c-ef9bd65d089a"
+                    else
+                        invariant (rc = n1.Cell)                    "1f9777be-9ea0-4117-beb3-0630c2fd8094"
+                        invariant (rc.Exponent > n2.Cell.Exponent)  "f263af3f-d77e-4820-b03c-ef9bd65d089a"
                 
-                    let sno2 = Array.create 4 None
-                    let qi2 = rc.GetQuadrant(n2.Cell).Value
-                    sno2.[qi2] <- (secondRef |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
+                        let sno2 = Array.create 4 None
+                        let qi2 = rc.GetQuadrant(n2.Cell).Value
+                        sno2.[qi2] <- (secondRef |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
 
-                    (None, sno2)
+                        (None, sno2)
 
-            create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
+                create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
 
 
     /// Immutable merge.
@@ -503,7 +511,7 @@ module Merge =
 
             if QNode.Overlap(first, second) then
                 // one quadtree contains the other (there is no partial overlap in quadtrees)
-                mergeOverlappingNodes    domination firstRef secondRef 
+                mergeOverlappingNodes    domination firstRef secondRef
             else
                 // quadtrees are completely separated
                 mergeNonOverlappingNodes domination firstRef secondRef

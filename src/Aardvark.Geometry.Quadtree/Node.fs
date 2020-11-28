@@ -70,7 +70,7 @@ with
             Exists  = fun id        -> store.Contains(id.ToString())
         }
 
-type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
+type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
 
     do
         invariantm (layers.Length > 0) "No layers." "fe0e56d7-9bc2-4f61-8b36-0ed7fcc4bc56"
@@ -102,6 +102,19 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], sub
                     invariant (cell.Exponent = x.Cell.Exponent + 1)             "780d98cc-ecab-43fc-b492-229fb0e208a3"
                 | OutOfCoreNode _ -> ()
 
+    member val ExactBoundingBox =
+        if exactBoundingBox.IsInvalid then
+            match subNodes with
+            | None -> layers.[0].BoundingBox
+            | Some ns ->
+                let boxes : Box2d seq = ns |> Seq.map (fun n -> n.TryGetInMemory()) |> Seq.choose id |> Seq.map (fun n -> n.ExactBoundingBox)
+                Box2d(boxes)
+        else
+            exactBoundingBox
+
+    new (uid : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
+        QNode(uid, Box2d.Invalid, cell, splitLimitExp, layers, subNodes)
+
     new (id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
         QNode(id, cell, splitLimitExp, layers, Some subNodes)
@@ -116,7 +129,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], sub
     new (cell : Cell2d, splitLimitExp : int, layers : ILayer[]) =
         QNode(Guid.NewGuid(), cell, splitLimitExp, layers, None)
 
-    member _.Id with get() = id
+    member _.Id with get() = uid
 
     member _.Cell with get() = cell
 
@@ -163,45 +176,6 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], sub
 
     member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
         layers |> Array.find    (fun x -> x.Def.Id = semantic.Id) :?> Layer<'a>
-
-    member this.Save options : Guid =
-        let map = List<KeyValuePair<Durable.Def, obj>>()
-
-        // node properties
-        map.Add(kvp Defs.NodeId id)
-        map.Add(kvp Defs.CellBounds cell)
-        map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
-            
-        // layers
-        for layer in layers do
-            let layerDef = Defs.GetLayerFromDef layer.Def
-            let dm = layer.Materialize().ToDurableMap ()
-            map.Add(kvp layerDef dm)
-
-        // children
-        match subNodes with
-        | Some xs ->
-
-            // recursively store subnodes (where necessary)
-            for x in xs do 
-                match x with 
-                | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
-                | NoNode            -> () // nothing to store
-                | OutOfCoreNode _   -> () // already stored
-
-            // collect subnode IDs 
-            let ids = xs |> Array.map (fun x -> 
-                match x with 
-                | NoNode -> Guid.Empty
-                | InMemoryNode n -> n.Id
-                | OutOfCoreNode (id, _) -> id
-                )
-            map.Add(kvp Defs.SubnodeIds ids)
-        | None -> ()
-
-        let buffer = DurableCodec.Serialize(Defs.Node, map)
-        options.Save id buffer
-        id
 
     member this.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () : QNode[] =
         if this.Cell.IsCenteredAtOrigin then
@@ -279,6 +253,46 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], sub
 
             QNode(id, cell, splitLimitExp, newLayers, newChildren) |> Some
         
+    member this.Save options : Guid =
+        let map = List<KeyValuePair<Durable.Def, obj>>()
+
+        // node properties
+        map.Add(kvp Defs.NodeId uid)
+        map.Add(kvp Defs.CellBounds cell)
+        map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
+        map.Add(kvp Defs.ExactBoundingBox this.ExactBoundingBox)
+            
+        // layers
+        for layer in layers do
+            let layerDef = Defs.GetLayerFromDef layer.Def
+            let dm = layer.Materialize().ToDurableMap ()
+            map.Add(kvp layerDef dm)
+
+        // children
+        match subNodes with
+        | Some xs ->
+
+            // recursively store subnodes (where necessary)
+            for x in xs do 
+                match x with 
+                | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
+                | NoNode            -> () // nothing to store
+                | OutOfCoreNode _   -> () // already stored
+
+            // collect subnode IDs 
+            let ids = xs |> Array.map (fun x -> 
+                match x with 
+                | NoNode -> Guid.Empty
+                | InMemoryNode n -> n.Id
+                | OutOfCoreNode (id, _) -> id
+                )
+            map.Add(kvp Defs.SubnodeIds ids)
+        | None -> ()
+
+        let buffer = DurableCodec.Serialize(Defs.Node, map)
+        options.Save uid buffer
+        uid
+
     static member Load (options: SerializationOptions) (id : Guid) : QNodeRef =
         if id = Guid.Empty then
             NoNode
@@ -292,6 +306,9 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], sub
                     let id                  = map.Get(Defs.NodeId)                  :?> Guid
                     let cell                = map.Get(Defs.CellBounds)              :?> Cell2d
                     let splitLimitExp       = map.Get(Defs.SplitLimitExponent)      :?> int
+                    let exactBoundingBox    = match map.TryGetValue(Defs.ExactBoundingBox) with
+                                              | true,  x -> x :?> Box2d
+                                              | false, _ -> Box2d.Invalid
                 
                     let layers : ILayer[] =  
                         map 
@@ -324,7 +341,7 @@ type QNode(id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], sub
                                 )
                             Some xs
 
-                    let n = QNode(id, cell, splitLimitExp, layers, subNodes)
+                    let n = QNode(id, exactBoundingBox, cell, splitLimitExp, layers, subNodes)
                     InMemoryNode n
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
