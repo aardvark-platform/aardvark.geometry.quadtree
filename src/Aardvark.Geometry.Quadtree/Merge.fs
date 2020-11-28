@@ -22,9 +22,44 @@ with
 
 module Merge =
 
-    let private composeLayersInOrderTyped<'a> (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
+    type Buffer<'a> = {
+        Semantic : Durable.Def
+        Mapping : DataMapping
+        Data : 'a[]
+        }
+
+    
+    module private Buffer =
+
+        let create (semantic : Durable.Def) (w : Box2l) (e : int) = {
+            Semantic = semantic
+            Mapping = DataMapping(Cell2d(w.Min, e), V2i w.Size, w)
+            Data = Array.zeroCreate<'a> (int w.Size.X * int w.Size.Y)
+        }
+
+        let add (layer : Layer<'a>) (buffer : Buffer<'a>)  =
+            let w = layer.Mapping.Window
+            let e = buffer.Mapping.BufferOrigin.Exponent
+            let data = buffer.Data
+            let xMaxIncl = int w.SizeX - 1
+            let yMaxIncl = int w.SizeY - 1
+            for y = 0 to yMaxIncl do
+                for x = 0 to xMaxIncl do
+                    let c = Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
+                    let i = buffer.Mapping.GetBufferIndex c
+                    let v = layer.GetSample(Fail, c)
+                    data.[i] <- v
+            buffer
+
+        let toLayer (buffer : Buffer<'a>) =
+            Layer(buffer.Semantic, buffer.Data, buffer.Mapping)
+
+    open Buffer
+    let private composeLayersInOrderTyped<'a> (semantic : Durable.Def) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
                                       (rootLayers : Layer<'a> list) (slo1 : Layer<'a> option[]) (slo2 : Layer<'a> option[]) 
                                       :  Layer<'a> =
+        
+        let e = sampleExponentResult
 
         let hasSlo1 = slo1 |> Array.exists Option.isSome
         let hasSlo2 = slo2 |> Array.exists Option.isSome
@@ -43,7 +78,8 @@ module Merge =
             if r2.SampleWindow.Contains(r1.SampleWindow) then
                 r2
             else
-                failwith "todo: r1, r2"
+                create semantic (Box2l(r1.SampleWindow, r2.SampleWindow)) e
+                |> add r1 |> add r2 |> toLayer
 
         | [r1;r2], true,  false -> failwith "todo: r1, r2, sub1"
 
@@ -55,17 +91,17 @@ module Merge =
         | [],      true,  false -> failwith "At least two parts are required for merge. Error 0e6b8ba5-739a-4c5d-87ef-460911be6c85."
         | [],      false, true  -> failwith "At least two parts are required for merge. Error da0fcb1f-c6d5-4885-8aa8-5c3a6ebf1f9b."
         | [_],     false, false -> failwith "At least two parts are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
-        | _,       _,     _     -> failwith "More than 2 root layers. Error 5c352ed3-485c-4889-9821-da9429f90d8f."
+        | rs,      x,     y     -> failwith (sprintf "Inconsistent layer data. %A, %A, %A. Error 5c352ed3-485c-4889-9821-da9429f90d8f." rs x y)
 
         
 
 
 
-    let private composeLayersInOrder (def : Durable.Def) (sampleExponent : int) (targetWindowAtChildLevel : Box2l) 
+    let private composeLayersInOrder (def : Durable.Def) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
                              (rootLayers : ILayer list) (slo1 : ILayer option[]) (slo2 : ILayer option[]) 
                              : ILayer =
 
-        let e = sampleExponent
+        let e = sampleExponentResult
 
         // ensure that all sample exponents are consistent ...
         let checkExp (x : ILayer) = x.SampleExponent = e
@@ -77,7 +113,7 @@ module Merge =
             let rootLayers' = rootLayers |> List.map convert
             let slo1' = slo1 |> Array.map (Option.map convert)
             let slo2' = slo2 |> Array.map (Option.map convert)
-            composeLayersInOrderTyped def sampleExponent targetWindowAtChildLevel rootLayers' slo1' slo2'
+            composeLayersInOrderTyped def sampleExponentResult targetWindowAtChildLevel rootLayers' slo1' slo2'
 
         let someLayer = rootLayers |> Seq.append (slo1 |> Seq.choose id) |> Seq.append (slo2 |> Seq.choose id) |> Seq.head
         match someLayer with
