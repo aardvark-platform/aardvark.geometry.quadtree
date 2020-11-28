@@ -456,7 +456,7 @@ module QNode =
             (*
                 resample all layers to half the resolution
             *)
-            let allLayersResampled = allLayers |> Array.map (fun layer -> layer.ResampleUntyped rootCell)
+            let allLayersResampled = allLayers |> Array.map (fun layer -> layer.ResampleUntyped ())
 
             invariantm (allLayersResampled |> Array.forall (fun layer -> layer.SampleExponent = targetSampleSize))
                 (sprintf "All resampled layers must have target sample size (%d). Resampled layers are (%A)." targetSampleSize allLayersResampled)

@@ -38,6 +38,7 @@ module Merge =
         }
 
         let add (layer : Layer<'a>) (buffer : Buffer<'a>)  =
+            invariant (buffer.Mapping.BufferOrigin.Exponent = layer.SampleExponent) "748e4991-b657-493a-8118-e1d37185038a"
             let w = layer.Mapping.Window
             let e = buffer.Mapping.BufferOrigin.Exponent
             let data = buffer.Data
@@ -51,13 +52,19 @@ module Merge =
                     data.[i] <- v
             buffer
 
+        let addMany (layers : Layer<'a> seq) (buffer : Buffer<'a>) =
+            let mutable b = buffer
+            for l in layers do b <- add l b
+            b
+
         let toLayer (buffer : Buffer<'a>) =
             Layer(buffer.Semantic, buffer.Data, buffer.Mapping)
 
     open Buffer
-    let private composeLayersInOrderTyped<'a> (semantic : Durable.Def) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
-                                      (rootLayers : Layer<'a> list) (slo1 : Layer<'a> option[]) (slo2 : Layer<'a> option[]) 
-                                      :  Layer<'a> =
+    let private composeLayersInOrderTyped<'a> 
+        (semantic : Durable.Def) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
+        (rootLayers : Layer<'a> list) (slo1 : Layer<'a> option[]) (slo2 : Layer<'a> option[]) 
+        : Layer<'a> =
         
         let e = sampleExponentResult
 
@@ -66,7 +73,13 @@ module Merge =
 
         match rootLayers, hasSlo1, hasSlo2 with
 
-        | [],      true,  true  -> failwith "todo: sub1, sub2"
+        | [],      true,  true  ->
+            //let b = 
+            //  create semantic targetWindowAtChildLevel (e - 1)
+            //  |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
+            //  |> toLayer
+            //b.Resample Fail 
+            failwith "todo: sub1, sub2"
 
         | [r],     true,  false -> failwith "todo: r, sub1"
 

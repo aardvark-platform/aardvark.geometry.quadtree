@@ -12,7 +12,7 @@ type ILayer =
     abstract member Mapping : DataMapping
     abstract member WithWindow : Box2l -> ILayer option
     abstract member WithSemantic : Durable.Def -> ILayer
-    abstract member ResampleUntyped : Cell2d -> ILayer
+    abstract member ResampleUntyped : unit -> ILayer
     abstract member Materialize : unit -> ILayer
     abstract member ToDurableMap : unit -> seq<KeyValuePair<Durable.Def, obj>>
 
@@ -57,9 +57,9 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             |> Option.map (fun m -> Layer(def, data, m) :> ILayer)
         member this.WithSemantic (newSemantic : Durable.Def) =
             Layer(newSemantic, data, mapping) :> ILayer
-        member this.ResampleUntyped (resampleRoot : Cell2d) =
+        member this.ResampleUntyped () =
             let f = Resamplers.getResamplerFor def 
-            let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a)) resampleRoot
+            let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a))
             r :> ILayer
 
         member this.Materialize () =
@@ -121,25 +121,22 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         let s = mapping.GetSampleCell globalPos
         this.GetSample(mode, s)
 
-    member this.Resample (mode : BorderMode<'a>) (f : 'a*'a*'a*'a -> 'a) (resampleRoot : Cell2d) : Layer<'a> =
+    member this.Resample (mode : BorderMode<'a>) (f : 'a*'a*'a*'a -> 'a) : Layer<'a> =
 
-        if resampleRoot.IsCenteredAtOrigin && this.SampleExponent + 1 = resampleRoot.Exponent then
-
-            let win = this.SampleWindow
-            if win.Min.X >= -1L && win.Min.Y >= -1L && win.Max.X <= +1L && win.Max.Y <= +1L then
-                let inline getSample x y = this.GetSample(mode, (Cell2d(int64 x, int64 y, this.SampleExponent)))
-                let v = f (getSample -1 -1, getSample 0 -1, getSample -1 0, getSample 0 0)
-                let buffer = Array.create 1 v
-                let newMapping = DataMapping(resampleRoot) 
-                Layer(def, buffer, newMapping)
-            else
-                failwith "Invariant 43144338-8f31-4336-be48-001cf4075ab0."
+        let win = this.SampleWindow
+        
+        if win.Min.X >= -1L && win.Min.Y >= -1L && win.Max.X <= +1L && win.Max.Y <= +1L then
+            let inline getSample x y = this.GetSample(mode, (Cell2d(int64 x, int64 y, this.SampleExponent)))
+            let v = f (getSample -1 -1, getSample 0 -1, getSample -1 0, getSample 0 0)
+            let buffer = Array.create 1 v
+            let sampleRoot = Cell2d(this.SampleExponent + 1)
+            let newMapping = DataMapping(sampleRoot) 
+            Layer(def, buffer, newMapping)
 
         else
 
             let min = this.SampleMin.Parent
             let maxIncl = this.SampleMaxIncl.Parent
-            let inline getSample x y = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
 
             let w = int(maxIncl.X - min.X)
             let h = int(maxIncl.Y - min.Y)
