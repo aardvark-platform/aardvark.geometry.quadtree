@@ -620,10 +620,10 @@ let cpunz20201116 () =
 [<EntryPoint>]
 let main argv =
 
-    let xs = [| 1; 2; 3; |]
-    let ys = [| 4; 5; |]
-    let ms = Array.concat [| xs; ys |]
-    printfn "%A" ms
+    //let xs = [| 1; 2; 3; |]
+    //let ys = [| 4; 5; |]
+    //let ms = Array.concat [| xs; ys |]
+    //printfn "%A" ms
 
     //let x = Seq.empty<Box2l> |> Box2l
     //let y = Box2l.Unit
@@ -631,7 +631,7 @@ let main argv =
     //printfn "%A" y
     //printfn "%A" (Box2l(x, y, x, y))
 
-    //cpunz20201116 ()
+    cpunz20201116 ()
 
     //cpunz20201105 ()
 
