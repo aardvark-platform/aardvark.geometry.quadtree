@@ -81,134 +81,78 @@ module Merge =
     open Buffer
     let private composeLayersInOrderTyped<'a> 
         (semantic : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
-        (rootLayers : Layer<'a> list) (slo1 : Layer<'a> option[]) (slo2 : Layer<'a> option[]) 
+        (rootLayers : Layer<'a> list) (subLayers : Layer<'a> list) 
         : Layer<'a> =
         
         let e = sampleExponentResult
+        let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+        let hasSubLayers = subLayers.Length > 0
 
-        let hasSlo1 = slo1 |> Array.exists Option.isSome
-        let hasSlo2 = slo2 |> Array.exists Option.isSome
+        match rootLayers, hasSubLayers with
 
-        match rootLayers, hasSlo1, hasSlo2 with
-
-        | [],      true,  true  ->
+        | [],      true  ->
             let b = 
               create semantic targetWindowAtChildLevel (e - 1)
-              |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
+              |> addMany subLayers
               |> toLayer
 
-            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
             let result = b.Resample ClampToEdge resampler bounds
             result
 
-        | [r],     true,  false ->
+        | [r],     true ->
             
             let b = 
                 create semantic targetWindowAtChildLevel (e - 1)
                 |> add r
-                |> addMany (slo1 |> Seq.choose id)
+                |> addMany subLayers
                 |> toLayer
 
-            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
+            
             let result = b.Resample ClampToEdge resampler bounds
             result
 
-        | [r],     false, true  ->
-
-            let b = 
-                create semantic targetWindowAtChildLevel (e - 1)
-                |> add r
-                |> addMany (slo2 |> Seq.choose id)
-                |> toLayer
-
-            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
-            let result = b.Resample ClampToEdge resampler bounds
-            result
-
-        | [r],     true,  true  -> 
-
-            let b = 
-                create semantic targetWindowAtChildLevel (e - 1)
-                |> add r
-                |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
-                |> toLayer
-
-            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
-            let result = b.Resample ClampToEdge resampler bounds
-            result
-
-        | [r1;r2], false, false ->
+        | [r1;r2], false ->
             if r2.SampleWindow.Contains(r1.SampleWindow) then
                 r2
             else
                 create semantic (Box2l(r1.SampleWindow, r2.SampleWindow)) e
                 |> add r1 |> add r2 |> toLayer
 
-        | [r1;r2], true,  false ->
+        | [r1;r2], true ->
 
             let b = 
                 create semantic targetWindowAtChildLevel (e - 1)
                 |> add r1 |> add r2
-                |> addMany (slo1 |> Seq.choose id)
+                |> addMany subLayers
                 |> toLayer
 
-            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
             let result = b.Resample ClampToEdge resampler bounds
             result
 
-        | [r1;r2], false, true  ->
-
-            let b = 
-                create semantic targetWindowAtChildLevel (e - 1)
-                |> add r1 |> add r2
-                |> addMany (slo2 |> Seq.choose id)
-                |> toLayer
-
-            let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
-            let result = b.Resample ClampToEdge resampler bounds
-            result
-
-        | [r1;r2], true,  true  ->
-
-                let b = 
-                    create semantic targetWindowAtChildLevel (e - 1)
-                    |> add r1 |> add r2
-                    |> addMany (slo1 |> Seq.append slo2 |> Seq.choose id)
-                    |> toLayer
-
-                let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
-                let result = b.Resample ClampToEdge resampler bounds
-                result
-        
-        | [],      false, false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
-        | [],      true,  false -> failwith "At least two parts are required for merge. Error 0e6b8ba5-739a-4c5d-87ef-460911be6c85."
-        | [],      false, true  -> failwith "At least two parts are required for merge. Error da0fcb1f-c6d5-4885-8aa8-5c3a6ebf1f9b."
-        | [_],     false, false -> failwith "At least two parts are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
-        | rs,      x,     y     -> failwith (sprintf "Inconsistent layer data. %A, %A, %A. Error 5c352ed3-485c-4889-9821-da9429f90d8f." rs x y)
+        | [],      false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
+        | [_],     false -> failwith "At least two parts are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
+        | rs,      x     -> failwith (sprintf "Inconsistent layer data. %A, %A. Error 5c352ed3-485c-4889-9821-da9429f90d8f." rs x)
 
         
 
 
 
     let private composeLayersInOrder (def : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
-                             (rootLayers : ILayer list) (slo1 : ILayer option[]) (slo2 : ILayer option[]) 
+                             (rootLayers : ILayer list) (subLayers : ILayer list)
                              : ILayer =
 
         let e = sampleExponentResult
 
         // ensure that all sample exponents are consistent ...
-        let checkExp (x : ILayer) = x.SampleExponent = e
-        let checkExpChild (x : ILayer option) = match x with | Some x -> x.SampleExponent = e - 1 | None -> true
-        invariant (rootLayers |> List.forall checkExp) "5ec641c3-da8f-4757-bed0-fc5a527572fb"
-        invariant (slo1 |> Array.forall checkExpChild) "a44be7b6-330e-4687-b06c-9131f3fbeec6"
+        invariant (rootLayers |> List.forall (fun x -> x.SampleExponent = e))     "5ec641c3-da8f-4757-bed0-fc5a527572fb"
+        invariant (subLayers  |> List.forall (fun x -> x.SampleExponent = e - 1)) "a44be7b6-330e-4687-b06c-9131f3fbeec6"
 
         let compose convert =
             let rootLayers' = rootLayers |> List.map convert
-            let slo1' = slo1 |> Array.map (Option.map convert)
-            let slo2' = slo2 |> Array.map (Option.map convert)
-            composeLayersInOrderTyped def bounds sampleExponentResult targetWindowAtChildLevel rootLayers' slo1' slo2'
+            let subLayers'  = subLayers  |> List.map convert
+            composeLayersInOrderTyped def bounds sampleExponentResult targetWindowAtChildLevel rootLayers' subLayers'
 
-        let someLayer = rootLayers |> Seq.append (slo1 |> Seq.choose id) |> Seq.append (slo2 |> Seq.choose id) |> Seq.head
+        let someLayer = rootLayers |> Seq.append subLayers |> Seq.head
         match someLayer with
 
         | :? Layer<bool>    -> (compose (fun x -> x :?> Layer<bool>   )) :> ILayer
@@ -297,8 +241,8 @@ module Merge =
         let compose = composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
 
         match domination with
-        | FirstDominates        -> compose slo2 slo1
-        | SecondDominates       -> compose slo1 slo2
+        | FirstDominates        -> slo2 |> Seq.append slo1 |> Seq.choose id |> Seq.toList |> compose
+        | SecondDominates       -> slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.toList |> compose
         | MoreDetailedDominates ->
             failwith "MoreDetailedDominates is not allowed here. Invariant 63adc5f3-119d-4830-8701-7ce30d16c37f."
 
