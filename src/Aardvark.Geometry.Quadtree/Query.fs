@@ -109,6 +109,7 @@ module Query =
 
                     invariant n.SubNodes.IsSome "0baa1ede-dde1-489b-ba3c-28a7e7a5bd3a"
 
+                    (* OLD
                     // return samples from inner node, which are not covered by children
                     let subWindows = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.SampleWindow))
                     let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2l) =
@@ -123,7 +124,23 @@ module Query =
                     // - intersecting subnode-samples (-> unsafe), or 
                     // - not intersecting subnode-samples (safe)
                     let (safeSamples, unsafeSamples) = allSamples |> Array.partition notContainedBySubWindows
+                    *)
+
+                    // return samples from inner node, which are not covered by children
+                    let subWindows = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.ExactBoundingBox))
+                    let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2d) =
+                        let sampleWindow = sample.BoundingBox
+                        subWindow.Intersects sampleWindow
+                    let inline notContainedBySubWindows (s : Cell2d) = subWindows |> Array.exists (subWindowContainsSample s) |> not
                     
+                    // get all samples _inside_ the query
+                    let allSamples = n.GetAllSamples() |> Array.filter isSampleInside
+
+                    // partition by whether samples are
+                    // - intersecting subnode-samples (-> unsafe), or 
+                    // - not intersecting subnode-samples (safe)
+                    let (safeSamples, unsafeSamples) = allSamples |> Array.partition notContainedBySubWindows
+
                     // safe samples can simply be returned ...
                     if safeSamples.Length > 0 then
                         let result = { Node = n; Selection = CellsSelected safeSamples }

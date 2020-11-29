@@ -81,78 +81,85 @@ module Merge =
     open Buffer
     let private composeLayersInOrderTyped<'a> 
         (semantic : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
-        (rootLayers : Layer<'a> list) (subLayers : Layer<'a> list) 
+        (layersInOrder : Layer<'a>[])
         : Layer<'a> =
         
+        invariant (layersInOrder.Length > 0) "0ea261d0-e3e7-4edb-bc95-0fa1eb1d3a86"
+
         let e = sampleExponentResult
         let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
-        let hasSubLayers = subLayers.Length > 0
 
-        match rootLayers, hasSubLayers with
+        let b = 
+            create semantic targetWindowAtChildLevel (e - 1)
+            |> addMany layersInOrder
+            |> toLayer
 
-        | [],      true  ->
-            let b = 
-              create semantic targetWindowAtChildLevel (e - 1)
-              |> addMany subLayers
-              |> toLayer
+        let result = b.Resample ClampToEdge resampler bounds
+        result
 
-            let result = b.Resample ClampToEdge resampler bounds
-            result
+        //match rootLayers, hasSubLayers with
 
-        | [r],     true ->
+        //| [],      true  ->
+        //    let b = 
+        //      create semantic targetWindowAtChildLevel (e - 1)
+        //      |> addMany subLayers
+        //      |> toLayer
+
+        //    let result = b.Resample ClampToEdge resampler bounds
+        //    result
+
+        //| [r],     true ->
             
-            let b = 
-                create semantic targetWindowAtChildLevel (e - 1)
-                |> add r
-                |> addMany subLayers
-                |> toLayer
+        //    let b = 
+        //        create semantic targetWindowAtChildLevel (e - 1)
+        //        |> add r
+        //        |> addMany subLayers
+        //        |> toLayer
 
             
-            let result = b.Resample ClampToEdge resampler bounds
-            result
+        //    let result = b.Resample ClampToEdge resampler bounds
+        //    result
 
-        | [r1;r2], false ->
-            if r2.SampleWindow.Contains(r1.SampleWindow) then
-                r2
-            else
-                create semantic (Box2l(r1.SampleWindow, r2.SampleWindow)) e
-                |> add r1 |> add r2 |> toLayer
+        //| [r1;r2], false ->
+        //    if r2.SampleWindow.Contains(r1.SampleWindow) then
+        //        r2
+        //    else
+        //        create semantic (Box2l(r1.SampleWindow, r2.SampleWindow)) e
+        //        |> add r1 |> add r2 |> toLayer
 
-        | [r1;r2], true ->
+        //| [r1;r2], true ->
 
-            let b = 
-                create semantic targetWindowAtChildLevel (e - 1)
-                |> add r1 |> add r2
-                |> addMany subLayers
-                |> toLayer
+        //    let b = 
+        //        create semantic targetWindowAtChildLevel (e - 1)
+        //        |> add r1 |> add r2
+        //        |> addMany subLayers
+        //        |> toLayer
 
-            let result = b.Resample ClampToEdge resampler bounds
-            result
+        //    let result = b.Resample ClampToEdge resampler bounds
+        //    result
 
-        | [],      false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
-        | [_],     false -> failwith "At least two parts are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
-        | rs,      x     -> failwith (sprintf "Inconsistent layer data. %A, %A. Error 5c352ed3-485c-4889-9821-da9429f90d8f." rs x)
+        //| [],      false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
+        //| [_],     false -> failwith "At least two parts are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
+        //| rs,      x     -> failwith (sprintf "Inconsistent layer data. %A, %A. Error 5c352ed3-485c-4889-9821-da9429f90d8f." rs x)
 
         
 
 
 
     let private composeLayersInOrder (def : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
-                             (rootLayers : ILayer list) (subLayers : ILayer list)
+                             (layersInOrder : ILayer[])
                              : ILayer =
 
         let e = sampleExponentResult
 
         // ensure that all sample exponents are consistent ...
-        invariant (rootLayers |> List.forall (fun x -> x.SampleExponent = e))     "5ec641c3-da8f-4757-bed0-fc5a527572fb"
-        invariant (subLayers  |> List.forall (fun x -> x.SampleExponent = e - 1)) "a44be7b6-330e-4687-b06c-9131f3fbeec6"
+        invariant (layersInOrder |> Array.forall (fun x -> x.SampleExponent = e || x.SampleExponent = e - 1)) "5ec641c3-da8f-4757-bed0-fc5a527572fb"
 
         let compose convert =
-            let rootLayers' = rootLayers |> List.map convert
-            let subLayers'  = subLayers  |> List.map convert
-            composeLayersInOrderTyped def bounds sampleExponentResult targetWindowAtChildLevel rootLayers' subLayers'
+            let layersInOrder' = layersInOrder |> Array.map convert
+            composeLayersInOrderTyped def bounds sampleExponentResult targetWindowAtChildLevel layersInOrder'
 
-        let someLayer = rootLayers |> Seq.append subLayers |> Seq.head
+        let someLayer = layersInOrder |> Seq.head
         match someLayer with
 
         | :? Layer<bool>    -> (compose (fun x -> x :?> Layer<bool>   )) :> ILayer
@@ -208,7 +215,8 @@ module Merge =
         // ensure that all parts have consistent sample exponents ...
         let f0 = Option.map (fun (x : ILayer) -> x.SampleExponent)
         let f1 = Option.map (fun (x : ILayer) -> x.SampleExponent + 1)
-        let sampleExponents = [l1o |> f0; l2o |> f0]|> Seq.append (slo1 |> Seq.map f1) |> Seq.append (slo2 |> Seq.map f1) |> Seq.choose id |> Seq.distinct |> Seq.toArray
+        let sampleExponents = [l1o |> f0; l2o |> f0]|> Seq.append (slo1 |> Seq.map f1) |> Seq.append (slo2 |> Seq.map f1) |> Seq.choose id |> Seq.distinct |> Seq.toArray // order does not matter
+        //let sampleExponents = [l1o |> f0; l2o |> f0] |> Seq.choose id |> Seq.distinct |> Seq.toArray // order does not matter
         invariantm (sampleExponents.Length = 1) (sprintf "Inconsistent sample exponents. %A" sampleExponents) "b8269ff8-55f6-4ddc-aacc-7a584d46f598"
 
         // get sample exponent (for result layer)
@@ -228,23 +236,31 @@ module Merge =
                    (sprintf "Final window (%A) is out of bounds (%A)." finalWindowAtChildLevel boundsAtChildLevel) 
                    "d3a934ed-5e51-45e1-ad97-a28ee8ca575b"
 
+        let layersInOrder = 
+            match domination with
+            | FirstDominates        -> seq { yield l2o; yield! slo2; yield l1o; yield! slo1 } |> Seq.choose id |> Seq.toArray
+            | SecondDominates       -> seq { yield l1o; yield! slo1; yield l2o; yield! slo2 } |> Seq.choose id |> Seq.toArray
+            | MoreDetailedDominates ->
+                failwith "MoreDetailedDominates is not allowed here. Invariant bcb06b5b-5d28-4442-b388-05b29139743b." 
 
-        let rootLayers = match l1o, l2o, domination with
-                         | Some l1, Some l2, FirstDominates  -> [l2; l1]
-                         | Some l1, Some l2, SecondDominates -> [l1; l2]
-                         | Some l1, None,    _               -> [l1    ]
-                         | None,    Some l2, _               -> [l2    ]
-                         | None,    None,    _               -> [      ]
-                         | _,       _, MoreDetailedDominates -> 
-                            failwith "MoreDetailedDominates is not allowed here. Invariant eaa7d1d8-f5e8-4083-aa4b-b1c1b6033911." 
+        composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel layersInOrder
 
-        let compose = composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
+        //let rootLayers = match l1o, l2o, domination with
+        //                 | Some l1, Some l2, FirstDominates  -> [l2; l1]
+        //                 | Some l1, Some l2, SecondDominates -> [l1; l2]
+        //                 | Some l1, None,    _               -> [l1    ]
+        //                 | None,    Some l2, _               -> [l2    ]
+        //                 | None,    None,    _               -> [      ]
+        //                 | _,       _, MoreDetailedDominates -> 
+        //                    failwith "MoreDetailedDominates is not allowed here. Invariant eaa7d1d8-f5e8-4083-aa4b-b1c1b6033911." 
 
-        match domination with
-        | FirstDominates        -> slo2 |> Seq.append slo1 |> Seq.choose id |> Seq.toList |> compose
-        | SecondDominates       -> slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.toList |> compose
-        | MoreDetailedDominates ->
-            failwith "MoreDetailedDominates is not allowed here. Invariant 63adc5f3-119d-4830-8701-7ce30d16c37f."
+        //let compose = composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
+
+        //match domination with
+        //| FirstDominates        -> slo2 |> Seq.append slo1 |> Seq.choose id |> Seq.toList |> compose
+        //| SecondDominates       -> slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.toList |> compose
+        //| MoreDetailedDominates ->
+        //    failwith "MoreDetailedDominates is not allowed here. Invariant 63adc5f3-119d-4830-8701-7ce30d16c37f."
 
     /// all parts must have same layer set ...
     let private createLayers (bounds : Cell2d) (domination : Dominance)
@@ -255,7 +271,7 @@ module Merge =
 
         // ensure that all parts have the same layers ...
         let getLayerSemantics (x : ILayer[]) = x |> Seq.map (fun x -> x.Def) |> Set.ofSeq
-        let semsets = [l1o; l2o] |> Seq.append slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.map getLayerSemantics |> Seq.distinct |> Seq.toArray
+        let semsets = [l1o; l2o] |> Seq.append slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.map getLayerSemantics |> Seq.distinct |> Seq.toArray // order does not matter
         invariantm (semsets.Length = 1) 
                    (sprintf "Parts have different layers. %A." semsets) "53fea9ea-521b-4eaa-85d4-07169f2d3f26"
 
@@ -307,7 +323,7 @@ module Merge =
 
         // ensure that all subnodes have same resolution and split limit ...
         invariantm 
-            ((sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> (n.SampleExponent, n.SplitLimitExponent))) |> Seq.distinct |> Seq.length < 2)
+            ((sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> (n.SampleExponent, n.SplitLimitExponent))) |> Seq.distinct |> Seq.length < 2) // order does not matter
             "Subnodes have different resolution or split limit." "018b42e9-34a5-4791-94d2-374d7e246f6c"
         
         // compute node layers
@@ -336,7 +352,7 @@ module Merge =
             subnodes.[i] <- n
 
         // result
-        let ebb = [n1o; n2o] |> Seq.append sno1 |> Seq.append sno2 |> Seq.choose (Option.map(fun n -> n.ExactBoundingBox)) |> Box2d
+        let ebb = [n1o; n2o] |> Seq.append sno1 |> Seq.append sno2 |> Seq.choose (Option.map(fun n -> n.ExactBoundingBox)) |> Box2d // order does not matter
         if hasSubNodes then
             QNode(ebb, cell, splitLimitExponent, layers, subnodes) |> InMemoryNode
         else
@@ -473,9 +489,12 @@ module Merge =
             if first.SplitLimitExponent <> second.SplitLimitExponent then
                 failwith "Cannot merge quadtrees with different split limits. Error 6222eb6b-a7aa-43c1-9323-e28d6275696b."
 
-            if QNode.Overlap(first, second) then
-                // one quadtree contains the other (there is no partial overlap in quadtrees)
-                mergeOverlappingNodes    domination firstRef secondRef
-            else
-                // quadtrees are completely separated
-                mergeNonOverlappingNodes domination firstRef secondRef
+            let result =
+                if QNode.Overlap(first, second) then
+                    // one quadtree contains the other (there is no partial overlap in quadtrees)
+                    mergeOverlappingNodes    domination firstRef secondRef
+                else
+                    // quadtrees are completely separated
+                    mergeNonOverlappingNodes domination firstRef secondRef
+
+            result
