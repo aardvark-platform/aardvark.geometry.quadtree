@@ -283,9 +283,9 @@ module Merge =
         result
 
     /// Creates new node from two nodes.
-    let private create (cell : Cell2d) (splitLimitExponent : int) (domination : Dominance) 
+    let rec private create (cell : Cell2d) (splitLimitExponent : int) (domination : Dominance) 
                        (n1o : QNode option) (sno1 : QNode option[])
-                       (n2o : QNode option) (sno2 : QNode option[]) =
+                       (n2o : QNode option) (sno2 : QNode option[]) : QNodeRef =
 
         invariant (domination <> MoreDetailedDominates) "c134db85-643a-420d-8205-a795a7bce5ca"
 
@@ -326,7 +326,13 @@ module Merge =
                     | Some a, None
                     | None,   Some a -> hasSubNodes <- true
                                         Some a
-                    | Some a, Some b -> failwith "todo: resolve subnode collision"
+                    | Some a, Some b ->
+                        failwith "Collision. Error fc1a216d-65e8-4bb0-9d4b-b355f548a830."
+                        //invariant (a.Cell = b.Cell) "72d1f6cf-a7a3-41ab-bc50-216dcf23f770"
+                        //let sn1 = match a.SubNodes with | None -> Array.zeroCreate 4 | Some xs -> xs |> Array.map (fun x -> x.TryGetInMemory())
+                        //let sn2 = match b.SubNodes with | None -> Array.zeroCreate 4 | Some xs -> xs |> Array.map (fun x -> x.TryGetInMemory())
+                        //(create a.Cell splitLimitExponent domination (Some a) sn1 (Some b) sn2).TryGetInMemory()
+
             subnodes.[i] <- n
 
         // result
@@ -436,6 +442,19 @@ module Merge =
                         sno2.[qi2] <- (secondRef |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
 
                         (None, sno2)
+
+                // handle sno collisions
+                for qi = 0 to 3 do
+                    match sno1.[qi], sno2.[qi] with
+                    | Some a, Some b ->
+                        let m = (mergeOverlappingNodes domination (InMemoryNode a) (InMemoryNode b)).TryGetInMemory()
+                        sno1.[qi] <- None
+                        sno2.[qi] <- None
+                        match domination with
+                        | FirstDominates -> sno1.[qi] <- m
+                        | SecondDominates -> sno2.[qi] <- m
+                        | MoreDetailedDominates -> failwith "MoreDetailedDominates mode is currently not supported. Error e23a523f-b3e2-4981-b362-948fcbce15da."
+                    | _ -> ()
 
                 create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
 

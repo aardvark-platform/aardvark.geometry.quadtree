@@ -462,7 +462,7 @@ let ``Merge_Random_SplitLimit1`` dominance =
     let mutable quadtree = createQuadtreeWithRandomValues 0 0 1 1 0 0<powerOfTwo>
 
     let r = Random()
-    for i = 1 to 25 do
+    for i = 1 to 10 do
         let e = r.Next(20) - 10
         let ox = if e >= 0 then (r.Next(2000)) >>> e else (r.Next(2000)) <<< -e
         let oy = if e >= 0 then (r.Next(2000)) >>> e else (r.Next(2000)) <<< -e
