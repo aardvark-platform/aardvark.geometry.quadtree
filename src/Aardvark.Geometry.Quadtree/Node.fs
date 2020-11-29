@@ -133,6 +133,10 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
         QNode(Guid.NewGuid(), cell, splitLimitExp, layers, None)
 
     /// Create leaf node.
+    new (cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
+        QNode(Guid.NewGuid(), cell, splitLimitExp, layers, subNodes)
+
+    /// Create leaf node.
     new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[]) =
         QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers, None)
 

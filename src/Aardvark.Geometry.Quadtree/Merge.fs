@@ -243,7 +243,9 @@ module Merge =
     /// Creates new node from two nodes.
     let rec private create (cell : Cell2d) (splitLimitExponent : int) (domination : Dominance) 
                        (n1o : QNode option) (sno1 : QNode option[])
-                       (n2o : QNode option) (sno2 : QNode option[]) : QNodeRef =
+                       (n2o : QNode option) (sno2 : QNode option[])
+                       (strangerThings : bool)
+                       : QNodeRef =
 
         invariant (domination <> MoreDetailedDominates) "c134db85-643a-420d-8205-a795a7bce5ca"
 
@@ -303,12 +305,14 @@ module Merge =
                     | Some a, None
                     | None,   Some a ->
                         hasSubNodes <- true
-                        Some a
-                        //let sc = cell.GetQuadrant(i)
-                        //let scwin = sc.GetBoundsForExponent(a.SampleExponent)
-                        //let ls = layerResults |> Array.map (fun lr -> lr.ChildLayer.WithWindow(scwin).Value)
-                        //let a2 = QNode(a.Cell, a.SplitLimitExponent, ls)
-                        //Some a2
+                        if strangerThings then
+                            let sc = cell.GetQuadrant(i)
+                            let scwin = sc.GetBoundsForExponent(a.SampleExponent)
+                            let ls = layerResults |> Array.map (fun lr -> lr.ChildLayer.WithWindow(scwin).Value)
+                            let a2 = QNode(a.Cell, a.SplitLimitExponent, ls, a.SubNodes)
+                            Some a2
+                        else
+                            Some a
                     | Some a, Some b ->
                         failwith "Collision. Error fc1a216d-65e8-4bb0-9d4b-b355f548a830."
                         //invariant (a.Cell = b.Cell) "72d1f6cf-a7a3-41ab-bc50-216dcf23f770"
@@ -407,16 +411,24 @@ module Merge =
                         | MoreDetailedDominates -> failwith "MoreDetailedDominates mode is currently not supported. Error e23a523f-b3e2-4981-b362-948fcbce15da."
                     | _ -> ()
 
-                // ....
+                // .... check if dominating lower-resolution layer needs to be pushed through to only partially overlapping higher-res sublayer
+                let mutable strangerThings = false
                 if n1.ExactBoundingBox.Intersects(n2.ExactBoundingBox) then
-                    
-                        if domination = FirstDominates  && n1.SampleExponent > n2.SampleExponent &&  n1.ExactBoundingBox.Contains(n2.ExactBoundingBox) |> not then
-                            failwith "foo 1"
+                        
+                        let rec getMinSampleExponentRec (foo : QNode) =
+                            match foo.SubNodes with
+                            | None -> foo.SampleExponent
+                            | Some xs -> xs |> Seq.choose (fun x -> x.TryGetInMemory()) |> Seq.map getMinSampleExponentRec |> Seq.min
 
-                        if domination = SecondDominates && n2.SampleExponent > n1.SampleExponent &&  n2.ExactBoundingBox.Contains(n1.ExactBoundingBox) |> not then
-                            failwith "foo 2"
+                        let se1 = getMinSampleExponentRec n1
+                        let se2 = getMinSampleExponentRec n2
+                        if domination = FirstDominates  && se1 > se2 &&  n1.ExactBoundingBox.Contains(n2.ExactBoundingBox) |> not then
+                            strangerThings <- true
 
-                create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
+                        if domination = SecondDominates && se2 > se1 &&  n2.ExactBoundingBox.Contains(n1.ExactBoundingBox) |> not then
+                            strangerThings <- true
+
+                create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2 strangerThings
 
     
     /// Merge nodes that do not overlap.
@@ -451,7 +463,7 @@ module Merge =
             sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
 
             // create root node from two sets of subnodes
-            create rc n1.SplitLimitExponent domination None sno1 None sno2
+            create rc n1.SplitLimitExponent domination None sno1 None sno2 false
 
 
     /// Immutable merge.
