@@ -386,10 +386,11 @@ module Merge =
             subnodes.[i] <- n
 
         // result
+        let ebb = [n1o; n2o] |> Seq.append sno1 |> Seq.append sno2 |> Seq.choose (Option.map(fun n -> n.ExactBoundingBox)) |> Box2d
         if hasSubNodes then
-            QNode(cell, splitLimitExponent, layers, subnodes) |> InMemoryNode
+            QNode(ebb, cell, splitLimitExponent, layers, subnodes) |> InMemoryNode
         else
-            QNode(cell, splitLimitExponent, layers) |> InMemoryNode
+            QNode(ebb, cell, splitLimitExponent, layers) |> InMemoryNode
 
     /// Merge nodes that do not overlap.
     let private mergeNonOverlappingNodes (domination : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =

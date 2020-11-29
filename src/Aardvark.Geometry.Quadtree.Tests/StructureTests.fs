@@ -52,6 +52,163 @@ let checkQuadtree spec (rootRef : QNodeRef) =
 
     rootRef
     
+(************************************************************************************
+    ExactBoundingBox
+ ************************************************************************************)
+
+[<Fact>]
+let ``boundingbox: single e=0`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(1,2,0); Size = (7,14); Split = 8; Data = [|
+         for i=0 to 7*14 do yield 1.0
+     |]}
+ 
+     a.ExactBoundingBox = Box2d(V2d(1,2), V2d(8, 16)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: single e=1`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(1,2,1); Size = (7,14); Split = 8; Data = [|
+         for i=0 to 7*14 do yield 1.0
+     |]}
+ 
+     a.ExactBoundingBox = Box2d(V2d(2,4), V2d(16, 32)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=0 contained`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(1,2,0); Size = (7,14); Split = 8; Data = [|
+         for i=0 to 7*14 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(3,8,0); Size = (3,2); Split = 8; Data = [|
+         for i=0 to 3*2 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(1,2), V2d(8, 16)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(1,2), V2d(8, 16)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=-2 contained`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(0,0,0); Size = (7,14); Split = 8; Data = [|
+         for i=0 to 7*14 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(3,8,-2); Size = (3,2); Split = 8; Data = [|
+         for i=0 to 3*2 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(0,0), V2d(7, 14)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(0,0), V2d(7, 14)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=0 partial overlap`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(1,2,0); Size = (7,14); Split = 8; Data = [|
+         for i=0 to 7*14 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(5,1,0); Size = (5,3); Split = 8; Data = [|
+         for i=0 to 5*3 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(1,1), V2d(10, 16)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(1,1), V2d(10, 16)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=-2 partial overlap`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(1,2,0); Size = (7,14); Split = 8; Data = [|
+         for i=0 to 7*14 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(5,2,-2); Size = (5,3); Split = 8; Data = [|
+         for i=0 to 5*3 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(1.0,0.5), V2d(8, 16)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(1.0,0.5), V2d(8, 16)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=0 adjacent`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(1,2,0); Size = (7,14); Split = 8; Data = [|
+         for i=0 to 7*14 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(8,4,0); Size = (5,3); Split = 8; Data = [|
+         for i=0 to 5*3 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(1,2), V2d(13, 16)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(1,2), V2d(13, 16)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=-2 adjacent`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(0,0,0); Size = (1,1); Split = 8; Data = [|
+         for i=0 to 1*1 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(4,0,-2); Size = (4,4); Split = 8; Data = [|
+         for i=0 to 4*4 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(0,0), V2d(2,1)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(0,0), V2d(2,1)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=0 islands`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(7,11,0); Size = (1,1); Split = 8; Data = [|
+         for i=0 to 1*1 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(3,5,0); Size = (1,1); Split = 8; Data = [|
+         for i=0 to 1*1 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(3,5), V2d(8, 12)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(3,5), V2d(8, 12)) |> Assert.True
+
+[<Fact>]
+let ``boundingbox: merged e=0 e=-2 islands`` () =
+ 
+     let a = createQuadtree { Origin = Cell2d(7,11,0); Size = (1,1); Split = 8; Data = [|
+         for i=0 to 1*1 do yield 1.0
+     |]}
+
+     let b = createQuadtree { Origin = Cell2d(3,5,-2); Size = (1,1); Split = 8; Data = [|
+         for i=0 to 1*1 do yield 1.0
+     |]}
+
+     let m1 = Quadtree.Merge FirstDominates a b
+     m1.ExactBoundingBox = Box2d(V2d(0.75,1.25), V2d(8, 12)) |> Assert.True
+
+     let m2 = Quadtree.Merge SecondDominates a b
+     m2.ExactBoundingBox = Box2d(V2d(0.75,1.25), V2d(8, 12)) |> Assert.True
 
 (************************************************************************************
     SplitCenteredNodeIntoQuadrantNodesAtSameLevel
@@ -827,6 +984,17 @@ let ``merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 level
                 Level = 0; Data = [
                     ((0,0,1), 1.0); ((1,0,1), 2.0)
                     ((0,1,1), 3.0); ((1,1,1), 4.0)
+            ]}
+        ]}
+    |> ignore
+
+    Quadtree.Merge SecondDominates a c
+    |> checkQuadtree {
+        Cell = Cell2d(0,0,9); IsLeafNode = false; SampleExponent = 1; SplitLimitExponent = 8
+        Samples = [
+            {
+                Level = 0; Data = [
+                    ((0,0,0), 1.0)
             ]}
         ]}
     |> ignore

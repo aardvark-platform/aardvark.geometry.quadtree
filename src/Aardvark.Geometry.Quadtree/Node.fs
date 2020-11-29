@@ -115,19 +115,26 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
     new (uid : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
         QNode(uid, Box2d.Invalid, cell, splitLimitExp, layers, subNodes)
 
-    new (id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
+    new (uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
-        QNode(id, cell, splitLimitExp, layers, Some subNodes)
+        QNode(uid, exactBoundingBox, cell, splitLimitExp, layers, Some subNodes)
 
     new (cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
-        QNode(Guid.NewGuid(), cell, splitLimitExp, layers, subNodes)
+        QNode(Guid.NewGuid(), Box2d.Invalid, cell, splitLimitExp, layers, subNodes)
 
-    new (id : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[]) =
-        QNode(id, cell, splitLimitExp, layers, Some subNodes)
+    new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
+        QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers, subNodes)
+
+    new (uid : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[]) =
+        QNode(uid, cell, splitLimitExp, layers, Some subNodes)
 
     /// Create leaf node.
     new (cell : Cell2d, splitLimitExp : int, layers : ILayer[]) =
         QNode(Guid.NewGuid(), cell, splitLimitExp, layers, None)
+
+    /// Create leaf node.
+    new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[]) =
+        QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers, None)
 
     member _.Id with get() = uid
 
@@ -353,6 +360,12 @@ and
     | InMemoryNode of QNode
     | OutOfCoreNode of Guid * (unit -> QNode)
     with
+
+        member this.ExactBoundingBox with get() =
+            match this with
+            | NoNode -> Box2d.Invalid
+            | InMemoryNode n -> n.ExactBoundingBox
+            | OutOfCoreNode (_, load) -> load().ExactBoundingBox
 
         member this.ContainsLayer (semantic : Durable.Def) =
             match this.TryGetInMemory() with
