@@ -126,6 +126,7 @@ module Query =
                     let (safeSamples, unsafeSamples) = allSamples |> Array.partition notContainedBySubWindows
                     *)
 
+
                     // return samples from inner node, which are not covered by children
                     let subWindows = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.ExactBoundingBox))
                     let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2d) =

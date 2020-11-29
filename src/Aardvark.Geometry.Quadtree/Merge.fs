@@ -28,7 +28,6 @@ module Merge =
         Data : 'a[]
         }
 
-    
     module private Buffer =
 
         let create (semantic : Durable.Def) (w : Box2l) (e : int) = {
@@ -78,77 +77,37 @@ module Merge =
         let toLayer (buffer : Buffer<'a>) =
             Layer(buffer.Semantic, buffer.Data, buffer.Mapping)
 
+    type ComposedLayerResult = {
+        Layer : ILayer
+        ChildLayer : ILayer
+    }
+
     open Buffer
     let private composeLayersInOrderTyped<'a> 
         (semantic : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
         (layersInOrder : Layer<'a>[])
-        : Layer<'a> =
+        : ComposedLayerResult =
         
         invariant (layersInOrder.Length > 0) "0ea261d0-e3e7-4edb-bc95-0fa1eb1d3a86"
 
         let e = sampleExponentResult
         let resampler = Resamplers.getTypedResamplerFor<'a> semantic 
 
-        let b = 
+        let layerChildLevel = 
             create semantic targetWindowAtChildLevel (e - 1)
             |> addMany layersInOrder
             |> toLayer
 
-        let result = b.Resample ClampToEdge resampler bounds
-        result
+        let layerResultLevel = layerChildLevel.Resample ClampToEdge resampler bounds
 
-        //match rootLayers, hasSubLayers with
+        { Layer = layerResultLevel; ChildLayer = layerChildLevel }
 
-        //| [],      true  ->
-        //    let b = 
-        //      create semantic targetWindowAtChildLevel (e - 1)
-        //      |> addMany subLayers
-        //      |> toLayer
-
-        //    let result = b.Resample ClampToEdge resampler bounds
-        //    result
-
-        //| [r],     true ->
-            
-        //    let b = 
-        //        create semantic targetWindowAtChildLevel (e - 1)
-        //        |> add r
-        //        |> addMany subLayers
-        //        |> toLayer
-
-            
-        //    let result = b.Resample ClampToEdge resampler bounds
-        //    result
-
-        //| [r1;r2], false ->
-        //    if r2.SampleWindow.Contains(r1.SampleWindow) then
-        //        r2
-        //    else
-        //        create semantic (Box2l(r1.SampleWindow, r2.SampleWindow)) e
-        //        |> add r1 |> add r2 |> toLayer
-
-        //| [r1;r2], true ->
-
-        //    let b = 
-        //        create semantic targetWindowAtChildLevel (e - 1)
-        //        |> add r1 |> add r2
-        //        |> addMany subLayers
-        //        |> toLayer
-
-        //    let result = b.Resample ClampToEdge resampler bounds
-        //    result
-
-        //| [],      false -> failwith "No layer data. Error 3cf30789-43fd-4d12-a3a8-5987a55fcc7e."
-        //| [_],     false -> failwith "At least two parts are required for merge. Error 9809de77-28d7-4f90-a590-dbe8492450a8."
-        //| rs,      x     -> failwith (sprintf "Inconsistent layer data. %A, %A. Error 5c352ed3-485c-4889-9821-da9429f90d8f." rs x)
-
-        
 
 
 
     let private composeLayersInOrder (def : Durable.Def) (bounds : Cell2d) (sampleExponentResult : int) (targetWindowAtChildLevel : Box2l) 
                              (layersInOrder : ILayer[])
-                             : ILayer =
+                             : ComposedLayerResult =
 
         let e = sampleExponentResult
 
@@ -162,38 +121,38 @@ module Merge =
         let someLayer = layersInOrder |> Seq.head
         match someLayer with
 
-        | :? Layer<bool>    -> (compose (fun x -> x :?> Layer<bool>   )) :> ILayer
-        | :? Layer<int8>    -> (compose (fun x -> x :?> Layer<int8>   )) :> ILayer
-        | :? Layer<uint8>   -> (compose (fun x -> x :?> Layer<uint8>  )) :> ILayer
-        | :? Layer<int16>   -> (compose (fun x -> x :?> Layer<int16>  )) :> ILayer
-        | :? Layer<uint16>  -> (compose (fun x -> x :?> Layer<uint16> )) :> ILayer
-        | :? Layer<int32>   -> (compose (fun x -> x :?> Layer<int32>  )) :> ILayer
-        | :? Layer<uint32>  -> (compose (fun x -> x :?> Layer<uint32> )) :> ILayer
-        | :? Layer<int64>   -> (compose (fun x -> x :?> Layer<int64>  )) :> ILayer
-        | :? Layer<uint64>  -> (compose (fun x -> x :?> Layer<uint64> )) :> ILayer
-        | :? Layer<float>   -> (compose (fun x -> x :?> Layer<float>  )) :> ILayer
-        | :? Layer<float32> -> (compose (fun x -> x :?> Layer<float32>)) :> ILayer
-        | :? Layer<decimal> -> (compose (fun x -> x :?> Layer<decimal>)) :> ILayer
+        | :? Layer<bool>    -> (compose (fun x -> x :?> Layer<bool>   ))
+        | :? Layer<int8>    -> (compose (fun x -> x :?> Layer<int8>   ))
+        | :? Layer<uint8>   -> (compose (fun x -> x :?> Layer<uint8>  ))
+        | :? Layer<int16>   -> (compose (fun x -> x :?> Layer<int16>  ))
+        | :? Layer<uint16>  -> (compose (fun x -> x :?> Layer<uint16> ))
+        | :? Layer<int32>   -> (compose (fun x -> x :?> Layer<int32>  ))
+        | :? Layer<uint32>  -> (compose (fun x -> x :?> Layer<uint32> ))
+        | :? Layer<int64>   -> (compose (fun x -> x :?> Layer<int64>  ))
+        | :? Layer<uint64>  -> (compose (fun x -> x :?> Layer<uint64> ))
+        | :? Layer<float>   -> (compose (fun x -> x :?> Layer<float>  ))
+        | :? Layer<float32> -> (compose (fun x -> x :?> Layer<float32>))
+        | :? Layer<decimal> -> (compose (fun x -> x :?> Layer<decimal>))
         
-        | :? Layer<V2d>     -> (compose (fun x -> x :?> Layer<V2d>    )) :> ILayer
-        | :? Layer<V2f>     -> (compose (fun x -> x :?> Layer<V2f>    )) :> ILayer
-        | :? Layer<V2i>     -> (compose (fun x -> x :?> Layer<V2i>    )) :> ILayer
-        | :? Layer<V2l>     -> (compose (fun x -> x :?> Layer<V2l>    )) :> ILayer
+        | :? Layer<V2d>     -> (compose (fun x -> x :?> Layer<V2d>    ))
+        | :? Layer<V2f>     -> (compose (fun x -> x :?> Layer<V2f>    ))
+        | :? Layer<V2i>     -> (compose (fun x -> x :?> Layer<V2i>    ))
+        | :? Layer<V2l>     -> (compose (fun x -> x :?> Layer<V2l>    ))
 
-        | :? Layer<V3d>     -> (compose (fun x -> x :?> Layer<V3d>    )) :> ILayer
-        | :? Layer<V3f>     -> (compose (fun x -> x :?> Layer<V3f>    )) :> ILayer
-        | :? Layer<V3i>     -> (compose (fun x -> x :?> Layer<V3i>    )) :> ILayer
-        | :? Layer<V3l>     -> (compose (fun x -> x :?> Layer<V3l>    )) :> ILayer
+        | :? Layer<V3d>     -> (compose (fun x -> x :?> Layer<V3d>    ))
+        | :? Layer<V3f>     -> (compose (fun x -> x :?> Layer<V3f>    ))
+        | :? Layer<V3i>     -> (compose (fun x -> x :?> Layer<V3i>    ))
+        | :? Layer<V3l>     -> (compose (fun x -> x :?> Layer<V3l>    ))
 
-        | :? Layer<V4d>     -> (compose (fun x -> x :?> Layer<V4d>    )) :> ILayer
-        | :? Layer<V4f>     -> (compose (fun x -> x :?> Layer<V4f>    )) :> ILayer
-        | :? Layer<V4i>     -> (compose (fun x -> x :?> Layer<V4i>    )) :> ILayer
-        | :? Layer<V4l>     -> (compose (fun x -> x :?> Layer<V4l>    )) :> ILayer
+        | :? Layer<V4d>     -> (compose (fun x -> x :?> Layer<V4d>    ))
+        | :? Layer<V4f>     -> (compose (fun x -> x :?> Layer<V4f>    ))
+        | :? Layer<V4i>     -> (compose (fun x -> x :?> Layer<V4i>    ))
+        | :? Layer<V4l>     -> (compose (fun x -> x :?> Layer<V4l>    ))
 
-        | :? Layer<C3b>     -> (compose (fun x -> x :?> Layer<C3b>    )) :> ILayer
-        | :? Layer<C3f>     -> (compose (fun x -> x :?> Layer<C3f>    )) :> ILayer
-        | :? Layer<C4b>     -> (compose (fun x -> x :?> Layer<C4b>    )) :> ILayer
-        | :? Layer<C4f>     -> (compose (fun x -> x :?> Layer<C4f>    )) :> ILayer
+        | :? Layer<C3b>     -> (compose (fun x -> x :?> Layer<C3b>    ))
+        | :? Layer<C3f>     -> (compose (fun x -> x :?> Layer<C3f>    ))
+        | :? Layer<C4b>     -> (compose (fun x -> x :?> Layer<C4b>    ))
+        | :? Layer<C4f>     -> (compose (fun x -> x :?> Layer<C4f>    ))
 
         | _ -> failwith <| sprintf "Unsupported layer type %A. Invariant d31887e6-6c87-4b5a-87d7-0cab1fe9ec55." someLayer
 
@@ -204,7 +163,7 @@ module Merge =
     let private createLayer (bounds : Cell2d) (def : Durable.Def) (domination : Dominance)
                             (l1o : ILayer option) (slo1 : array<ILayer option>)
                             (l2o : ILayer option) (slo2 : array<ILayer option>) 
-                            : ILayer =
+                            : ComposedLayerResult =
 
         invariant (domination <> MoreDetailedDominates) "58d9ee5a-ba81-4e45-b03f-4e2dd780175a"
         invariant (l1o.IsNone || l1o.Value.Def = def) "c8931d12-5472-4f11-ab64-b5c49e1ebbb5"
@@ -245,27 +204,10 @@ module Merge =
 
         composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel layersInOrder
 
-        //let rootLayers = match l1o, l2o, domination with
-        //                 | Some l1, Some l2, FirstDominates  -> [l2; l1]
-        //                 | Some l1, Some l2, SecondDominates -> [l1; l2]
-        //                 | Some l1, None,    _               -> [l1    ]
-        //                 | None,    Some l2, _               -> [l2    ]
-        //                 | None,    None,    _               -> [      ]
-        //                 | _,       _, MoreDetailedDominates -> 
-        //                    failwith "MoreDetailedDominates is not allowed here. Invariant eaa7d1d8-f5e8-4083-aa4b-b1c1b6033911." 
-
-        //let compose = composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel rootLayers
-
-        //match domination with
-        //| FirstDominates        -> slo2 |> Seq.append slo1 |> Seq.choose id |> Seq.toList |> compose
-        //| SecondDominates       -> slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.toList |> compose
-        //| MoreDetailedDominates ->
-        //    failwith "MoreDetailedDominates is not allowed here. Invariant 63adc5f3-119d-4830-8701-7ce30d16c37f."
-
     /// all parts must have same layer set ...
     let private createLayers (bounds : Cell2d) (domination : Dominance)
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
-                             (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ILayer[] =
+                             (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ComposedLayerResult[] =
 
         invariant (domination <> MoreDetailedDominates) "de263f01-fd18-41d5-b061-f301aed7cf4e"
 
@@ -326,12 +268,31 @@ module Merge =
             ((sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> (n.SampleExponent, n.SplitLimitExponent))) |> Seq.distinct |> Seq.length < 2) // order does not matter
             "Subnodes have different resolution or split limit." "018b42e9-34a5-4791-94d2-374d7e246f6c"
         
+        // ..........
+        let parts1 = seq { yield n1o; yield! sno1 } |> Seq.choose id |> Seq.toArray
+        let parts2 = seq { yield n2o; yield! sno2 } |> Seq.choose id |> Seq.toArray
+
+        let ebb1 = parts1 |> Seq.map(fun x -> x.ExactBoundingBox) |> Box2d
+        let ebb2 = parts2 |> Seq.map(fun x -> x.ExactBoundingBox) |> Box2d
+
+        //if (n1o.IsSome && n2o.IsSome) && ebb1.Intersects(ebb2) then
+        
+        //    if domination = FirstDominates  && n1o.Value.SampleExponent > n2o.Value.SampleExponent &&  ebb1.Contains(ebb2) |> not then
+        //        failwith "foo 1"
+
+        //    if domination = SecondDominates && n2o.Value.SampleExponent > n1o.Value.SampleExponent &&  ebb2.Contains(ebb1) |> not then
+        //        failwith "foo 2"
+
+
+
+
         // compute node layers
         let l1o = n1o |> Option.map (fun n -> n.Layers)
         let slo1 = sno1 |> Array.map (Option.map (fun n -> n.Layers))
         let l2o = n2o |> Option.map (fun n -> n.Layers)
         let slo2 = sno2 |> Array.map (Option.map (fun n -> n.Layers))
-        let layers = createLayers cell domination l1o slo1 l2o slo2
+        let layerResults = createLayers cell domination l1o slo1 l2o slo2
+        let layers = layerResults |> Array.map (fun x -> x.Layer)
 
         // merge subnodes
         let subnodes = Array.zeroCreate 4
@@ -340,8 +301,14 @@ module Merge =
             let n = match sno1.[i], sno2.[i] with
                     | None,   None   -> None
                     | Some a, None
-                    | None,   Some a -> hasSubNodes <- true
-                                        Some a
+                    | None,   Some a ->
+                        hasSubNodes <- true
+                        Some a
+                        //let sc = cell.GetQuadrant(i)
+                        //let scwin = sc.GetBoundsForExponent(a.SampleExponent)
+                        //let ls = layerResults |> Array.map (fun lr -> lr.ChildLayer.WithWindow(scwin).Value)
+                        //let a2 = QNode(a.Cell, a.SplitLimitExponent, ls)
+                        //Some a2
                     | Some a, Some b ->
                         failwith "Collision. Error fc1a216d-65e8-4bb0-9d4b-b355f548a830."
                         //invariant (a.Cell = b.Cell) "72d1f6cf-a7a3-41ab-bc50-216dcf23f770"
@@ -357,40 +324,6 @@ module Merge =
             QNode(ebb, cell, splitLimitExponent, layers, subnodes) |> InMemoryNode
         else
             QNode(ebb, cell, splitLimitExponent, layers) |> InMemoryNode
-
-    /// Merge nodes that do not overlap.
-    let private mergeNonOverlappingNodes (domination : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
-        match nr1.TryGetInMemory(), nr2.TryGetInMemory() with
-        | None,    None    -> NoNode
-        | Some _,  None    -> nr1
-        | None,    Some _  -> nr2
-        | Some n1, Some n2 ->
-
-            invariant (n1.SplitLimitExponent = n2.SplitLimitExponent) "5a057fc7-fe39-4c6e-a759-1a49054c34e7"
-
-            invariantm (QNode.Overlap(n1, n2) |> not)
-                (sprintf "Nodes must not overlap. First %A. Second %A" n1.Cell n2.Cell)
-                "6ada6e09-ef33-4daf-9b0c-4c6dd30f0087"
-
-            // common root cell
-            let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
-            if rc.IsCenteredAtOrigin then
-                failwith "Centered cells are currently not supported. Error f312f2bd-4464-4156-973f-21cdd3b97886."
-            invariant (rc.Contains n1.Cell && rc.Exponent > n1.Cell.Exponent) "e93e27b4-f9a3-484f-a3fa-6e28cb4e803b"
-            invariant (rc.Contains n2.Cell && rc.Exponent > n2.Cell.Exponent) "6e4b0a9a-c059-4ba3-8fde-029482326669"
-
-            // quadrant index for n1 and n2
-            let qi1 = rc.GetQuadrant(n1.Cell).Value
-            let qi2 = rc.GetQuadrant(n2.Cell).Value
-
-            // init two sets of subnodes for root cell
-            let sno1 = Array.create 4 None
-            sno1.[qi1] <- (nr1 |> QNode.extendUpTo (rc.GetQuadrant(qi1))).TryGetInMemory().Value |> Some
-            let sno2 = Array.create 4 None
-            sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
-
-            // create root node from two sets of subnodes
-            create rc n1.SplitLimitExponent domination None sno1 None sno2
 
 
     /// Merge nodes, where one node is a subnode of the other, or both nodes are the same.
@@ -416,6 +349,8 @@ module Merge =
                 secondRef // second fully occludes first
 
             else
+
+
                 // common root cell
                 let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
                 if rc.IsCenteredAtOrigin then
@@ -472,7 +407,51 @@ module Merge =
                         | MoreDetailedDominates -> failwith "MoreDetailedDominates mode is currently not supported. Error e23a523f-b3e2-4981-b362-948fcbce15da."
                     | _ -> ()
 
+                // ....
+                if n1.ExactBoundingBox.Intersects(n2.ExactBoundingBox) then
+                    
+                        if domination = FirstDominates  && n1.SampleExponent > n2.SampleExponent &&  n1.ExactBoundingBox.Contains(n2.ExactBoundingBox) |> not then
+                            failwith "foo 1"
+
+                        if domination = SecondDominates && n2.SampleExponent > n1.SampleExponent &&  n2.ExactBoundingBox.Contains(n1.ExactBoundingBox) |> not then
+                            failwith "foo 2"
+
                 create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2
+
+    
+    /// Merge nodes that do not overlap.
+    let private mergeNonOverlappingNodes (domination : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
+        match nr1.TryGetInMemory(), nr2.TryGetInMemory() with
+        | None,    None    -> NoNode
+        | Some _,  None    -> nr1
+        | None,    Some _  -> nr2
+        | Some n1, Some n2 ->
+
+            invariant (n1.SplitLimitExponent = n2.SplitLimitExponent) "5a057fc7-fe39-4c6e-a759-1a49054c34e7"
+
+            invariantm (QNode.Overlap(n1, n2) |> not)
+                (sprintf "Nodes must not overlap. First %A. Second %A" n1.Cell n2.Cell)
+                "6ada6e09-ef33-4daf-9b0c-4c6dd30f0087"
+
+            // common root cell
+            let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
+            if rc.IsCenteredAtOrigin then
+                failwith "Centered cells are currently not supported. Error f312f2bd-4464-4156-973f-21cdd3b97886."
+            invariant (rc.Contains n1.Cell && rc.Exponent > n1.Cell.Exponent) "e93e27b4-f9a3-484f-a3fa-6e28cb4e803b"
+            invariant (rc.Contains n2.Cell && rc.Exponent > n2.Cell.Exponent) "6e4b0a9a-c059-4ba3-8fde-029482326669"
+
+            // quadrant index for n1 and n2
+            let qi1 = rc.GetQuadrant(n1.Cell).Value
+            let qi2 = rc.GetQuadrant(n2.Cell).Value
+
+            // init two sets of subnodes for root cell
+            let sno1 = Array.create 4 None
+            sno1.[qi1] <- (nr1 |> QNode.extendUpTo (rc.GetQuadrant(qi1))).TryGetInMemory().Value |> Some
+            let sno2 = Array.create 4 None
+            sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
+
+            // create root node from two sets of subnodes
+            create rc n1.SplitLimitExponent domination None sno1 None sno2
 
 
     /// Immutable merge.

@@ -122,13 +122,16 @@ let ``Merge_NonOverlapping_Adjacent_DifferentExp`` () =
     Assert.True(Quadtree.CountLeafs q11 = 64)
 
     let m1 = Quadtree.Merge SecondDominates q00 q10
-    Assert.True(Quadtree.CountLeafs m1 = 5)
+    let m1LeafCount = Quadtree.CountLeafs m1
+    m1LeafCount = 5 |> Assert.True
 
     let m2 = Quadtree.Merge SecondDominates m1 q01
-    Assert.True(Quadtree.CountLeafs m2 = 21)
+    let m2LeafCount = Quadtree.CountLeafs m2
+    m2LeafCount = 21 |> Assert.True
 
     let m = Quadtree.Merge SecondDominates m2 q11
-    Assert.True(Quadtree.CountLeafs m = 85)
+    let mLeafCount = Quadtree.CountLeafs m
+    mLeafCount = 85 |> Assert.True
     Assert.True(m.Cell = Cell2d(0L,0L,4))
 
     ()
