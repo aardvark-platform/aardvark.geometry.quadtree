@@ -165,13 +165,28 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
 
     member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, newLayers, subNodes)
 
-    member this.Contains (other : QNode) : bool =
+    member this.CellContains (other : QNode) : bool =
         this.Cell.Contains(other.Cell)
+
+    member this.ExactBoundingBoxContains (other : QNode) : bool =
+        this.ExactBoundingBox.Contains(other.ExactBoundingBox)
+
+    /// True if both trees fully overlap.
+    static member CellOverlap (first : QNode, second : QNode) : bool =
+        first.CellContains(second) || second.CellContains(first)
+
+    /// True if trees do not overlap.
+    static member CellNotOverlap (first : QNode, second : QNode) : bool =
+        not(first.Cell.Intersects(second.Cell))
 
     /// True if both trees fully overlap.
     /// There is no "partial" overlap in quadtrees.
-    static member Overlap (first : QNode, second : QNode) : bool =
-        first.Contains(second) || second.Contains(first)
+    member this.DoesOverlap (other : QNode) : bool =
+        this.CellContains(other) || other.CellContains(this)
+
+    /// True if trees do not overlap.
+    member this.DoesNotOverlap (other : QNode) : bool =
+        not(this.Cell.Intersects(other.Cell))
 
     member this.ContainsLayer (semantic : Durable.Def) : bool =
         this.TryGetLayer(semantic) |> Option.isSome

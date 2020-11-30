@@ -725,7 +725,7 @@ let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs`` () =
         }
     |> ignore
 
-[<Fact(Skip = "Centered cells are currently not supported.")>]
+[<Fact>]
 let ``merge: leaf 2x2 / leaf 2x2, adjacent leafs, cross-origin`` () =
     
     let aRef = createQuadtree { Origin = Cell2d(-2,0,0); Size = (2,2); Split = 8; Data = [|

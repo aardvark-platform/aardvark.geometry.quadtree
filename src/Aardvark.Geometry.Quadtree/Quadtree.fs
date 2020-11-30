@@ -114,7 +114,7 @@ module Quadtree =
 
     /// Returns new merged quadtree. Immutable merge.
     let Merge (domination : Dominance) (first : QNodeRef) (second : QNodeRef) =
-        Merge.merge false domination first second
+        Merge.merge domination first second
 
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =

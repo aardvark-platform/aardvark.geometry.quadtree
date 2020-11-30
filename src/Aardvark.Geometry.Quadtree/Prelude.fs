@@ -20,6 +20,10 @@ module Prelude =
     let inline minInt64 (a : int64) (b : int64) = if a < b then a else b
     let inline maxInt64 (a : int64) (b : int64) = if a > b then a else b
 
+module Option =
+
+    let merge2 f x y = match x, y with | None, None -> None | Some x, None | None, Some x -> Some x | Some x, Some y -> f x y |> Some
+
 [<AutoOpen>]
 module Extensions =
 
@@ -42,6 +46,10 @@ module Extensions =
 type Cell2dExtensions =
 
     [<Extension>]
+    static member Union (a : Cell2d, b : Cell2d) : Cell2d =
+        Cell2d(Box2d(a.BoundingBox, b.BoundingBox))
+
+    [<Extension>]
     static member GetBoundsForExponent (self : Cell2d, e : int) : Box2l =
         let d = self.Exponent - e
         if self.IsCenteredAtOrigin then
@@ -62,6 +70,7 @@ type Cell2dExtensions =
                 let x = self.X <<< d
                 let y = self.Y <<< d
                 Box2l(x, y, x + f, y + f)
+
 
 [<Extension>]
 type Box2dExtensions =

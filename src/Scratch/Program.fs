@@ -80,7 +80,7 @@ let merge () =
     printfn "%A" (secondQuadtree.TryGetInMemory().Value.Cell)
 
     // merge both octrees
-    let mergedQtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
+    let mergedQtree = Quadtree.Merge MoreDetailedOrSecond firstQuadtree secondQuadtree
     printfn "%A" (mergedQtree.TryGetInMemory().Value.Cell)
 
     // enumerate all samples
@@ -620,6 +620,12 @@ let cpunz20201116 () =
 [<EntryPoint>]
 let main argv =
 
+    let xs = [| None; None;   Some 2; Some 3 |]
+    let ys = [| None; Some 1; None;   Some 4 |]
+    let merge = Option.merge2 (fun a b -> a + b)
+    let ms = Array.map2 merge xs ys
+    printfn "%A" ms
+
     //let xs = [| 1; 2; 3; |]
     //let ys = [| 4; 5; |]
     //let ms = Array.concat [| xs; ys |]
@@ -631,7 +637,7 @@ let main argv =
     //printfn "%A" y
     //printfn "%A" (Box2l(x, y, x, y))
 
-    cpunz20201116 ()
+    //cpunz20201116 ()
 
     //cpunz20201105 ()
 

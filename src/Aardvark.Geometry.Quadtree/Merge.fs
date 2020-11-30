@@ -11,15 +11,16 @@ open Aardvark.Data
 type Dominance = 
     | FirstDominates 
     | SecondDominates 
-    | MoreDetailedDominates
+    | MoreDetailedOrFirst
+    | MoreDetailedOrSecond
 with
     member this.Flipped with get() =
         match this with 
-        | FirstDominates        -> SecondDominates
-        | SecondDominates       -> FirstDominates
-        | MoreDetailedDominates -> MoreDetailedDominates
+        | FirstDominates       -> SecondDominates
+        | SecondDominates      -> FirstDominates
+        | MoreDetailedOrFirst  -> MoreDetailedOrSecond
+        | MoreDetailedOrSecond -> MoreDetailedOrFirst
         
-
 module Merge =
 
     type Buffer<'a> = {
@@ -165,7 +166,7 @@ module Merge =
                             (l2o : ILayer option) (slo2 : array<ILayer option>) 
                             : ComposedLayerResult =
 
-        invariant (domination <> MoreDetailedDominates) "58d9ee5a-ba81-4e45-b03f-4e2dd780175a"
+        invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "58d9ee5a-ba81-4e45-b03f-4e2dd780175a"
         invariant (l1o.IsNone || l1o.Value.Def = def) "c8931d12-5472-4f11-ab64-b5c49e1ebbb5"
         invariant (l2o.IsNone || l2o.Value.Def = def) "c9e6f48e-763c-482a-8cb2-909490b978f2"
         invariant (slo1 |> Seq.choose id |> Seq.forall (fun x -> x.Def = def)) "5739daef-3c13-4409-9ba0-78a5a311634c"
@@ -197,10 +198,10 @@ module Merge =
 
         let layersInOrder = 
             match domination with
-            | FirstDominates        -> seq { yield l2o; yield! slo2; yield l1o; yield! slo1 } |> Seq.choose id |> Seq.toArray
-            | SecondDominates       -> seq { yield l1o; yield! slo1; yield l2o; yield! slo2 } |> Seq.choose id |> Seq.toArray
-            | MoreDetailedDominates ->
-                failwith "MoreDetailedDominates is not allowed here. Invariant bcb06b5b-5d28-4442-b388-05b29139743b." 
+            | FirstDominates       -> seq { yield l2o; yield! slo2; yield l1o; yield! slo1 } |> Seq.choose id |> Seq.toArray
+            | SecondDominates      -> seq { yield l1o; yield! slo1; yield l2o; yield! slo2 } |> Seq.choose id |> Seq.toArray
+            | MoreDetailedOrFirst  -> failwith "MoreDetailedOrFirst is not allowed here. Invariant bcb06b5b-5d28-4442-b388-05b29139743b."
+            | MoreDetailedOrSecond -> failwith "MoreDetailedOrSecond is not allowed here. Invariant 04ddaac5-4daf-4a0a-a0be-7664a1ae7ac6."
 
         composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel layersInOrder
 
@@ -209,7 +210,7 @@ module Merge =
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
                              (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ComposedLayerResult[] =
 
-        invariant (domination <> MoreDetailedDominates) "de263f01-fd18-41d5-b061-f301aed7cf4e"
+        invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "de263f01-fd18-41d5-b061-f301aed7cf4e"
 
         // ensure that all parts have the same layers ...
         let getLayerSemantics (x : ILayer[]) = x |> Seq.map (fun x -> x.Def) |> Set.ofSeq
@@ -247,7 +248,7 @@ module Merge =
                        (strangerThings : bool)
                        : QNodeRef =
 
-        invariant (domination <> MoreDetailedDominates) "c134db85-643a-420d-8205-a795a7bce5ca"
+        invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "c134db85-643a-420d-8205-a795a7bce5ca"
 
         // ensure that optional root nodes coincide with specified root cell
         let check s (n : QNode option) = 
@@ -341,7 +342,7 @@ module Merge =
 
             invariant (n1.SplitLimitExponent = n2.SplitLimitExponent) "6b6b74c6-f8dc-4177-93ba-99bea3328332"
 
-            invariantm (QNode.Overlap(n1, n2)) 
+            invariantm (QNode.CellOverlap(n1, n2)) 
                 (sprintf "Nodes must overlap. First %A. Second %A" n1.Cell n2.Cell)
                 "740fb9b2-de34-4c83-85fd-f4149da25c83"
 
@@ -356,9 +357,8 @@ module Merge =
 
 
                 // common root cell
-                let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
-                if rc.IsCenteredAtOrigin then
-                    failwith "Centered cells are currently not supported. Error 20364c6b-c265-4e08-be21-fc69a0f96758."
+                let rc = n1.Cell.Union(n2.Cell)
+                invariant (not rc.IsCenteredAtOrigin) "20364c6b-c265-4e08-be21-fc69a0f96758"
 
                 let (n1o, sno1) =
                     if rc = n1.Cell then
@@ -406,9 +406,10 @@ module Merge =
                         sno1.[qi] <- None
                         sno2.[qi] <- None
                         match domination with
-                        | FirstDominates -> sno1.[qi] <- m
-                        | SecondDominates -> sno2.[qi] <- m
-                        | MoreDetailedDominates -> failwith "MoreDetailedDominates mode is currently not supported. Error e23a523f-b3e2-4981-b362-948fcbce15da."
+                        | FirstDominates       -> sno1.[qi] <- m
+                        | SecondDominates      -> sno2.[qi] <- m
+                        | MoreDetailedOrFirst  -> failwith "MoreDetailedOrFirst is not allowed here. Invariant d7caca1a-9e00-4f9e-b20b-f4ca8865005a."
+                        | MoreDetailedOrSecond -> failwith "MoreDetailedOrSecond is not allowed here. Invariant 732e7657-9db4-49b5-8a96-d448318a7505."
                     | _ -> ()
 
                 // .... check if dominating lower-resolution layer needs to be pushed through to only partially overlapping higher-res sublayer
@@ -430,27 +431,27 @@ module Merge =
 
                 create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2 strangerThings
 
+
+    let private resolveCentered (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) =
+        failwith "resolve centered"
+
+
     
     /// Merge nodes that do not overlap.
-    let private mergeNonOverlappingNodes (domination : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
+    let private mergeNonOverlappingNodes (dominance : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
         match nr1.TryGetInMemory(), nr2.TryGetInMemory() with
         | None,    None    -> NoNode
         | Some _,  None    -> nr1
         | None,    Some _  -> nr2
         | Some n1, Some n2 ->
-
-            invariant (n1.SplitLimitExponent = n2.SplitLimitExponent) "5a057fc7-fe39-4c6e-a759-1a49054c34e7"
-
-            invariantm (QNode.Overlap(n1, n2) |> not)
-                (sprintf "Nodes must not overlap. First %A. Second %A" n1.Cell n2.Cell)
-                "6ada6e09-ef33-4daf-9b0c-4c6dd30f0087"
+        
+            invariant (n1.DoesNotOverlap(n2))                                   "6ada6e09-ef33-4daf-9b0c-4c6dd30f0087"
+            invariant (n1.SplitLimitExponent = n2.SplitLimitExponent)           "5a057fc7-fe39-4c6e-a759-1a49054c34e7"
 
             // common root cell
-            let rc = Cell2d(Box2d(n1.Cell.BoundingBox, n2.Cell.BoundingBox))
-            if rc.IsCenteredAtOrigin then
-                failwith "Centered cells are currently not supported. Error f312f2bd-4464-4156-973f-21cdd3b97886."
-            invariant (rc.Contains n1.Cell && rc.Exponent > n1.Cell.Exponent) "e93e27b4-f9a3-484f-a3fa-6e28cb4e803b"
-            invariant (rc.Contains n2.Cell && rc.Exponent > n2.Cell.Exponent) "6e4b0a9a-c059-4ba3-8fde-029482326669"
+            let rc = n1.Cell.Union(n2.Cell)
+            invariant (rc.Contains n1.Cell && rc.Exponent > n1.Cell.Exponent)   "e93e27b4-f9a3-484f-a3fa-6e28cb4e803b"
+            invariant (rc.Contains n2.Cell && rc.Exponent > n2.Cell.Exponent)   "6e4b0a9a-c059-4ba3-8fde-029482326669"
 
             // quadrant index for n1 and n2
             let qi1 = rc.GetQuadrant(n1.Cell).Value
@@ -463,29 +464,314 @@ module Merge =
             sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
 
             // create root node from two sets of subnodes
-            create rc n1.SplitLimitExponent domination None sno1 None sno2 false
+            create rc n1.SplitLimitExponent dominance None sno1 None sno2 false
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+    type CellRelation =
+        | DisjointCells
+        | PartiallyOverlappingCells
+        | IdenticalCells
+        | FirstCellContainsSecond
+        | SecondCellContainsFirst
+
+    let cellRelationOf (a : Cell2d) (b : Cell2d) =
+        if a.Intersects(b) then
+            match a.Contains(b), b.Contains(a) with
+            | false, false -> PartiallyOverlappingCells
+            | false, true  -> SecondCellContainsFirst
+            | true, false  -> FirstCellContainsSecond
+            | true, true   -> IdenticalCells
+        else
+            DisjointCells
+
+    type Tree = 
+        | Leaf of QNode 
+        | Tree of QNode
+
+    module Tree =
+
+        let ofQNode (root : QNode) : Tree =
+            invariant (not(root.Cell.IsCenteredAtOrigin)) "40e61038-1cda-4b27-8cc8-f23c13878b46"
+            if root.IsLeafNode then Leaf(root) else Tree(root)
+
+        let inline qnode n = match n with | Leaf n | Tree n -> n
+
+        let cell n = match n with | Leaf n | Tree n -> n.Cell
+
+    type CenterTree =
+        | CenterLeaf of QNode 
+        | CenterTree of QNode
+
+    module CenterTree =
+
+        let ofQNode (root : QNode) : CenterTree =
+            invariant (root.Cell.IsCenteredAtOrigin) "1553b069-5e00-429f-932e-e75a7fe64ede"
+            if root.IsLeafNode then CenterLeaf(root) else CenterTree(root)
+
+        let inline qnode n = match n with | CenterLeaf n | CenterTree n -> n
+
+        let cell n = match n with | CenterLeaf n | CenterTree n -> n.Cell
+
+
+    type MaybeCentered =
+        | NonCentered of Tree
+        | Centered of CenterTree
+
+    module MaybeCentered =
+
+        let ofQNode (root : QNode) : MaybeCentered =
+            if root.Cell.IsCenteredAtOrigin then
+                root |> CenterTree.ofQNode |> Centered
+            else 
+                root |> Tree.ofQNode |> NonCentered
+
+        let inline qnode n =
+            match n with
+            | NonCentered n -> Tree.qnode n
+            | Centered n    -> CenterTree.qnode n
+
+        let inline cell n = (qnode n).Cell
+
+        let inline isLeaf n = (qnode n).IsLeafNode
+
+        let inline children n =
+            match (qnode n).SubNodes with
+            | Some ns -> ns |> Array.map(fun n -> n.TryGetInMemory()) |> Array.map(Option.map(Tree.ofQNode)) |> Some
+            | None    -> None
+
+        let inline ebbox n = (qnode n).ExactBoundingBox
+
+        let inline ebboxContains first second = (ebbox first).Contains(ebbox second)
+
+
+    type SubtreeRelation =
+        | DirectChild    of child : Tree * qi : int
+        | IndirectChild  of child : Tree * qi : int
+        | NestedDirect   of child : CenterTree
+        | NestedIndirect of child : CenterTree
+        | InvalidSubtree of child : MaybeCentered * root : Cell2d
+
+    module SubtreeRelation =
+
+        let ofTree (root : Cell2d) (child : Tree) : SubtreeRelation =
+            let c = Tree.cell child 
+            if root.Exponent > c.Exponent then
+                let qi = root.GetQuadrant(c)
+                if qi.HasValue then
+                    let isDirect = c.Exponent + 1 = root.Exponent
+                    if isDirect then DirectChild(child, qi.Value) else IndirectChild(child, qi.Value)
+                else
+                    InvalidSubtree(NonCentered child, root)
+            else
+                InvalidSubtree(NonCentered child, root)
+
+        let ofMaybeCentered (root : Cell2d) (child : MaybeCentered) : SubtreeRelation =
+            let c = MaybeCentered.cell child 
+            if root.Exponent > c.Exponent then
+                let isDirect = c.Exponent + 1 = root.Exponent
+                let qi = root.GetQuadrant(c)
+                match root.IsCenteredAtOrigin, qi.HasValue, child with
+                | _,     true,  NonCentered x -> if isDirect then DirectChild(x, qi.Value) else IndirectChild(x, qi.Value)
+                | true,  false, Centered    x -> if isDirect then NestedDirect(x)          else NestedIndirect(x)
+                | _ -> InvalidSubtree(child, root)
+            else
+                InvalidSubtree(child, root)
+            
+
+    type MergeRelation =
+        | MergeWinner       of winner : MaybeCentered * loser : MaybeCentered
+        | MergeDisjoint     of commonRootCell : Cell2d * first : SubtreeRelation * second : SubtreeRelation
+        | MergeCollision    of first : MaybeCentered * second : MaybeCentered * dominance : Dominance
+        | MergeSubtree      of parent : MaybeCentered * child : SubtreeRelation * dominance : Dominance
+        | MergeNested       of centeredLarge : CenterTree * centeredSmall : CenterTree * dominance : Dominance
+
+    module MergeRelation =
+
+        let rec create (dominance : Dominance) (first : MaybeCentered) (second : MaybeCentered) : MergeRelation =
+
+            let c1 = MaybeCentered.cell first
+            let c2 = MaybeCentered.cell second
+
+            let failWithConfiguration error =
+                sprintf "Configuration (first=%A, second=%A, dominance=%A). Error %s." 
+                        c1 c2 dominance error |> failwith
+
+            match cellRelationOf c1 c2 with
+        
+            | DisjointCells ->
+                let rc = c1.Union(c2)
+                let rel = SubtreeRelation.ofTree rc
+                match first, second with
+                | NonCentered a, NonCentered b -> MergeDisjoint (rc, rel a, rel b)
+                | _ -> failwith "todo"
+        
+            | PartiallyOverlappingCells ->
+                // can happen with one centered cell and another non-centered cell
+                failWithConfiguration "b0cd642b-c407-45ce-a871-bec728161354"
+        
+            | SecondCellContainsFirst ->
+                create dominance.Flipped second first
+                
+            | FirstCellContainsSecond ->
+                if dominance = FirstDominates && (MaybeCentered.ebbox first).Contains((MaybeCentered.ebbox second)) then
+                    MergeWinner (first, second)
+                else
+                    match first, second with
+                    | Centered    _, NonCentered _
+                    | NonCentered _, NonCentered _ -> MergeSubtree (first, second |> SubtreeRelation.ofMaybeCentered c1, dominance)
+                    | Centered    a, Centered    b -> MergeNested  (a, b, dominance)
+                    | NonCentered a, Centered    b -> failwith "todo: create NonCentered a, Centered b"
+
+            | IdenticalCells ->
+                invariant (c1 = c2) "8c6566b8-66b8-492d-8e30-05fefd210cb7"
+                if dominance = FirstDominates && (MaybeCentered.ebboxContains first second) then
+                    MergeWinner (first, second)
+                elif dominance = SecondDominates && (MaybeCentered.ebboxContains second first) then
+                    MergeWinner (second, first)
+                else
+                    MergeCollision (first, second, dominance)
+        
+    let private createNodeFromLeafs (a : MaybeCentered) (b : MaybeCentered) : MaybeCentered =
+        if MaybeCentered.isLeaf a && MaybeCentered.isLeaf b then
+            failwith "todo: create node from two leafs"
+        else
+            failwith "Error 8adb1a6e-db02-4125-9595-acb0a2318f33."
+        
+
+    let private createNodeFromDirectChildren (rootCell : Cell2d) (directChildren : Tree option[]) : Tree =
+        invariant (directChildren |> Seq.choose id |> Seq.forall (fun n -> (Tree.cell n).Exponent + 1 = rootCell.Exponent)) "701c3645-3449-4311-8e04-f1f99119a26f"
+        failwith "todo: create node from direct children"
+
+    /// Attaches a parent node to n and creates LoD layers for parent.
+    let private growParent (n : Tree) : Tree =
+        let cell = Tree.cell n
+        let parentCell = cell.Parent
+        let qi = parentCell.GetQuadrant(cell).Value
+        let ns = Array.create 4 None
+        ns.[qi] <- Some n
+        createNodeFromDirectChildren parentCell ns
+
+    /// Attaches a parent node to n and creates LoD layers for parent.
+    let private growParentCentered (n : CenterTree) : CenterTree =
+        failwith "todo: grow a parent"
+
+    
+        
+
+            
+
+    let rec private mergeRec (dominance : Dominance) (a : MaybeCentered) (b : MaybeCentered) : MaybeCentered =
+        
+        (* helpers *)
+        let mergeChildren (ns1 : Tree option[] option) (ns2 : Tree option[] option) : Tree option[] option =
+            Option.merge2 (Array.map2 (Option.merge2 (fun a b ->
+                match mergeRec dominance (NonCentered a) (NonCentered b) with
+                | Centered _    -> failwith "aaaaaaaaaaaaaaaaaaaaaaaaaarghhh"
+                | NonCentered t -> t
+                ))) ns1 ns2
+
+
+        (* zoo *)
+        match MergeRelation.create dominance a b with
+
+        // winner
+        | MergeWinner (winner, _)                                            -> winner
+            
+        // disjoint
+        | MergeDisjoint (_ , IndirectChild (x, _), IndirectChild  (y, _))    -> mergeRec dominance (x |> growParent |> NonCentered) (y |> growParent |> NonCentered)
+        | MergeDisjoint (_ , IndirectChild (x, _), DirectChild    (y, _))    -> mergeRec dominance (x |> growParent |> NonCentered) (y               |> NonCentered)
+        | MergeDisjoint (_ , IndirectChild (x, _), NestedDirect   (y   ))    -> failwith "todo: MergeDisjoint (_ , IndirectChild (x, _), NestedDirect   (y   ))"
+        | MergeDisjoint (_ , IndirectChild (x, _), NestedIndirect (y   ))    -> failwith "todo: MergeDisjoint (_ , IndirectChild (x, _), NestedIndirect (y   ))"
+        
+        | MergeDisjoint (_ , DirectChild   (x, _), IndirectChild  (y, _))    -> mergeRec dominance (x               |> NonCentered) (y |> growParent |> NonCentered)
+        | MergeDisjoint (rc, DirectChild   (x,xi), DirectChild    (y,yi))    -> let ns = Array.create 4 None
+                                                                                ns.[xi] <- Some x
+                                                                                ns.[yi] <- Some y
+                                                                                createNodeFromDirectChildren rc ns |> NonCentered
+        | MergeDisjoint (_ , DirectChild (x, _),   NestedDirect   (y   ))    -> failwith "todo: MergeDisjoint (_ , DirectChild (x, _),   NestedDirect   (y   ))"
+        | MergeDisjoint (_ , DirectChild (x,xi),   NestedIndirect (y   ))    -> failwith "todo: MergeDisjoint (_ , DirectChild (x,xi),   NestedIndirect (y   ))"
+
+        | MergeDisjoint (_ , NestedDirect x,       IndirectChild  (y, _))    -> failwith "todo: MergeDisjoint (_ , NestedDirect x,       IndirectChild  (y, _))"
+        | MergeDisjoint (_ , NestedDirect x,       DirectChild    (y, _))    -> failwith "todo: MergeDisjoint (_ , NestedDirect x,       DirectChild    (y, _))"
+        | MergeDisjoint (_ , NestedDirect x,       NestedDirect   (y   ))    -> failwith "todo: MergeDisjoint (_ , NestedDirect x,       NestedDirect   (y   ))"
+        | MergeDisjoint (_ , NestedDirect x,       NestedIndirect (y   ))    -> failwith "todo: MergeDisjoint (_ , NestedDirect x,       NestedIndirect (y   ))"
+
+        | MergeDisjoint (_ , NestedIndirect x,     IndirectChild  (y, _))    -> failwith "todo: MergeDisjoint (_ , NestedIndirect x,     IndirectChild  (y, _))"
+        | MergeDisjoint (_ , NestedIndirect x,     DirectChild    (y, _))    -> failwith "todo: MergeDisjoint (_ , NestedIndirect x,     DirectChild    (y, _))"
+        | MergeDisjoint (_ , NestedIndirect x,     NestedDirect   (y   ))    -> failwith "todo: MergeDisjoint (_ , NestedIndirect x,     NestedDirect   (y   ))"
+        | MergeDisjoint (_ , NestedIndirect x,     NestedIndirect (y   ))    -> failwith "todo: MergeDisjoint (_ , NestedIndirect x,     NestedIndirect (y   ))"
+
+        // collision
+        | MergeCollision (first, second, d)                                  -> let rc = MaybeCentered.cell first
+                                                                                invariant (rc = MaybeCentered.cell second) "b7d52cc6-f2bd-4c2f-a0e8-aa5e484d203f"
+                                                                                let ns1 = MaybeCentered.children first
+                                                                                let ns2 = MaybeCentered.children second
+                                                                                match mergeChildren ns1 ns2 with
+                                                                                | None -> createNodeFromLeafs first second
+                                                                                | Some ns -> createNodeFromDirectChildren rc ns |> NonCentered
+
+        // subtree
+        | MergeSubtree (parent, DirectChild   (child, qi), dominance)        -> let rc = MaybeCentered.cell parent
+                                                                                let ns1 = parent |> MaybeCentered.children
+                                                                                let ns2 = Array.create 4 None
+                                                                                ns2.[qi] <- Some child
+                                                                                match mergeChildren ns1 (Some ns2) with
+                                                                                | None -> failwith "error 135689f9-0a90-4c50-a32f-d0247287cd9f"
+                                                                                | Some ns -> createNodeFromDirectChildren rc ns |> NonCentered
+
+        | MergeSubtree (parent, IndirectChild (child,  _), dominance)        -> mergeRec dominance parent (child |> growParent |> NonCentered)
+        | MergeSubtree (parent, NestedDirect (child),      dominance)        -> failwith "todo: MergeSubtree (parent, NestedDirect (child),      dominance)"
+        | MergeSubtree (parent, NestedIndirect (child),    dominance)        -> failwith "todo: MergeSubtree (parent, NestedIndirect (child),    dominance)"
+
+        // nested
+        | MergeNested (large, small, d)                                      -> mergeRec d (Centered large) (small |> growParentCentered |> Centered)
+
+        // invalid
+        | MergeDisjoint (_, InvalidSubtree(c1,r1), _)                        -> failwith "todo: invalid"
+        | MergeDisjoint (_, _, InvalidSubtree(c1,r1))                        -> failwith "todo: invalid"
+        | MergeSubtree  (_, InvalidSubtree(c1,r1), _)                        -> failwith "todo: invalid"
 
     /// Immutable merge.
-    let merge (outOfCore : bool) (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
+    let merge (dominance : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef =
 
-        if domination = MoreDetailedDominates then failwith "MoreDetailedDominates mode is currently not supported. Error 37f67384-7bdc-44f0-b31d-6a347cb5b0c2."
+        match first.TryGetInMemory(), second.TryGetInMemory() with
+        | None,   None   -> NoNode
+        | Some _, None   -> first
+        | None,   Some _ -> second
+        | Some a, Some b -> 
+            
+            invariantm (a.SplitLimitExponent = b.SplitLimitExponent)
+                "Cannot merge quadtrees with different split limits."   "6222eb6b-a7aa-43c1-9323-e28d6275696b"
 
-        match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
-        | None,       None        -> NoNode
-        | Some _,     None        -> firstRef
-        | None,       Some _      -> secondRef
-        | Some first, Some second ->
-
-            if first.SplitLimitExponent <> second.SplitLimitExponent then
-                failwith "Cannot merge quadtrees with different split limits. Error 6222eb6b-a7aa-43c1-9323-e28d6275696b."
-
-            let result =
-                if QNode.Overlap(first, second) then
-                    // one quadtree contains the other (there is no partial overlap in quadtrees)
-                    mergeOverlappingNodes    domination firstRef secondRef
-                else
-                    // quadtrees are completely separated
-                    mergeNonOverlappingNodes domination firstRef secondRef
-
-            result
+            let result = mergeRec dominance (MaybeCentered.ofQNode a) (MaybeCentered.ofQNode b)
+            result |> MaybeCentered.qnode |> InMemoryNode
