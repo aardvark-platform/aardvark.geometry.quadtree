@@ -20,6 +20,12 @@ module Prelude =
     let inline minInt64 (a : int64) (b : int64) = if a < b then a else b
     let inline maxInt64 (a : int64) (b : int64) = if a > b then a else b
 
+    let inline getParentCellAndIndex (cell : Cell2d) : (Cell2d * int) =
+        invariant (not cell.IsCenteredAtOrigin) "dd478bd0-f646-4fc9-9874-b56b518a120e"
+        let parent = cell.Parent
+        let qi = parent.GetQuadrant(cell).Value
+        (parent, qi)
+
 module Option =
 
     let merge2 f x y = match x, y with | None, None -> None | Some x, None | None, Some x -> Some x | Some x, Some y -> f x y |> Some
