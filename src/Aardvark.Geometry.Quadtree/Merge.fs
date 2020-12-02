@@ -737,6 +737,13 @@ module Merge =
     let private createNodeFromCenterChildren (children : CenterChildren) : CenterTree =
         failwith "todo: create center tree from children"
             
+    
+    let private split (node : Tree) : Children =
+        failwith "todo: split"
+
+    let private splitCentered (node : CenterTree) : CenterChildren =
+        failwith "todo: split a centered tree"
+
     /// Attaches a parent node to n and creates LoD layers for parent.
     let private growParent (n : Tree) : Tree =
         let cell = Tree.cell n
@@ -749,7 +756,7 @@ module Merge =
 
     /// Attaches a parent node to n and creates LoD layers for parent.
     let private growCenterParent (n : CenterTree) : CenterTree =
-        failwith "todo: grow a parent"
+        splitCentered n |> createNodeFromCenterChildren
 
 
     module CenterChildren =
@@ -772,12 +779,6 @@ module Merge =
 
         let mergeCenterChildren (dominance : Dominance) (ns1 : CenterChildren) (ns2 : CenterChildren) : CenterChildren =
             failwith "todo: merge center children"
-
-        let split (node : Tree) : Children =
-            failwith "todo: split"
-
-        let splitCentered (node : CenterTree) : CenterChildren =
-            failwith "todo: split a centered tree"
 
         let failwithInvalidMerge rel error = sprintf "Invalid merge. %A. Error %s." rel error |> failwith
 
