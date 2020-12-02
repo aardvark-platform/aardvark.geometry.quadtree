@@ -76,8 +76,8 @@ module internal Resamplers =
     let resamplers = Map.ofSeq [
         (Defs.Heights1f.Id, resampleFloat32 :> obj)
         (Defs.Heights1d.Id, resampleFloat64 :> obj)
-        (Defs.HeightsBilinear4f.Id, resampleV4fNorm :> obj)
-        (Defs.HeightsBilinear4d.Id, resampleV4dNorm :> obj)
+        (Defs.HeightsBilinear4f.Id, resampleV4f :> obj)
+        (Defs.HeightsBilinear4d.Id, resampleV4d :> obj)
 
         (Defs.Normals3f.Id, resampleV3fNorm :> obj)
         (Defs.Normals3d.Id, resampleV3dNorm :> obj)
@@ -95,13 +95,13 @@ module internal Resamplers =
         (Defs.Intensities1f.Id, resampleFloat32 :> obj)
         (Defs.Intensities1d.Id, resampleFloat64 :> obj)
 
-        (Defs.BilinearParams4f.Id, resampleV4fNorm :> obj)
-        (Defs.BilinearParams4d.Id, resampleV4dNorm :> obj)
+        (Defs.BilinearParams4f.Id, resampleV4f :> obj)
+        (Defs.BilinearParams4d.Id, resampleV4d :> obj)
 
         (Defs.Volumes1f.Id, resampleFloat32 :> obj)
         (Defs.Volumes1d.Id, resampleFloat64 :> obj)
-        (Defs.VolumesBilinear4f.Id, resampleV4fNorm :> obj)
-        (Defs.VolumesBilinear4d.Id, resampleV4dNorm :> obj)
+        (Defs.VolumesBilinear4f.Id, resampleV4f :> obj)
+        (Defs.VolumesBilinear4d.Id, resampleV4d :> obj)
     ]
 
     let typeToResampler =

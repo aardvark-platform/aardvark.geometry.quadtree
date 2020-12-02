@@ -10,3 +10,8 @@ nuget Aardvark.Data.Durable             ~> 0.2.6
 nuget Aardvark.Data.Durable.Codec       ~> 0.2.6
 nuget Newtonsoft.Json                   ~> 12.0.0
 nuget Uncodium.SimpleStore              ~> 2.1.0
+
+nuget xunit                             ~> 2.4.1
+nuget xunit.runner.visualstudio         ~> 2.4.3
+nuget coverlet.collector                ~> 1.3.0
+nuget Microsoft.NET.Test.Sdk            ~> 16.5.0
