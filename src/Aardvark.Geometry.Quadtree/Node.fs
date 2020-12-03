@@ -230,6 +230,20 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
 
         subNodes
 
+    member this.SplitLayers () =
+
+        let ssls = this.Layers |> Array.map (fun l -> l.SupersampleUntyped())
+
+        cell.Children
+        |> Array.map (fun subCell ->
+            let subBox = subCell.GetBoundsForExponent(this.SampleExponent-1)
+            if ssls.[0].SampleWindow.Intersects(subBox) then
+                ssls |> Array.map (fun l -> (l.WithWindow subBox).Value) |> Some
+            else
+                None
+            )
+
+
     member this.GetAllSamples () : Cell2d[] =
         this.SampleWindow.GetAllSamples(this.SampleExponent)
 

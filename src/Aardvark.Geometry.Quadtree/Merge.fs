@@ -758,23 +758,11 @@ module Merge =
     let private createNodeFromChildren' (children : CenterChildren) : CenterTree =
         failwith "todo: create center tree from children"
             
-    let private splitLayer (l : ILayer) : ILayer option[] =
-        failwith "todo: split layer"
-
-    /// Split a layer stack into 4 stacks (one per quadrant 0..3),
-    /// where a quadrant is None if there is no layer data in the quadrant.
-    let private splitLayers (ls : ILayer[]) : Option<ILayer[]>[] =
-        let sls = ls |> Array.map splitLayer
-        let f i = if sls.[0].[i].IsNone then None
-                  else sls |> Array.map (fun ls -> ls.[i].Value) |> Some
-        [| f 0; f 1; f 2; f 3 |]
-        
-
     let private split (leaf : LeafNode) : Children =
         let n = leaf |> LeafNode.qnode
         let rc = n.Cell
         let qs = rc.Children
-        let sls = n.Layers |> splitLayers
+        let sls = n.SplitLayers ()
         let ns = Array.map2 (fun q ls -> match ls with
                                          | Some ls -> QNode(q, n.SplitLimitExponent, ls) |> Tree.ofQNode |> Some
                                          | None -> None
