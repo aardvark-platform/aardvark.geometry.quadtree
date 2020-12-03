@@ -435,7 +435,7 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,1))
-    Assert.True((x = 20.0f))
+    x = 16.25f   |> Assert.True
 
     ()
 
@@ -454,7 +454,7 @@ let ``Merge_LayersWithDifferentResolution_256`` () =
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 20.0f))
+    Assert.True((x = 12.5f))
 
     ()
 

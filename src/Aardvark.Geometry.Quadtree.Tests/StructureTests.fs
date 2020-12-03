@@ -163,17 +163,17 @@ let ``boundingbox: merged e=0 e=0 adjacent`` () =
 let ``boundingbox: merged e=0 e=-2 adjacent`` () =
  
      let a = createQuadtree { Origin = Cell2d(0,0,0); Size = (1,1); Split = 8; Data = [|
-         for i=0 to 1*1 do yield 1.0
+         for i=0 to 1*1 do yield 10.0
      |]}
 
      let b = createQuadtree { Origin = Cell2d(4,0,-2); Size = (4,4); Split = 8; Data = [|
-         for i=0 to 4*4 do yield 1.0
+         for i=0 to 4*4 do yield 20.0
      |]}
 
      let m1 = Quadtree.Merge FirstDominates a b
-     m1.ExactBoundingBox = Box2d(V2d(0,0), V2d(2,1)) |> Assert.True
-
      let m2 = Quadtree.Merge SecondDominates a b
+
+     m1.ExactBoundingBox = Box2d(V2d(0,0), V2d(2,1)) |> Assert.True
      m2.ExactBoundingBox = Box2d(V2d(0,0), V2d(2,1)) |> Assert.True
 
 [<Fact>]
