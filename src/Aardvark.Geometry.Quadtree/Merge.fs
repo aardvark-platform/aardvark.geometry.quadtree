@@ -166,7 +166,7 @@ module Merge =
                             (l2o : ILayer option) (slo2 : array<ILayer option>) 
                             : ComposedLayerResult =
 
-        invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "58d9ee5a-ba81-4e45-b03f-4e2dd780175a"
+        //invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "58d9ee5a-ba81-4e45-b03f-4e2dd780175a"
         invariant (l1o.IsNone || l1o.Value.Def = def) "c8931d12-5472-4f11-ab64-b5c49e1ebbb5"
         invariant (l2o.IsNone || l2o.Value.Def = def) "c9e6f48e-763c-482a-8cb2-909490b978f2"
         invariant (slo1 |> Seq.choose id |> Seq.forall (fun x -> x.Def = def)) "5739daef-3c13-4409-9ba0-78a5a311634c"
@@ -198,10 +198,8 @@ module Merge =
 
         let layersInOrder = 
             match domination with
-            | FirstDominates       -> seq { yield l2o; yield! slo2; yield l1o; yield! slo1 } |> Seq.choose id |> Seq.toArray
-            | SecondDominates      -> seq { yield l1o; yield! slo1; yield l2o; yield! slo2 } |> Seq.choose id |> Seq.toArray
-            | MoreDetailedOrFirst  -> failwith "MoreDetailedOrFirst is not allowed here. Invariant bcb06b5b-5d28-4442-b388-05b29139743b."
-            | MoreDetailedOrSecond -> failwith "MoreDetailedOrSecond is not allowed here. Invariant 04ddaac5-4daf-4a0a-a0be-7664a1ae7ac6."
+            | FirstDominates  | MoreDetailedOrFirst  -> seq { yield l2o; yield! slo2; yield l1o; yield! slo1 } |> Seq.choose id |> Seq.toArray
+            | SecondDominates | MoreDetailedOrSecond -> seq { yield l1o; yield! slo1; yield l2o; yield! slo2 } |> Seq.choose id |> Seq.toArray
 
         composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel layersInOrder
 
@@ -210,7 +208,7 @@ module Merge =
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
                              (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ComposedLayerResult[] =
 
-        invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "de263f01-fd18-41d5-b061-f301aed7cf4e"
+        //invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "de263f01-fd18-41d5-b061-f301aed7cf4e"
 
         // ensure that all parts have the same layers ...
         let getLayerSemantics (x : ILayer[]) = x |> Seq.map (fun x -> x.Def) |> Set.ofSeq
@@ -749,9 +747,16 @@ module Merge =
 
     type InnerNode      = InnerNode of node : AnyTree
 
-    let private createNodeFromLeafs (dominance : Dominance) (a : LeafNode) (b : LeafNode) : LeafNode =
-        failwith "todo: create node from two leafs"
-      
+    let private createNodeFromLeafs (dom : Dominance) (a : LeafNode) (b : LeafNode) : LeafNode =
+
+        let qa = LeafNode.qnode a
+        let qb = LeafNode.qnode b
+        invariant (qa.Cell = qb.Cell) "0de68b42-3605-4791-9ca9-0688cc5dcf10"
+
+        let lrs = createLayers qa.Cell dom (Some qa.Layers) Array.empty (Some qb.Layers) Array.empty
+        let ls = lrs |> Array.map (fun r -> r.Layer)
+        QNode(qa.Cell, qa.SplitLimitExponent, ls) |> Leaf |> LeafNode.ofTree
+       
     let private createNodeFromChildren (children : Children) : Tree =
         failwith "todo: create tree from children"
 
