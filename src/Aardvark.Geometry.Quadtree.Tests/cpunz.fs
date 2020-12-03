@@ -411,3 +411,317 @@ module cpunz =
         //                                        |> Seq.toArray
 
         ()
+
+    let createQuadTreePlanesWithNaN =
+        
+            // define mapping of raw data to raster space
+            let hor1 = V4f(1.0, 0.0,0.0,0.0)
+            let hor2 = V4f(2.0, 0.0,0.0,0.0)
+            let oblique12 = V4f(1.5, 1.0,0.0,0.0)
+            let nanVal = V4f(nan, nan, nan, nan)  
+            let parameters = [|nanVal; nanVal; nanVal; 
+                               hor1; oblique12; nanVal;
+                               hor1; oblique12; nanVal;
+                               |]
+        
+            let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 3))
+        
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                
+            // build the quadtree (incl. levels-of-detail)
+                
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+        
+            qtree
+   
+    
+    [<Fact>]
+    let ``punz_double_merge_volume`` () =
+        let createOneCell = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(3.0, 0.0,0.0,0.0)
+                    
+            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            
+            let mapping = DataMapping(origin = Cell2d(4L, 4L, -1), size = V2i(1, 1))
+            
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                    
+            // build the quadtree (incl. levels-of-detail)
+                    
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+            
+            qtree
+    
+        let createOneSubCell4 = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(1.1, 0.0,0.0,0.0)
+            let hor2 = V4f(1.2, 0.0,0.0,0.0)
+            let hor3 = V4f(1.3, 0.0,0.0,0.0)
+            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+                
+            let parameters = [|hor1;hor2;
+                               hor3;hor4|]
+    
+            let mapping = DataMapping(origin = Cell2d(2L, 4L, -2), size = V2i(2, 2))
+    
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                
+            // build the quadtree (incl. levels-of-detail)
+                
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+    
+            qtree
+    
+            
+        let mainTree = createQuadTreePlanesWithNaN
+        let subTree = createOneCell 
+            
+        let newTree = Quadtree.Merge SecondDominates mainTree subTree
+    
+        let config = Query.Config.Default  
+        let resultCells = newTree |> Query.All config
+        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                     |> Seq.collect (fun arr -> arr)
+                   
+        let subTree4 = createOneSubCell4
+        let newTree4 = Quadtree.Merge SecondDominates newTree subTree4
+        let resultCells4 = newTree4 |> Query.All config
+        let qtreeCells4 = resultCells4 |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f)) 
+                                       |> Seq.collect (fun arr -> arr)
+       
+        ()
+
+    [<Fact>]
+    let ``punz_merge_verySmall_into_coarse_volume`` () =
+        let createOneCell = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(3.0, 0.0,0.0,0.0)
+                    
+            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            
+            let mapping = DataMapping(origin = Cell2d(4L, 4L, -2), size = V2i(1, 1))
+            
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                    
+            // build the quadtree (incl. levels-of-detail)
+                    
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+            
+            qtree
+    
+    
+        let mainTree = createQuadTreePlanesWithNaN
+        let subTree = createOneCell 
+            
+        let newTree = Quadtree.Merge SecondDominates mainTree subTree
+    
+        let config = Query.Config.Default  
+        let resultCells = newTree |> Query.All config
+        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                     |> Seq.collect (fun arr -> arr)
+                   
+        ()
+
+    [<Fact>]
+    let ``punz_merge_withOverlap_within_other_volume`` () =
+        let createOverlap = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(1.1, 0.0,0.0,0.0)
+            let hor2 = V4f(1.2, 0.0,0.0,0.0)
+            let hor3 = V4f(1.3, 0.0,0.0,0.0)
+            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+                
+            let parameters = [|hor1;hor2;
+                               hor3;hor4|]
+    
+            let mapping = DataMapping(origin = Cell2d(3L, 3L, -2), size = V2i(2, 2))
+    
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                
+            // build the quadtree (incl. levels-of-detail)
+                
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+    
+            qtree
+    
+    
+        let mainTree = createQuadTreePlanesWithNaN
+        let subTree = createOverlap 
+            
+        let newTree = Quadtree.Merge SecondDominates mainTree subTree
+    
+        let config = Query.Config.Default  
+        let resultCells = newTree |> Query.All config
+        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                     |> Seq.collect (fun arr -> arr)
+                   
+        ()
+
+    [<Fact>]
+    let ``punz_merge_withOverlap_overboarder_other_volume`` () =
+        
+        let createOverlap = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(1.1, 0.0,0.0,0.0)
+            let hor2 = V4f(1.2, 0.0,0.0,0.0)
+            let hor3 = V4f(1.3, 0.0,0.0,0.0)
+            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+                
+            let parameters = [|hor1;hor2;
+                               hor3;hor4|]
+    
+            let mapping = DataMapping(origin = Cell2d(11L, 11L, -2), size = V2i(2, 2))
+    
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                
+            // build the quadtree (incl. levels-of-detail)
+                
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+    
+            qtree
+    
+    
+        let mainTree = createQuadTreePlanesWithNaN
+        let subTree = createOverlap 
+            
+        let newTree = Quadtree.Merge SecondDominates mainTree subTree
+    
+        let config = Query.Config.Default  
+        let resultCells = newTree |> Query.All config
+        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                     |> Seq.collect (fun arr -> arr)
+                   
+        ()
+
+    [<Fact>]
+    let ``punz_merge_withOverlap_overboarder_overOrigin_other_volume`` () =
+        let createOverlap = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(1.1, 0.0,0.0,0.0)
+            let hor2 = V4f(1.2, 0.0,0.0,0.0)
+            let hor3 = V4f(1.3, 0.0,0.0,0.0)
+            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+                
+            let parameters = [|hor1;hor2;
+                               hor3;hor4|]
+    
+            let mapping = DataMapping(origin = Cell2d(-1L, -1L, -2), size = V2i(2, 2))
+    
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                
+            // build the quadtree (incl. levels-of-detail)
+                
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+    
+            qtree
+    
+    
+        let mainTree = createQuadTreePlanesWithNaN
+        let subTree = createOverlap 
+            
+        let newTree = Quadtree.Merge SecondDominates mainTree subTree
+    
+        let config = Query.Config.Default  
+        let resultCells = newTree |> Query.All config
+        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                     |> Seq.collect (fun arr -> arr)
+                   
+        ()
+
+    
+
+    [<Fact>]
+    let ``punz_2_merge_fine_first_other_volume`` () =
+        let createOverlap = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(1.1, 0.0,0.0,0.0)
+            let hor2 = V4f(1.2, 0.0,0.0,0.0)
+            let hor3 = V4f(1.3, 0.0,0.0,0.0)
+            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+                
+            let parameters = [|hor1;hor2;
+                               hor3;hor4|]
+    
+            let mapping = DataMapping(origin = Cell2d(4L, 4L, -2), size = V2i(2, 2))
+    
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                
+            // build the quadtree (incl. levels-of-detail)
+                
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+    
+            qtree
+        let createOneCell0 = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(3.0, 0.0,0.0,0.0)
+                    
+            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            
+            let mapping = DataMapping(origin = Cell2d(1L, 1L, 0), size = V2i(1, 1))
+            
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                    
+            // build the quadtree (incl. levels-of-detail)
+                    
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+            
+            qtree
+
+        let createOneCell1 = 
+            // define mapping of raw data to raster space
+            let hor1 = V4f(5.0, 0.0,0.0,0.0)
+                    
+            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            
+            let mapping = DataMapping(origin = Cell2d(0L, 0L, 1), size = V2i(1, 1))
+            
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
+                    
+            // build the quadtree (incl. levels-of-detail)
+                    
+            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+            
+            qtree
+
+    
+        let mainTree = createQuadTreePlanesWithNaN
+        let subTree = createOverlap 
+            
+        let mutable newTree = Quadtree.Merge SecondDominates mainTree subTree
+    
+        let config = Query.Config.Default  
+        let resultCells = newTree |> Query.All config
+        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                     |> Seq.collect (fun arr -> arr)
+        
+        
+        let subTree0 = createOneCell0 
+        
+        newTree <- Quadtree.Merge SecondDominates newTree subTree0
+    
+        let config = Query.Config.Default  
+        let resultCells0 = newTree |> Query.All config
+        let qtreeCells0 = resultCells0  |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                        |> Seq.collect (fun arr -> arr)
+
+
+        let subTree1 = createOneCell1 
+        
+        newTree <- Quadtree.Merge SecondDominates newTree subTree1
+    
+        let config = Query.Config.Default  
+        let resultCells1 = newTree |> Query.All config
+        let qtreeCells1 = resultCells1  |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                        |> Seq.collect (fun arr -> arr)
+        ()
