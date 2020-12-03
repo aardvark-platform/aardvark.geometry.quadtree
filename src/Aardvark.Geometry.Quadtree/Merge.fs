@@ -208,8 +208,6 @@ module Merge =
                              (l1o : ILayer[] option) (slo1 : array<ILayer[] option>)
                              (l2o : ILayer[] option) (slo2 : array<ILayer[] option>) : ComposedLayerResult[] =
 
-        //invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "de263f01-fd18-41d5-b061-f301aed7cf4e"
-
         // ensure that all parts have the same layers ...
         let getLayerSemantics (x : ILayer[]) = x |> Seq.map (fun x -> x.Def) |> Set.ofSeq
         let semsets = [l1o; l2o] |> Seq.append slo1 |> Seq.append slo2 |> Seq.choose id |> Seq.map getLayerSemantics |> Seq.distinct |> Seq.toArray // order does not matter
@@ -233,6 +231,59 @@ module Merge =
                 let arg2 = l2om  |>           f
                 let arg3 = slo2m |> Array.map f
                 let r = createLayer bounds sem domination arg0 arg1 arg2 arg3
+                r
+                )
+            |> Seq.toArray
+
+        result
+
+    /// all parts must have same semantic ...
+    let private mergeChildLayer (bounds : Cell2d) (def : Durable.Def) (slo : array<ILayer option>) 
+                            : ComposedLayerResult =
+
+        invariant (slo |> Seq.choose id |> Seq.forall (fun x -> x.Def = def)) "dc42eeb2-313d-46c8-a37c-64028860fa2d"
+
+        // ensure that all parts have consistent sample exponents ...
+        let f1 = Option.map (fun (x : ILayer) -> x.SampleExponent + 1)
+        let sampleExponents = slo |> Seq.map f1 |> Seq.choose id |> Seq.distinct |> Seq.toArray // order does not matter
+        invariantm (sampleExponents.Length = 1) (sprintf "Inconsistent sample exponents. %A" sampleExponents) "574de6be-e3e4-4449-91e0-c30da21b1b72"
+
+        // get sample exponent (for result layer)
+        let sampleExponentAtResultLevel = sampleExponents |> Array.exactlyOne
+
+        // compute result 
+        let getWinAtChildLevel (lo : ILayer option) = match lo with | Some l -> l.SampleWindowAtChildLevel | None -> Box2l.Invalid
+        let ws = slo |> Seq.choose id |> Seq.map (fun x -> x.SampleWindow) |> Box2l
+        
+        let finalWindowAtChildLevel = ws
+        
+        let boundsAtChildLevel = bounds.GetBoundsForExponent(sampleExponentAtResultLevel - 1)
+        invariantm (boundsAtChildLevel.Contains finalWindowAtChildLevel) 
+                   (sprintf "Final window (%A) is out of bounds (%A)." finalWindowAtChildLevel boundsAtChildLevel) 
+                   "f6369b37-4e38-4214-888b-85a6daca9bca"
+
+        composeLayersInOrder def bounds sampleExponentAtResultLevel finalWindowAtChildLevel (slo |> Seq.choose id |> Seq.toArray)
+
+    /// all parts must have same layer set ...
+    let private mergeChildLayers (bounds : Cell2d) (slo : array<ILayer[] option>) : ComposedLayerResult[] =
+
+        // ensure that all parts have the same layers ...
+        let getLayerSemantics (x : ILayer[]) = x |> Seq.map (fun x -> x.Def) |> Set.ofSeq
+        let semsets = slo |> Seq.choose id |> Seq.map getLayerSemantics |> Seq.distinct |> Seq.toArray // order does not matter
+        invariantm (semsets.Length = 1) 
+                   (sprintf "Parts have different layers. %A." semsets) "671a4567-2720-4082-9373-b5edc8311ee9"
+
+        // group by semantic
+        let toLayerMap (ls : ILayer[] option) = match ls with | Some ls -> ls |> Seq.map (fun l -> (l.Def, l)) |> Map.ofSeq | None -> Map.empty
+        let slom = slo |> Array.map toLayerMap
+
+        let semantics = semsets |> Seq.exactlyOne
+        let result = 
+            semantics 
+            |> Seq.map (fun sem ->
+                let f = Map.tryFind sem
+                let arg = slom |> Array.map f
+                let r = mergeChildLayer bounds sem arg
                 r
                 )
             |> Seq.toArray
@@ -532,6 +583,7 @@ module Merge =
         let inline isLeaf n = (qnode n).IsLeafNode
         let inline isCentered n = (cell n).IsCenteredAtOrigin
         let inline exactBounds n = (qnode n).ExactBoundingBox
+        let inline splitLimitExponent n = (qnode n).SplitLimitExponent
 
         let tryGetChildren n : Children option =
             match (qnode n).SubNodes with
@@ -541,6 +593,7 @@ module Merge =
     type Tree with
         member this.Cell with get() = Tree.cell this
         member this.ExactBounds with get() = Tree.exactBounds this
+        member this.SplitLimitExponent with get() = Tree.splitLimitExponent this
 
 
     /// Centered tree.
@@ -711,8 +764,11 @@ module Merge =
             invariant (not root.IsCenteredAtOrigin) "a89439d5-1490-4120-b451-50be51a0e262"
             ofIndexedSubnodes root children |> Children
 
-        let private extract x = match x with | Children (a,b) -> (a,b)
+        let extract x = match x with | Children (a,b) -> (a,b)
         
+        let splitLimitExponent x =
+            extract x |> snd |> Seq.choose(Option.map(fun x -> x.SplitLimitExponent)) |> Seq.head
+
         let merge dom mf c1 c2 =
             let (root1, ns1) = extract c1
             let (root2, ns2) = extract c2
@@ -747,6 +803,20 @@ module Merge =
 
     type InnerNode      = InnerNode of node : AnyTree
 
+    module InnerNode =
+        let inline ofTree (n : Tree) : InnerNode =
+            invariant (not(Tree.isLeaf n)) "cb91131f-2d2c-4fde-ac8c-c2ad715ad7ca"
+            n |> NonCentered |> InnerNode
+
+        let inline ofCenterTree (n : CenterTree) : InnerNode =
+            invariant (not(CenterTree.isLeaf n)) "a0874e5c-b42f-4310-8b02-cdf44c8ea6f4"
+            n |> Centered |> InnerNode
+
+        let inline toAnyTree (n : InnerNode) : AnyTree = match n with | InnerNode n -> n
+
+        let inline qnode n = n |> toAnyTree |> AnyTree.qnode
+        let inline cell n = (qnode n).Cell
+
     let private createNodeFromLeafs (dom : Dominance) (a : LeafNode) (b : LeafNode) : LeafNode =
 
         let qa = LeafNode.qnode a
@@ -756,9 +826,29 @@ module Merge =
         let lrs = createLayers qa.Cell dom (Some qa.Layers) Array.empty (Some qb.Layers) Array.empty
         let ls = lrs |> Array.map (fun r -> r.Layer)
         QNode(qa.Cell, qa.SplitLimitExponent, ls) |> Leaf |> LeafNode.ofTree
-       
+
+    let private createNodeFromLeafAndChildren (dom : Dominance) (a : LeafNode) (b : Children) : InnerNode =
+        let qa = LeafNode.qnode a
+        let (rootb, qbns) = Children.extract b
+        invariant (qa.Cell = rootb) "192bf088-592a-46b6-8910-bf99718e395b"
+
+        let qbns = qbns |> Array.map (Option.map(Tree.qnode))
+        let qbnsls = qbns |> Array.map (Option.map (fun x -> x.Layers))
+        let lrs = createLayers qa.Cell dom (Some qa.Layers) Array.empty None qbnsls
+        let ls = lrs |> Array.map (fun r -> r.Layer)
+        let n = QNode(qa.Cell, qa.SplitLimitExponent, ls, qbns) 
+        n |> Tree |> InnerNode.ofTree
+            
     let private createNodeFromChildren (children : Children) : Tree =
-        failwith "todo: create tree from children"
+    
+        let sle = Children.splitLimitExponent children
+        let (root, ns) = Children.extract children
+
+        let qns = ns |> Array.map (Option.map(Tree.qnode))
+        let qnsls = qns |> Array.map (Option.map (fun x -> x.Layers))
+        let lrs = mergeChildLayers root qnsls
+        let ls = lrs |> Array.map (fun r -> r.Layer)
+        QNode(root, sle, ls, qns) |> Tree
 
     let private createNodeFromChildren' (children : CenterChildren) : CenterTree =
         failwith "todo: create center tree from children"
@@ -821,6 +911,7 @@ module Merge =
         let failwith' rel error = sprintf "Invalid merge. %A. Error %s." rel error |> failwith
 
         let inline leaf x = x |> LeafNode.ofTree
+        let inline inner x = x |> InnerNode.ofTree
         let inline splitleaf x = leaf x |> split
         let inline subnodes x = Tree.tryGetChildren x
         let inline subnodes' x = CenterTree.tryGetChildren x
@@ -857,10 +948,10 @@ module Merge =
 
         | SameRoot (NonCentered first, NonCentered second, d)               -> invariant (first.Cell = second.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
                                                                                match subnodes first, subnodes second with
-                                                                               | None,     None     -> createNodeFromLeafs d (leaf first) (leaf second) |> LeafNode.toAnyTree
-                                                                               | None,     Some ns  -> mergeChildren       d (splitleaf first) ns       |> createNodeFromChildren |> NonCentered
-                                                                               | Some ns,  None     -> mergeChildren       d ns (splitleaf second)      |> createNodeFromChildren |> NonCentered
-                                                                               | Some ns1, Some ns2 -> mergeChildren       d ns1 ns2                    |> createNodeFromChildren |> NonCentered
+                                                                               | None,     None     -> createNodeFromLeafs           d         (leaf first)  (leaf second) |> LeafNode.toAnyTree
+                                                                               | None,     Some ns  -> createNodeFromLeafAndChildren d         (leaf first )  ns           |> InnerNode.toAnyTree
+                                                                               | Some ns,  None     -> createNodeFromLeafAndChildren d.Flipped (leaf second)  ns           |> InnerNode.toAnyTree
+                                                                               | Some ns1, Some ns2 -> mergeChildren d ns1 ns2 |> createNodeFromChildren |> NonCentered
 
         | SameRoot (Centered    first, Centered    second, d)               -> invariant (first.Cell = second.Cell) "fc986971-78ae-4fca-a367-eab059e8d68e"
                                                                                match subnodes' first, subnodes' second with
