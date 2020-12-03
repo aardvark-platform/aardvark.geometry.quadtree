@@ -533,6 +533,7 @@ module Merge =
         let inline cell n = match n with | Leaf n | Tree n -> n.Cell
         let inline isLeaf n = (qnode n).IsLeafNode
         let inline isCentered n = (cell n).IsCenteredAtOrigin
+        let inline exactBounds n = (qnode n).ExactBoundingBox
 
         let tryGetChildren n : Children option =
             match (qnode n).SubNodes with
@@ -541,7 +542,7 @@ module Merge =
 
     type Tree with
         member this.Cell with get() = Tree.cell this
-
+        member this.ExactBounds with get() = Tree.exactBounds this
 
 
     /// Centered tree.
@@ -640,7 +641,7 @@ module Merge =
     type MergeRelation =
         | MergeWinner       of winner : AnyTree * loser : AnyTree
         | MergeDisjoint     of commonRootCell : Cell2d * first : SubtreeRelation * second : SubtreeRelation
-        | MergeCollision    of first : AnyTree * second : AnyTree * dominance : Dominance
+        | SameRoot          of first : AnyTree * second : AnyTree * dominance : Dominance
         | MergeSubtree      of parent : AnyTree * child : SubtreeRelation * dominance : Dominance
         | MergeNested       of centeredLarge : CenterTree * centeredSmall : CenterTree * dominance : Dominance
 
@@ -688,7 +689,7 @@ module Merge =
                 elif dominance = SecondDominates && (AnyTree.ebboxContains second first) then
                     MergeWinner (second, first)
                 else
-                    MergeCollision (first, second, dominance)
+                    SameRoot (first, second, dominance)
        
     
     let private ofIndexedSubnodes (root : Cell2d) (children : (int * Tree) list) : (Cell2d * Tree option[]) =
@@ -712,19 +713,39 @@ module Merge =
             invariant (not root.IsCenteredAtOrigin) "a89439d5-1490-4120-b451-50be51a0e262"
             ofIndexedSubnodes root children |> Children
 
+        let private extract x = match x with | Children (a,b) -> (a,b)
+        
+        let merge dom mf c1 c2 =
+            let (root1, ns1) = extract c1
+            let (root2, ns2) = extract c2
+            invariant (root1 = root2) "88703a21-e46e-4f27-87cf-410544c9c04b"
+            let f a b = match a, b with 
+                        | None, None -> None | Some x, None | None, Some x -> Some x
+                        | Some x, Some y ->
+                            let ebx = Tree.exactBounds x
+                            let eby = Tree.exactBounds y
+                            if   dom = FirstDominates && ebx.Contains(eby) then Some x
+                            elif dom = SecondDominates && eby.Contains(ebx) then Some y
+                            else mf x y |> Some
+            Children(root1, Array.map2 f ns1 ns2)
+
     type LeafNode       = LeafNode of node : AnyTree
 
     module LeafNode =
 
-        let ofTree (n : Tree) : LeafNode =
+        let inline ofTree (n : Tree) : LeafNode =
             invariant (Tree.isLeaf n) "b4b2cda5-5ea8-4e0a-883d-c422a6afd760"
             n |> NonCentered |> LeafNode
 
-        let ofCenterTree (n : CenterTree) : LeafNode =
+        let inline ofCenterTree (n : CenterTree) : LeafNode =
             invariant (CenterTree.isLeaf n) "8ca00fe1-a5df-4fbd-99d5-a109d43cf6bc"
             n |> Centered |> LeafNode
 
-        let toAnyTree (n : LeafNode) : AnyTree = match n with | LeafNode n -> n
+        let inline toAnyTree (n : LeafNode) : AnyTree = match n with | LeafNode n -> n
+
+        let inline qnode n = n |> toAnyTree |> AnyTree.qnode
+        let inline cell n = (qnode n).Cell
+
 
     type InnerNode      = InnerNode of node : AnyTree
 
@@ -737,9 +758,28 @@ module Merge =
     let private createNodeFromCenterChildren (children : CenterChildren) : CenterTree =
         failwith "todo: create center tree from children"
             
-    
-    let private split (node : Tree) : Children =
-        failwith "todo: split"
+    let private splitLayer (l : ILayer) : ILayer option[] =
+        failwith "todo: split layer"
+
+    /// Split a layer stack into 4 stacks (one per quadrant 0..3),
+    /// where a quadrant is None if there is no layer data in the quadrant.
+    let private splitLayers (ls : ILayer[]) : Option<ILayer[]>[] =
+        let sls = ls |> Array.map splitLayer
+        let f i = if sls.[0].[i].IsNone then None
+                  else sls |> Array.map (fun ls -> ls.[i].Value) |> Some
+        [| f 0; f 1; f 2; f 3 |]
+        
+
+    let private split (leaf : LeafNode) : Children =
+        let n = leaf |> LeafNode.qnode
+        let rc = n.Cell
+        let qs = rc.Children
+        let sls = n.Layers |> splitLayers
+        let ns = Array.map2 (fun q ls -> match ls with
+                                         | Some ls -> QNode(q, n.SplitLimitExponent, ls) |> Tree.ofQNode |> Some
+                                         | None -> None
+                    ) qs sls
+        Children(rc, ns)
 
     let private splitCentered (node : CenterTree) : CenterChildren =
         failwith "todo: split a centered tree"
@@ -770,32 +810,40 @@ module Merge =
 
 
     
-    let rec private mergeRec (dominance : Dominance) (a : AnyTree) (b : AnyTree) : AnyTree =
+    let rec private mergeRec (dom : Dominance) (a : AnyTree) (b : AnyTree) : AnyTree =
         
         (* helpers *)
 
-        let mergeChildren (dominance : Dominance) (ns1 : Children) (ns2 : Children) : Children =
-            failwith "todo: merge children"
+        
+        let mergeChildren (dom : Dominance) (ns1 : Children) (ns2 : Children) : Children =
+            let mf a' b' = match mergeRec dom (NonCentered a') (NonCentered b') with
+                           | NonCentered tree -> tree
+                           | _ -> failwith "Invariant 4673872b-d6be-491d-a2a0-b99054afbe65."
+            Children.merge dom mf ns1 ns2
+            
 
         let mergeCenterChildren (dominance : Dominance) (ns1 : CenterChildren) (ns2 : CenterChildren) : CenterChildren =
             failwith "todo: merge center children"
 
         let failwithInvalidMerge rel error = sprintf "Invalid merge. %A. Error %s." rel error |> failwith
 
+        let inline leaf x = x |> LeafNode.ofTree
+        let inline splitleaf x = leaf x |> split
+
         (* zoo *)
-        let relation = MergeRelation.create dominance a b
+        let relation = MergeRelation.create dom a b
         match relation with
 
         // winner
         | MergeWinner (winner, _)                                           -> winner
             
         // disjoint
-        | MergeDisjoint (_ , IndirectChild (x, _), IndirectChild  (y, _))   -> mergeRec dominance (x |> growParent |> NonCentered) (y |> growParent |> NonCentered)
-        | MergeDisjoint (_ , IndirectChild (x, _), DirectChild    (y, _))   -> mergeRec dominance (x |> growParent |> NonCentered) (y               |> NonCentered)
+        | MergeDisjoint (_ , IndirectChild (x, _), IndirectChild  (y, _))   -> mergeRec dom (x |> growParent |> NonCentered) (y |> growParent |> NonCentered)
+        | MergeDisjoint (_ , IndirectChild (x, _), DirectChild    (y, _))   -> mergeRec dom (x |> growParent |> NonCentered) (y               |> NonCentered)
         | MergeDisjoint (_ , IndirectChild (x, _), NestedDirect   (y   ))
-        | MergeDisjoint (_ , IndirectChild (x, _), NestedIndirect (y   ))   -> mergeRec dominance.Flipped (Centered y) (NonCentered x) 
+        | MergeDisjoint (_ , IndirectChild (x, _), NestedIndirect (y   ))   -> mergeRec dom.Flipped (Centered y) (NonCentered x) 
         
-        | MergeDisjoint (_ , DirectChild   (x, _), IndirectChild  (y, _))   -> mergeRec dominance (x               |> NonCentered) (y |> growParent |> NonCentered)
+        | MergeDisjoint (_ , DirectChild   (x, _), IndirectChild  (y, _))   -> mergeRec dom (x               |> NonCentered) (y |> growParent |> NonCentered)
 
         | MergeDisjoint (rc, DirectChild   (x,xi), DirectChild    (y,yi))   -> if rc.IsCenteredAtOrigin then
                                                                                     CenterChildren.ofIndexedSubnodes rc [(xi, x); (yi, y)]
@@ -806,29 +854,29 @@ module Merge =
 
         | MergeDisjoint (rc, NestedDirect x,       IndirectChild  (y,yi))   -> let ns1 = splitCentered x |> CenterChildren.growParents
                                                                                let ns2 = CenterChildren.ofIndexedSubnodes rc [(yi, y)]
-                                                                               mergeCenterChildren dominance ns1 ns2 |> createNodeFromCenterChildren |> Centered
+                                                                               mergeCenterChildren dom ns1 ns2 |> createNodeFromCenterChildren |> Centered
 
-        | MergeDisjoint (_ , NestedIndirect x,     IndirectChild  (y, _))   -> mergeRec dominance (growCenterParent x |> Centered) (y |> NonCentered)
+        | MergeDisjoint (_ , NestedIndirect x,     IndirectChild  (y, _))   -> mergeRec dom (growCenterParent x |> Centered) (y |> NonCentered)
 
         // collision
-        | MergeCollision (NonCentered first, NonCentered second, d)         -> invariant (first.Cell = second.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
+        | SameRoot (NonCentered first, NonCentered second, d)               -> invariant (first.Cell = second.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
                                                                                match Tree.tryGetChildren first, Tree.tryGetChildren second with
-                                                                               | None,     None     -> createNodeFromLeafs d (first |> LeafNode.ofTree) (second |> LeafNode.ofTree) |> LeafNode.toAnyTree
-                                                                               | None,     Some ns  -> mergeChildren       d (split first) ns  |> createNodeFromChildren |> NonCentered
-                                                                               | Some ns,  None     -> mergeChildren       d ns (split second) |> createNodeFromChildren |> NonCentered
-                                                                               | Some ns1, Some ns2 -> mergeChildren       d ns1 ns2           |> createNodeFromChildren |> NonCentered
+                                                                               | None,     None     -> createNodeFromLeafs d (leaf first) (leaf second) |> LeafNode.toAnyTree
+                                                                               | None,     Some ns  -> mergeChildren       d (splitleaf first) ns   |> createNodeFromChildren |> NonCentered
+                                                                               | Some ns,  None     -> mergeChildren       d ns (splitleaf second)  |> createNodeFromChildren |> NonCentered
+                                                                               | Some ns1, Some ns2 -> mergeChildren       d ns1 ns2                    |> createNodeFromChildren |> NonCentered
 
-        | MergeCollision (Centered    first, Centered    second, d)         -> invariant (first.Cell = second.Cell) "fc986971-78ae-4fca-a367-eab059e8d68e"
+        | SameRoot (Centered    first, Centered    second, d)               -> invariant (first.Cell = second.Cell) "fc986971-78ae-4fca-a367-eab059e8d68e"
                                                                                match CenterTree.tryGetChildren first, CenterTree.tryGetChildren second with
                                                                                | None,     None     -> createNodeFromLeafs d (first |> LeafNode.ofCenterTree) (second |> LeafNode.ofCenterTree) |> LeafNode.toAnyTree
-                                                                               | None,     Some ns  -> mergeCenterChildren d (splitCentered first) ns  |> createNodeFromCenterChildren |> Centered
-                                                                               | Some ns,  None     -> mergeCenterChildren d ns (splitCentered second) |> createNodeFromCenterChildren |> Centered
-                                                                               | Some ns1, Some ns2 -> mergeCenterChildren d ns1 ns2                   |> createNodeFromCenterChildren |> Centered
+                                                                               | None,     Some ns  -> mergeCenterChildren d (splitCentered first) ns   |> createNodeFromCenterChildren |> Centered
+                                                                               | Some ns,  None     -> mergeCenterChildren d ns (splitCentered second)  |> createNodeFromCenterChildren |> Centered
+                                                                               | Some ns1, Some ns2 -> mergeCenterChildren d ns1 ns2                    |> createNodeFromCenterChildren |> Centered
 
         // subtree
         | MergeSubtree (NonCentered parent,  DirectChild (child, qi), d)    -> Children.ofIndexedSubnodes (Tree.cell parent) [(qi, child)]
                                                                                |> match Tree.tryGetChildren parent with
-                                                                                  | None     -> mergeChildren d (split parent)
+                                                                                  | None     -> mergeChildren d (splitleaf parent)
                                                                                   | Some ns1 -> mergeChildren d ns1
                                                                                |> createNodeFromChildren |> NonCentered
 
@@ -855,8 +903,8 @@ module Merge =
         | MergeNested (large, small, d)                                     -> mergeRec d (Centered large) (small |> growCenterParent |> Centered)
 
         // invalid
-        | MergeCollision (Centered    _, NonCentered _, _)                  -> failwithInvalidMerge relation "b29d2af5-376f-467a-99eb-834135d68d4a"
-        | MergeCollision (NonCentered _, Centered    _, _)                  -> failwithInvalidMerge relation "d14f075a-7dd7-4b3b-a05b-ea4379a49a99"
+        | SameRoot (Centered    _, NonCentered _, _)                        -> failwithInvalidMerge relation "b29d2af5-376f-467a-99eb-834135d68d4a"
+        | SameRoot (NonCentered _, Centered    _, _)                        -> failwithInvalidMerge relation "d14f075a-7dd7-4b3b-a05b-ea4379a49a99"
         | MergeDisjoint (_ , DirectChild _,    NestedDirect  _)             -> failwithInvalidMerge relation "4cf244b3-28b0-4f67-a723-f090ad9ba9eb"
         | MergeDisjoint (_ , DirectChild _,    NestedIndirect  _)           -> failwithInvalidMerge relation "18852a24-7ea2-4676-a85d-e5d53abc6e5e"
         | MergeDisjoint (_ , NestedDirect _,   DirectChild _)               -> failwithInvalidMerge relation "cbad6def-c0fb-4c08-9c81-2f20e24b62db"
