@@ -870,8 +870,11 @@ module Merge =
 
     let private splitCentered (node : CenterTree) : CenterChildren =
         match node with
-        | CenterLeaf q -> failwith "todo: split CenterLeaf"
-        | CenterTree q -> failwith "todo: split CenterTree"
+        | CenterLeaf q ->
+            let ns = q.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () |> Array.map(Option.map(Tree.ofQNode))
+            CenterChildren(root=q.Cell.Parent, subnodes=ns)
+        | CenterTree q ->
+            failwith "todo: split CenterTree"
 
     
     let private createNodeFromChildren (children : Children) : Tree =
@@ -980,11 +983,40 @@ module Merge =
             CenterChildren.merge dom mf ns1 ns2
 
         let mergeOverlapping (dom : Dominance) (centered : CenterTree) (other : Tree) : CenterTree =
-            match centered, other with
-            | CenterLeaf a, Leaf b -> sprintf "todo: merge overlapping leaf/leaf (%A, %A, %A)" a.Cell.Exponent b.Cell dom |> failwith
-            | CenterLeaf a, Tree b -> sprintf "todo: merge overlapping leaf/tree (%A, %A, %A)" a.Cell.Exponent b.Cell dom |> failwith
-            | CenterTree a, Leaf b -> sprintf "todo: merge overlapping tree/leaf (%A, %A, %A)" a.Cell.Exponent b.Cell dom |> failwith
-            | CenterTree a, Tree b -> sprintf "todo: merge overlapping tree/tree (%A, %A, %A)" a.Cell.Exponent b.Cell dom |> failwith
+            if centered.Cell.Exponent < other.Cell.Exponent then
+                let grown = growParent' centered
+                let r = mergeRec dom (grown |> Centered) (other |> NonCentered)
+                match r with
+                | Centered x -> x
+                | _ -> failwith "Error 39207884-7188-4b47-a48f-ce27f13fc59b."
+            else
+
+                let rc = Cell2d(Box2d(centered.Cell.BoundingBox, other.Cell.BoundingBox))
+                invariant (rc.IsCenteredAtOrigin) "1320c782-5905-46c8-9d3a-87e589a52d53"
+                invariant (rc.Exponent = other.Cell.Exponent + 1) "7ae77298-6633-4930-a07e-89f165028646"
+                
+                let quadrantOther = rc.GetQuadrant(other.Cell).Value
+
+                let cns = 
+                    (CenterTree.qnode centered).SplitCenteredNodeIntoQuadrantNodesAtSameLevel ()
+                    |> Array.map(Option.map(Tree.ofQNode))
+
+                let ns =
+                    cns |> Array.mapi(fun i no ->
+                        match no, i = quadrantOther with
+                        | None, false   -> None
+                        | Some n, false -> Some(growParent n)
+                        | None, true    -> Some other
+                        | Some n, true  -> 
+                            let merged = mergeRec dom (growParent n |> NonCentered) (other |> NonCentered)
+                            match merged with
+                            | NonCentered m -> Some m
+                            | _ -> failwith "Error 680cd32c-9045-4ab1-80e5-141d645212db."
+                        )
+
+                let cc = CenterChildren(root=rc, subnodes=ns)
+                let n = createNodeFromChildren' cc
+                n
 
         let failwith' rel error = sprintf "Invalid merge. %A. Error %s." rel error |> failwith
         

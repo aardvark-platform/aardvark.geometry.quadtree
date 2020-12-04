@@ -196,19 +196,23 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
     member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
         layers |> Array.find    (fun x -> x.Def.Id = semantic.Id) :?> Layer<'a>
 
-    //member this.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () : QNode[] =
-    //    if this.Cell.IsCenteredAtOrigin then
-    //        let subLayers = cell.Children |> Array.map (fun subCell ->
-    //            let cell = subCell.Parent
-    //            let subBox = cell.GetBoundsForExponent(this.SampleExponent)
-    //            let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
-    //            (cell, subLayers) 
-    //            )
-    //        subLayers |> Array.map (fun (subCell, subLayers) ->
-    //            QNode(Guid.NewGuid(), subCell, splitLimitExp, subLayers, None)
-    //            )
-    //    else
-    //        failwith "Node must be centered at origin to split into quadrant nodes at same level. Invariant 6a4321b1-0f59-4574-bf51-fcce423fa389."
+    member this.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () : QNode option[] =
+        if this.Cell.IsCenteredAtOrigin then
+            let subLayers = cell.Children |> Array.map (fun subCell ->
+                let cell = subCell.Parent
+                let subBox = cell.GetBoundsForExponent(this.SampleExponent)
+                let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
+                (cell, subLayers) 
+                )
+            subLayers |> Array.map (fun (subCell, subLayers) ->
+                let ebb = subLayers |> Seq.map(fun x -> x.BoundingBox) |> Box2d
+                if ebb.IsInvalid then
+                    None
+                else
+                    QNode(Guid.NewGuid(), ebb, subCell, splitLimitExp, subLayers, None) |> Some
+                )
+        else
+            failwith "Node must be centered at origin to split into quadrant nodes at same level. Invariant 6a4321b1-0f59-4574-bf51-fcce423fa389."
 
     //member this.Split () : QNode[] =
 
