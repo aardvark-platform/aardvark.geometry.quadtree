@@ -580,6 +580,9 @@ module cpunz =
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
         
+
+        // Christian Punz: hier wäre so ein Fall, wo bei den "neuen" Subzellen für mich nicht ganz nachvollziehbare Datenwerte entstehen,... ev. sollte einfach der alte von der übergeordneten Zelle übernommen werden
+        // die Deluxe Variante wäre ein Resampling der Werte, aber das hat jetzt keine hohe Priorität
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
 
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(3,2,-1))))
