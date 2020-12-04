@@ -13,6 +13,7 @@ type ILayer =
     abstract member WithWindow : Box2l -> ILayer option
     abstract member WithSemantic : Durable.Def -> ILayer
     abstract member ResampleUntyped : Cell2d -> ILayer
+    abstract member SupersampleUntyped : unit -> ILayer
     abstract member Materialize : unit -> ILayer
     abstract member ToDurableMap : unit -> seq<KeyValuePair<Durable.Def, obj>>
 
@@ -45,7 +46,7 @@ module ILayerExtensions =
 type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
    
     do
-        invariantm (int64 data.Length >= mapping.WindowSize.X * mapping.WindowSize.Y) 
+        invariantm (data.Length >= mapping.WindowSize.X * mapping.WindowSize.Y) 
             (sprintf "Mapping window %A exceeds available data (length=%d)." mapping.Window data.Length)
             "971a69a6-cd25-43b8-b85b-7dd783456552"
 
@@ -61,9 +62,10 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             let f = Resamplers.getResamplerFor def 
             let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a)) resampleRoot
             r :> ILayer
+        member this.SupersampleUntyped () = this.Supersample () :> ILayer
 
         member this.Materialize () =
-            if mapping.Window.Min = V2l.OO && mapping.WindowSize = V2l(mapping.BufferSize) then
+            if mapping.Window.Min = V2l.OO && mapping.WindowSize = mapping.BufferSize then
                 this :> ILayer
             else
                 let size = V2i(mapping.WindowSize)
@@ -165,6 +167,36 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             let newMapping = DataMapping(min, maxIncl)
             Layer(def, buffer, newMapping)
 
+    member this.Supersample () : Layer<'a> =
+
+        if mapping.BufferOrigin.IsCenteredAtOrigin then
+
+            let s = data.[mapping.GetBufferIndex(mapping.BufferOrigin)]
+            let newMapping = DataMapping(origin = V2l(-1,-1), size = V2i(2,2), exponent = mapping.BufferOrigin.Exponent - 1)
+            Layer(def, [|s;s;s;s|], newMapping)
+
+        else
+
+            let size = mapping.WindowSize
+            let w = size.X
+            let h = size.Y
+            let w2 = w * 2
+
+            let buffer = Array.zeroCreate (w * h * 4)
+            let newMapping = DataMapping(origin = mapping.Window.Min * 2L, size = size * 2, exponent = mapping.BufferOrigin.Exponent - 1)
+
+            let o0 = mapping.Window.Min
+            let o1 = newMapping.Window.Min
+            for x = 0 to w-1 do
+                for y = 0 to h-1 do
+                    let i = mapping.GetBufferIndex(o0.X + int64 x, o0.Y + int64 y)
+                    let s = data.[i]
+                    let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y))
+                    buffer.[j] <- s; buffer.[j+1] <- s
+                    let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y+1))
+                    buffer.[j] <- s; buffer.[j+1] <- s
+
+            Layer(def, buffer, newMapping)
     
 
 

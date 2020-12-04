@@ -83,6 +83,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
 
         DataMapping(origin, V2i(size), Box2l.FromMinAndSize(origin.XY, size))
 
+    /// Center cell mapping.
     new (origin : Cell2d) =
         invariant origin.IsCenteredAtOrigin "3bd119fe-ec23-40a8-9287-9c8d7abe49ce"
         DataMapping(origin, V2i.II, Box2l.Invalid)
@@ -90,7 +91,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
     member ____.BufferOrigin with get() = bufferOrigin
     member ____.BufferSize with get() = bufferSize
     member ____.Window with get() = window
-    member ____.WindowSize with get() = window.Size
+    member ____.WindowSize with get() = V2i(window.Size)
     member ____.WindowWidth with get() = window.SizeX
     member ____.WindowHeight with get() = window.SizeY
 

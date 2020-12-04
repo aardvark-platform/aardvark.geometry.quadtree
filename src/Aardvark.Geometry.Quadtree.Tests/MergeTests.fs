@@ -309,44 +309,44 @@ let ``Merge_Overlapping_1x1_SameDepth_SecondDominates_3_e1`` () =
 
     ()
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
+[<Fact>]
 let ``Merge_Overlapping_1x1_SameDepth_NoneDominates`` () =
 
     let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 20.0f
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedOrSecond a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
 
     ()
 
     
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
+[<Fact>]
 let ``Merge_Overlapping_BothCentered_DifferentDepth_SecondMoreDetailed`` () =
     
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -2 -2 4 4 -1 0<powerOfTwo> 20.0f
     
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedOrSecond a b
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
     
     ()
     
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
+[<Fact>]
 let ``Merge_Overlapping_BothCentered_DifferentDepth_FirstMoreDetailed`` () =
     
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -2 -2 4 4 -1 0<powerOfTwo> 20.0f
     
-    let m = Quadtree.Merge MoreDetailedDominates b a
+    let m = Quadtree.Merge MoreDetailedOrSecond b a
     let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.25, 0.25)) Defs.Heights1f m
     Assert.True(x.Value = 20.0f)
     
     ()
 
-[<Fact(Skip = "Centered cells are currently not supported.")>]
+[<Fact>]
 let ``Merge_Overlapping_BothCentered_SameDetail_FirstDominates`` () =
 
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
@@ -358,7 +358,7 @@ let ``Merge_Overlapping_BothCentered_SameDetail_FirstDominates`` () =
 
     ()
 
-[<Fact(Skip = "Centered cells are currently not supported.")>]
+[<Fact>]
 let ``Merge_Overlapping_BothCentered_SameDetail_SecondDominates`` () =
 
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
@@ -370,13 +370,13 @@ let ``Merge_Overlapping_BothCentered_SameDetail_SecondDominates`` () =
 
     ()
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
+[<Fact>]
 let ``Merge_Overlapping_BothCentered_SameDetail_NoneDominates`` () =
 
     let a = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 20.0f
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedOrSecond a b
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(1))
     Assert.True((x = 20.0f))
@@ -419,7 +419,7 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_2`` () =
 
     ()
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
+[<Fact>]
 let ``Merge_LayersWithDifferentResolution_1`` () =
 
     let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
@@ -429,17 +429,17 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 2)
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedOrSecond a b
     Assert.True(Quadtree.CountLeafs m = 2)
     Assert.True(m.Cell = Cell2d(0,0,1))
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,1))
-    Assert.True((x = 20.0f))
+    x = 16.25f   |> Assert.True
 
     ()
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
+[<Fact>]
 let ``Merge_LayersWithDifferentResolution_256`` () =
 
     let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
@@ -448,13 +448,13 @@ let ``Merge_LayersWithDifferentResolution_256`` () =
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
 
-    let m = Quadtree.Merge MoreDetailedDominates a b
+    let m = Quadtree.Merge MoreDetailedOrSecond a b
     Assert.True(Quadtree.CountLeafs m = 1)
     Assert.True(m.Cell = Cell2d(0,0,8))
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 20.0f))
+    Assert.True((x = 12.5f))
 
     ()
 
@@ -486,10 +486,13 @@ let ``Merge_Random_SplitLimit1_FirstDominates`` () =
 let ``Merge_Random_SplitLimit1_SecondDominates`` () =
     Merge_Random_SplitLimit1 SecondDominates
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
-let ``Merge_Random_SplitLimit1_MoreDetailedDominates`` () =
-    Merge_Random_SplitLimit1 MoreDetailedDominates
+[<Fact>]
+let ``Merge_Random_SplitLimit1_MoreDetailedOrSecond`` () =
+    Merge_Random_SplitLimit1 MoreDetailedOrSecond
 
+[<Fact>]
+let ``Merge_Random_SplitLimit1_MoreDetailedOrFirst`` () =
+    Merge_Random_SplitLimit1 MoreDetailedOrFirst
 
 
 let ``Merge_Random_SplitLimit256`` dominance =
@@ -518,11 +521,13 @@ let ``Merge_Random_SplitLimit256_FirstDominates`` () =
 let ``Merge_Random_SplitLimit256_SecondDominates`` () =
     Merge_Random_SplitLimit256 SecondDominates
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
-let ``Merge_Random_SplitLimit256_MoreDetailedDominates`` () =
-    Merge_Random_SplitLimit256 MoreDetailedDominates
+[<Fact>]
+let ``Merge_Random_SplitLimit256_MoreDetailedOrFirst`` () =
+    Merge_Random_SplitLimit256 MoreDetailedOrFirst
 
-
+[<Fact>]
+let ``Merge_Random_SplitLimit256_MoreDetailedOrSecond`` () =
+    Merge_Random_SplitLimit256 MoreDetailedOrSecond
 
 let ``Merge_Random_Centered_SplitLimit1`` dominance =
 
@@ -543,19 +548,21 @@ let ``Merge_Random_Centered_SplitLimit1`` dominance =
 
     ()
 
-[<Fact(Skip = "Centered cells are currently not supported.")>]
+[<Fact>]
 let ``Merge_Random_Centered_SplitLimit1_FirstDominates`` () =
     Merge_Random_Centered_SplitLimit1 FirstDominates
 
-[<Fact(Skip = "Centered cells are currently not supported.")>]
+[<Fact>]
 let ``Merge_Random_Centered_SplitLimit1_SecondDominates`` () =
     Merge_Random_Centered_SplitLimit1 SecondDominates
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
-let ``Merge_Random_Centered_SplitLimit1_MoreDetailedDominates`` () =
-    Merge_Random_Centered_SplitLimit1 MoreDetailedDominates
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit1_MoreDetailedOrFirst`` () =
+    Merge_Random_Centered_SplitLimit1 MoreDetailedOrFirst
 
-
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit1_MoreDetailedOrSecond`` () =
+    Merge_Random_Centered_SplitLimit1 MoreDetailedOrSecond
 
 let ``Merge_Random_Centered_SplitLimit64`` dominance =
 
@@ -575,14 +582,18 @@ let ``Merge_Random_Centered_SplitLimit64`` dominance =
 
     ()
 
-[<Fact(Skip = "Centered cells are currently not supported.")>]
+[<Fact>]
 let ``Merge_Random_Centered_SplitLimit64_FirstDominates`` () =
     Merge_Random_Centered_SplitLimit64 FirstDominates
 
-[<Fact(Skip = "Centered cells are currently not supported.")>]
+[<Fact>]
 let ``Merge_Random_Centered_SplitLimit64_SecondDominates`` () =
     Merge_Random_Centered_SplitLimit64 SecondDominates
 
-[<Fact(Skip = "MoreDetailedDominates mode is currently not supported.")>]
-let ``Merge_Random_Centered_SplitLimit64_MoreDetailedDominates`` () =
-    Merge_Random_Centered_SplitLimit64 MoreDetailedDominates
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit64_MoreDetailedOrFirst`` () =
+    Merge_Random_Centered_SplitLimit64 MoreDetailedOrFirst
+
+[<Fact>]
+let ``Merge_Random_Centered_SplitLimit64_MoreDetailedOrSecond`` () =
+    Merge_Random_Centered_SplitLimit64 MoreDetailedOrSecond

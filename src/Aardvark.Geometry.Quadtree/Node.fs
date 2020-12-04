@@ -112,33 +112,23 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
         else
             exactBoundingBox
 
-    new (uid : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
-        QNode(uid, Box2d.Invalid, cell, splitLimitExp, layers, subNodes)
-
     new (uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
         QNode(uid, exactBoundingBox, cell, splitLimitExp, layers, Some subNodes)
 
-    new (cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
-        QNode(Guid.NewGuid(), Box2d.Invalid, cell, splitLimitExp, layers, subNodes)
-
     new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNode option[]) =
         QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers, subNodes)
 
-    new (uid : Guid, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[]) =
-        QNode(uid, cell, splitLimitExp, layers, Some subNodes)
-
-    /// Create leaf node.
-    new (cell : Cell2d, splitLimitExp : int, layers : ILayer[]) =
-        QNode(Guid.NewGuid(), cell, splitLimitExp, layers, None)
-
-    /// Create leaf node.
-    new (cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
-        QNode(Guid.NewGuid(), cell, splitLimitExp, layers, subNodes)
+    new (uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[]) =
+        QNode(uid, exactBoundingBox, cell, splitLimitExp, layers, Some subNodes)
 
     /// Create leaf node.
     new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[]) =
         QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers, None)
+
+    /// Create leaf node.
+    new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : ILayer[], subNodes : QNodeRef[] option) =
+        QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers, subNodes)
 
     member _.Id with get() = uid
 
@@ -163,15 +153,33 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
 
     member _.IsLeafNode  with get() = subNodes.IsNone
 
-    member _.WithLayers (newLayers : ILayer[]) = QNode(Guid.NewGuid(), cell, splitLimitExp, newLayers, subNodes)
+    //member this.WithLayers (newLayers : ILayer[]) =
+    //    //let oldEbb = this.ExactBoundingBox
+    //    //let ebbs = newLayers |> Seq.map(fun x -> x.BoundingBox) |> Box2d
+    //    QNode(Guid.NewGuid(), this.ExactBoundingBox, cell, splitLimitExp, newLayers, subNodes)
 
-    member this.Contains (other : QNode) : bool =
+    member this.CellContains (other : QNode) : bool =
         this.Cell.Contains(other.Cell)
+
+    member this.ExactBoundingBoxContains (other : QNode) : bool =
+        this.ExactBoundingBox.Contains(other.ExactBoundingBox)
+
+    /// True if both trees fully overlap.
+    static member CellOverlap (first : QNode, second : QNode) : bool =
+        first.CellContains(second) || second.CellContains(first)
+
+    /// True if trees do not overlap.
+    static member CellNotOverlap (first : QNode, second : QNode) : bool =
+        not(first.Cell.Intersects(second.Cell))
 
     /// True if both trees fully overlap.
     /// There is no "partial" overlap in quadtrees.
-    static member Overlap (first : QNode, second : QNode) : bool =
-        first.Contains(second) || second.Contains(first)
+    member this.DoesOverlap (other : QNode) : bool =
+        this.CellContains(other) || other.CellContains(this)
+
+    /// True if trees do not overlap.
+    member this.DoesNotOverlap (other : QNode) : bool =
+        not(this.Cell.Intersects(other.Cell))
 
     member this.ContainsLayer (semantic : Durable.Def) : bool =
         this.TryGetLayer(semantic) |> Option.isSome
@@ -188,7 +196,7 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
     member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
         layers |> Array.find    (fun x -> x.Def.Id = semantic.Id) :?> Layer<'a>
 
-    member this.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () : QNode[] =
+    member this.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () : QNode option[] =
         if this.Cell.IsCenteredAtOrigin then
             let subLayers = cell.Children |> Array.map (fun subCell ->
                 let cell = subCell.Parent
@@ -197,23 +205,41 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
                 (cell, subLayers) 
                 )
             subLayers |> Array.map (fun (subCell, subLayers) ->
-                QNode(Guid.NewGuid(), subCell, splitLimitExp, subLayers, None)
+                let ebb = subLayers |> Seq.map(fun x -> x.BoundingBox) |> Box2d
+                if ebb.IsInvalid then
+                    None
+                else
+                    QNode(Guid.NewGuid(), ebb, subCell, splitLimitExp, subLayers, None) |> Some
                 )
         else
             failwith "Node must be centered at origin to split into quadrant nodes at same level. Invariant 6a4321b1-0f59-4574-bf51-fcce423fa389."
 
-    member this.Split () : QNode[] =
+    //member this.Split () : QNode[] =
 
-        let subLayers = cell.Children |> Array.map (fun subCell ->
-            let subBox = subCell.GetBoundsForExponent(this.SampleExponent)
-            let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
-            (subCell, subLayers) 
-            )
-        let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
-            QNode(Guid.NewGuid(), subCell, splitLimitExp, subLayers, None)
+    //    let subLayers = cell.Children |> Array.map (fun subCell ->
+    //        let subBox = subCell.GetBoundsForExponent(this.SampleExponent)
+    //        let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
+    //        (subCell, subLayers) 
+    //        )
+    //    let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
+    //        QNode(Guid.NewGuid(), subCell, splitLimitExp, subLayers, None)
+    //        )
+
+    //    subNodes
+
+    member this.SplitLayers () =
+
+        let ssls = this.Layers |> Array.map (fun l -> l.SupersampleUntyped())
+
+        cell.Children
+        |> Array.map (fun subCell ->
+            let subBox = subCell.GetBoundsForExponent(this.SampleExponent-1)
+            if ssls.[0].SampleWindow.Intersects(subBox) then
+                ssls |> Array.map (fun l -> (l.WithWindow subBox).Value) |> Some
+            else
+                None
             )
 
-        subNodes
 
     member this.GetAllSamples () : Cell2d[] =
         this.SampleWindow.GetAllSamples(this.SampleExponent)
@@ -262,7 +288,7 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
                         )
                     |> Some
 
-            QNode(id, cell, splitLimitExp, newLayers, newChildren) |> Some
+            QNode(id, exactBoundingBox, cell, splitLimitExp, newLayers, newChildren) |> Some
         
     member this.Save options : Guid =
         let map = List<KeyValuePair<Durable.Def, obj>>()
@@ -509,47 +535,47 @@ module QNode =
             let result = merged |> Array.map (fun x -> x.Value)
             result
 
-    /// Returns same tree if already starting at root, or new extended tree starting at root.
-    /// Root must contain node. Newly created nodes contain resampled layers (LoD).
-    let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =
+    ///// Returns same tree if already starting at root, or new extended tree starting at root.
+    ///// Root must contain node. Newly created nodes contain resampled layers (LoD).
+    //let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =
 
-        match nodeRef.TryGetInMemory() with
-        | None      -> NoNode
-        | Some node ->
+    //    match nodeRef.TryGetInMemory() with
+    //    | None      -> NoNode
+    //    | Some node ->
             
-            //invariantm (not node.Cell.IsCenteredAtOrigin) "Node must not be centered."          "c8f2a8bd-2f4f-4467-843e-1d660d6ac329"
-            invariantm (root.Contains(node.Cell)) "Root must contain node."                     "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
-            invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
-            invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
+    //        //invariantm (not node.Cell.IsCenteredAtOrigin) "Node must not be centered."          "c8f2a8bd-2f4f-4467-843e-1d660d6ac329"
+    //        invariantm (root.Contains(node.Cell)) "Root must contain node."                     "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
+    //        invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
+    //        invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
               
-            let numberOfLevelsBelowRoot = root.Exponent - node.Cell.Exponent
-            match numberOfLevelsBelowRoot with
+    //        let numberOfLevelsBelowRoot = root.Exponent - node.Cell.Exponent
+    //        match numberOfLevelsBelowRoot with
                 
-            | 0 -> // already at desired root -> done
-                invariant (root = node.Cell)                                                    "cede9588-7ea0-408d-89a3-86ed9d916930"
-                InMemoryNode node
+    //        | 0 -> // already at desired root -> done
+    //            invariant (root = node.Cell)                                                    "cede9588-7ea0-408d-89a3-86ed9d916930"
+    //            InMemoryNode node
 
-            | 1 -> // one level below root, both non-centered
+    //        | 1 -> // one level below root, both non-centered
 
-                invariant (root.Exponent = node.Cell.Exponent + 1)                              "b652d9bc-340a-4312-8407-9fdee62ffcaa"
+    //            invariant (root.Exponent = node.Cell.Exponent + 1)                              "b652d9bc-340a-4312-8407-9fdee62ffcaa"
 
-                let qi = root.GetQuadrant(node.Cell)
+    //            let qi = root.GetQuadrant(node.Cell)
                 
-                invariantm qi.HasValue 
-                    (sprintf "Node %A must be quadrant of root %A." node.Cell root )            "09575aa7-38b3-4afa-bb63-389af3301fc0"
+    //            invariantm qi.HasValue 
+    //                (sprintf "Node %A must be quadrant of root %A." node.Cell root )            "09575aa7-38b3-4afa-bb63-389af3301fc0"
                     
                 
-                let subnodes = Array.create 4 NoNode
-                subnodes.[qi.Value] <- InMemoryNode node
+    //            let subnodes = Array.create 4 NoNode
+    //            subnodes.[qi.Value] <- InMemoryNode node
 
-                let lodlayers = generateLodLayers subnodes root
+    //            let lodlayers = generateLodLayers subnodes root
                 
-                let result = QNode(Guid.NewGuid(), root, node.SplitLimitExponent, lodlayers, subnodes)
+    //            let result = QNode(Guid.NewGuid(), root, node.SplitLimitExponent, lodlayers, subnodes)
                 
-                InMemoryNode result
+    //            InMemoryNode result
 
-            | x ->    // more than 1 level below root
-                invariant (x > 1) "de49dcd3-a45a-4854-b71b-45866d6f82de"
-                nodeRef
-                |> extendUpTo node.Cell.Parent 
-                |> extendUpTo root
+    //        | x ->    // more than 1 level below root
+    //            invariant (x > 1) "de49dcd3-a45a-4854-b71b-45866d6f82de"
+    //            nodeRef
+    //            |> extendUpTo node.Cell.Parent 
+    //            |> extendUpTo root
