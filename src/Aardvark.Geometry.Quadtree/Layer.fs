@@ -11,6 +11,7 @@ type ILayer =
     abstract member Def : Durable.Def
     abstract member Mapping : DataMapping
     abstract member WithWindow : Box2l -> ILayer option
+    abstract member MapSingleCenteredSampleTo : Cell2d -> ILayer
     abstract member WithSemantic : Durable.Def -> ILayer
     abstract member ResampleUntyped : Cell2d -> ILayer
     abstract member SupersampleUntyped : unit -> ILayer
@@ -56,6 +57,11 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         member this.WithWindow (w : Box2l) =
             mapping.WithWindow(w) 
             |> Option.map (fun m -> Layer(def, data, m) :> ILayer)
+        member this.MapSingleCenteredSampleTo (c : Cell2d) =
+            invariant (mapping.BufferOrigin.IsCenteredAtOrigin) "1a276e80-0404-4e69-9777-acbac1a4ed6a"
+            invariant (c.TouchesOrigin) "e2326309-7171-4b9b-841e-4f0a5ef028d7"
+            invariant (data.Length = 1) "bf2b4330-67fd-4283-880f-f9c96dafee61"
+            Layer(def, data, DataMapping(c, V2i.II)) :> ILayer
         member this.WithSemantic (newSemantic : Durable.Def) =
             Layer(newSemantic, data, mapping) :> ILayer
         member this.ResampleUntyped (resampleRoot : Cell2d) =
