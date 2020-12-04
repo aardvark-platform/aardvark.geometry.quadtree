@@ -794,6 +794,8 @@ module Merge =
 
         let ofIndexedSubnodes (root : Cell2d) (children : (int * Tree) list) : CenterChildren =
             invariant (root.IsCenteredAtOrigin) "5beee604-5064-460f-9b81-cf98aaca0b3b"
+            let cexp = children |> Seq.map (fun (_,t) -> t.Cell.Exponent) |> Seq.distinct |> Seq.exactlyOne
+            invariant (root.Exponent = cexp + 1) "135ace7c-3d64-41ea-8ec9-6a440a2ad5d5"
             ofIndexedSubnodes root children |> CenterChildren
 
         let extract x = match x with | CenterChildren (a,b) -> (a,b)
@@ -815,7 +817,8 @@ module Merge =
                             else mf x y |> Some
             CenterChildren(root1, Array.map2 f ns1 ns2)
 
-
+    type CenterChildren with
+        member this.Cell with get() = this |> CenterChildren.extract |> fst
 
 
     type LeafNode       = LeafNode of node : AnyTree
@@ -978,6 +981,7 @@ module Merge =
             
 
         let mergeChildren' (dom : Dominance) (ns1 : CenterChildren) (ns2 : CenterChildren) : CenterChildren =
+            invariant (ns1.Cell = ns2.Cell) "62a8d91a-3a97-46dd-b69f-aaa02ee98973"
             let mf a' b' = match mergeRec dom (NonCentered a') (NonCentered b') with
                            | NonCentered tree -> tree
                            | _ -> failwith "Invariant 4c6783e3-1299-4a1e-b2d8-ea9f5a15f77a."
@@ -1096,11 +1100,26 @@ module Merge =
                                                                                    |> createNodeFromChildren |> NonCentered
                                                                                    |> checkEbb
 
-            | MergeSubtree (Centered parent,     DirectChild (child, qi), d)    -> CenterChildren.ofIndexedSubnodes (CenterTree.cell parent) [(qi, child)]
-                                                                                   |> match subnodes' parent with
-                                                                                      | None     -> mergeChildren' d (splitCentered parent)
-                                                                                      | Some ns1 -> mergeChildren' d ns1
-                                                                                   |> createNodeFromChildren' |> Centered
+            | MergeSubtree (Centered parent,     DirectChild (child, qi), d)    -> 
+                                                                                   invariant (parent.Cell.Exponent = child.Cell.Exponent + 1) "a66e432b-699a-4b6d-a658-db55c9895963"
+
+                                                                                   let ns2 = CenterChildren.ofIndexedSubnodes parent.Cell [(qi, child)]
+                                                                                   
+                                                                                   let merged = 
+                                                                                        match subnodes' parent with
+                                                                                        | None ->
+                                                                                                let ns1LeveledUp = splitCentered parent // c needs to level up +1 to preserve layer resolution
+                                                                                                invariant (ns1LeveledUp.Cell.Exponent = parent.Cell.Exponent + 1) "a26d4664-3a30-4233-821e-f53be450dff6"
+                                                                                                let ns2LeveledUp = growParents ns2
+                                                                                                let merged = mergeChildren' d ns1LeveledUp ns2LeveledUp
+                                                                                                merged
+                                                                                        | Some ns1 ->
+                                                                                                let merged = mergeChildren' d ns1 ns2
+                                                                                                merged
+
+                                                                                   let result = merged |> createNodeFromChildren'
+                                                                                   result |> Centered
+                                                                                                     
 
             | MergeSubtree (parent, IndirectChild (child,  _), d)               -> mergeRec d parent (child |> growParent |> NonCentered) 
                                                                                    |> checkEbb
