@@ -2,6 +2,8 @@
 
 open Aardvark.Base
 open Aardvark.Data
+open System.Collections.Generic
+open System.Collections.Immutable
 
 (*
     Merge.
@@ -31,11 +33,31 @@ module Merge =
 
     module private Buffer =
 
-        let create (semantic : Durable.Def) (w : Box2l) (e : int) = {
-            Semantic = semantic
-            Mapping = DataMapping(Cell2d(w.Min, e), V2i w.Size, w)
-            Data = Array.zeroCreate<'a> (int w.Size.X * int w.Size.Y)
-        }
+        let private undefinedValues = 
+            ImmutableDictionary<System.Type, obj>.Empty
+
+              .Add(typeof<float>, nan)
+              .Add(typeof<float32>, nanf)
+
+              .Add(typeof<V2d>, V2d.NaN).Add(typeof<V2f>, V2f.NaN)
+              .Add(typeof<V3d>, V3d.NaN).Add(typeof<V3f>, V3f.NaN)
+              .Add(typeof<V4d>, V4d.NaN).Add(typeof<V4f>, V4f.NaN)
+
+              .Add(typeof<C3b>, C3b.Black).Add(typeof<C3f>, C3f.Black)
+              .Add(typeof<C4b>, C4b.Black).Add(typeof<C4f>, C4f.Black)
+
+
+        let create (semantic : Durable.Def) (w : Box2l) (e : int) =
+            let (found, x) = undefinedValues.TryGetValue(typeof<'a>)
+            if found then
+                let initialValue = x :?> 'a
+                {
+                    Semantic = semantic
+                    Mapping = DataMapping(Cell2d(w.Min, e), V2i w.Size, w)
+                    Data = Array.create<'a> (int w.Size.X * int w.Size.Y) initialValue 
+                }
+            else
+                sprintf "Type %A not supported. Error 3025ac52-d99b-41bd-bc4e-16d75773f1b4." typeof<'a> |> failwith
 
         let add (layer : Layer<'a>) (buffer : Buffer<'a>)  =
             let layerSampleExponent = layer.SampleExponent
@@ -82,6 +104,8 @@ module Merge =
         Layer : ILayer
         ChildLayer : ILayer
     }
+
+
 
     open Buffer
     let private composeLayersInOrderTyped<'a> 

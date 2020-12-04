@@ -19,6 +19,20 @@ let createQuadtree spec =
     let config = { BuildConfig.Default with SplitLimitPowerOfTwo = spec.Split }
     Quadtree.Build config [| layer |]
 
+type QuadtreeSpecTyped<'a> = {
+    Origin : Cell2d
+    Size : (int*int)
+    Data : 'a[]
+    Split : int
+    }
+
+let createQuadtreeTyped<'a> def spec =
+    let (w, h) = spec.Size
+    let mapping = DataMapping(spec.Origin, V2i(w,h))
+    let layer = Layer<'a>(def, spec.Data, mapping)
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = spec.Split }
+    Quadtree.Build config [| layer |]
+
 let getAllSamples n =
     n |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<float>(Defs.Heights1d)) |> Seq.concat |> Seq.toArray
 
@@ -48,7 +62,11 @@ let checkQuadtree spec (rootRef : QNodeRef) =
         Assert.True(map.Count = samples.Length)
         for (cell, value) in samples do
             let k = (int cell.X, int cell.Y, cell.Exponent)
-            Assert.True(map |> Map.find k = value)
+            let s = map |> Map.find k
+            if s.IsNaN() then 
+                value.IsNaN() |> Assert.True
+            else
+                s = value     |> Assert.True
 
     rootRef
     
@@ -179,13 +197,9 @@ let ``boundingbox: merged e=0 e=-2 adjacent`` () =
 [<Fact>]
 let ``boundingbox: merged e=0 e=0 islands`` () =
  
-     let a = createQuadtree { Origin = Cell2d(7,11,0); Size = (1,1); Split = 8; Data = [|
-         for i=0 to 1*1 do yield 1.0
-     |]}
+     let a = createQuadtree { Origin = Cell2d(7,11,0); Size = (1,1); Split = 8; Data = [| 1.0|]}
 
-     let b = createQuadtree { Origin = Cell2d(3,5,0); Size = (1,1); Split = 8; Data = [|
-         for i=0 to 1*1 do yield 1.0
-     |]}
+     let b = createQuadtree { Origin = Cell2d(3,5,0); Size = (1,1); Split = 8; Data = [| 1.0 |]}
 
      let m1 = Quadtree.Merge FirstDominates a b
      m1.ExactBoundingBox = Box2d(V2d(3,5), V2d(8, 12)) |> Assert.True
@@ -196,13 +210,9 @@ let ``boundingbox: merged e=0 e=0 islands`` () =
 [<Fact>]
 let ``boundingbox: merged e=0 e=-2 islands`` () =
  
-     let a = createQuadtree { Origin = Cell2d(7,11,0); Size = (1,1); Split = 8; Data = [|
-         for i=0 to 1*1 do yield 1.0
-     |]}
+     let a = createQuadtree { Origin = Cell2d(7,11,0); Size = (1,1); Split = 8; Data = [| 1.0|]}
 
-     let b = createQuadtree { Origin = Cell2d(3,5,-2); Size = (1,1); Split = 8; Data = [|
-         for i=0 to 1*1 do yield 1.0
-     |]}
+     let b = createQuadtree { Origin = Cell2d(3,5,-2); Size = (1,1); Split = 8; Data = [| 1.0|]}
 
      let m1 = Quadtree.Merge FirstDominates a b
      m1.ExactBoundingBox = Box2d(V2d(0.75,1.25), V2d(8, 12)) |> Assert.True
@@ -214,54 +224,54 @@ let ``boundingbox: merged e=0 e=-2 islands`` () =
     SplitCenteredNodeIntoQuadrantNodesAtSameLevel
  ************************************************************************************)
 
-//[<Fact>]
-//let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel fails for non-centered nodes`` () =
+[<Fact>]
+let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel fails for non-centered nodes`` () =
     
-//    let aRef = createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Split = 8; Data = [|
-//        1.0;  2.0; 
-//        3.0;  4.0;
-//    |]}
+    let aRef = createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Split = 8; Data = [|
+        1.0;  2.0; 
+        3.0;  4.0;
+    |]}
     
-//    let a = aRef.TryGetInMemory().Value
-//    Assert.ThrowsAny<Exception>(fun () ->
-//        a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel() |> ignore
-//        )
+    let a = aRef.TryGetInMemory().Value
+    Assert.ThrowsAny<Exception>(fun () ->
+        a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel() |> ignore
+        )
 
-//[<Fact>]
-//let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel`` () =
+[<Fact>]
+let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel`` () =
 
-//    let aRef = createQuadtree { Origin = Cell2d(-1,-1,0); Size = (2,2); Split = 8; Data = [|
-//        1.0;  2.0; 
-//        3.0;  4.0;
-//    |]}
+    let aRef = createQuadtree { Origin = Cell2d(-1,-1,0); Size = (2,2); Split = 8; Data = [|
+        1.0;  2.0; 
+        3.0;  4.0;
+    |]}
 
-//    let a = aRef.TryGetInMemory().Value
-//    let ls = a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel()
-//    Assert.True(ls.Length = 4)
+    let a = aRef.TryGetInMemory().Value
+    let ls = a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel()
+    Assert.True(ls.Length = 4)
 
-//    ls.[0] |> InMemoryNode |> checkQuadtree {
-//        Cell = Cell2d(-1,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-//        Samples = [ { Level = 0; Data = [ ((-1,-1,0), 1.0) ]} ]
-//        } |> ignore
-//    Assert.True(ls.[0].SampleWindow = Box2l(V2l(-1,-1), V2l(0,0)))
+    ls.[0].Value |> InMemoryNode |> checkQuadtree {
+        Cell = Cell2d(-1,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [ { Level = 0; Data = [ ((-1,-1,0), 1.0) ]} ]
+        } |> ignore
+    Assert.True(ls.[0].Value.SampleWindow = Box2l(V2l(-1,-1), V2l(0,0)))
 
-//    ls.[1] |> InMemoryNode |> checkQuadtree {
-//        Cell = Cell2d(0,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-//        Samples = [ { Level = 0; Data = [ (( 0,-1,0), 2.0) ]} ]
-//        } |> ignore
-//    Assert.True(ls.[1].SampleWindow = Box2l(V2l( 0,-1), V2l(1,0)))
+    ls.[1].Value |> InMemoryNode |> checkQuadtree {
+        Cell = Cell2d(0,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [ { Level = 0; Data = [ (( 0,-1,0), 2.0) ]} ]
+        } |> ignore
+    Assert.True(ls.[1].Value.SampleWindow = Box2l(V2l( 0,-1), V2l(1,0)))
 
-//    ls.[2] |> InMemoryNode |> checkQuadtree {
-//        Cell = Cell2d(-1,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-//        Samples = [ { Level = 0; Data = [ ((-1, 0,0), 3.0) ]} ]
-//        } |> ignore
-//    Assert.True(ls.[2].SampleWindow = Box2l(V2l(-1, 0), V2l(0,1)))
+    ls.[2].Value |> InMemoryNode |> checkQuadtree {
+        Cell = Cell2d(-1,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [ { Level = 0; Data = [ ((-1, 0,0), 3.0) ]} ]
+        } |> ignore
+    Assert.True(ls.[2].Value.SampleWindow = Box2l(V2l(-1, 0), V2l(0,1)))
 
-//    ls.[3] |> InMemoryNode |> checkQuadtree {
-//        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-//        Samples = [ { Level = 0; Data = [ (( 0, 0,0), 4.0) ]} ]
-//        } |> ignore
-//    Assert.True(ls.[3].SampleWindow = Box2l(V2l( 0, 0), V2l(1,1)))
+    ls.[3].Value |> InMemoryNode |> checkQuadtree {
+        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+        Samples = [ { Level = 0; Data = [ (( 0, 0,0), 4.0) ]} ]
+        } |> ignore
+    Assert.True(ls.[3].Value.SampleWindow = Box2l(V2l( 0, 0), V2l(1,1)))
 
 
 (************************************************************************************
@@ -594,7 +604,7 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, 1 undefined sample between`` () =
         Samples = [
             {
                 Level = 0; Data = [
-                    ((0,0,0), 1.0); ((1,0,0), 0.0); ((2,0,0), -1.0)
+                    ((0,0,0), 1.0); ((1,0,0), nan); ((2,0,0), -1.0)
             ]}
         ]}
     |> ignore
@@ -606,10 +616,50 @@ let ``merge: leaf 1x1 / leaf 1x1, same leaf, 1 undefined sample between`` () =
         Samples = [
             {
                 Level = 0; Data = [
-                    ((0,0,0), 1.0); ((1,0,0), 0.0); ((2,0,0), -1.0)
+                    ((0,0,0), 1.0); ((1,0,0), nan); ((2,0,0), -1.0)
             ]}
         ]}
     |> ignore
+
+
+
+
+let inline generateDefaultsTest def s0 s1 checkNan =
+
+    let aRef = createQuadtreeTyped<_> def { Origin = Cell2d(0,0,0); Size = (1,1); Split = 8; Data = [| s0 |]}
+    let bRef = createQuadtreeTyped<_> def { Origin = Cell2d(2,0,0); Size = (1,1); Split = 8; Data = [| s1 |]}
+
+    let m = Quadtree.Merge FirstDominates aRef bRef
+
+    let xs = m |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<_>(def)) |> Seq.concat |> Seq.toArray
+    let map = xs |> Array.map (fun (c, x) -> ((int c.X, int c.Y, c.Exponent), x)) |> Map.ofArray
+
+    let x0 = Map.find (0,0,0) map
+    let x1 = Map.find (1,0,0) map
+    let x2 = Map.find (2,0,0) map
+
+    x0 = s0     |> Assert.True
+    x2 = s1     |> Assert.True
+    checkNan x1 |> Assert.True
+
+[<Fact>]
+let ``defaults: C3b Black   Colors3b`` ()          = generateDefaultsTest Defs.Colors3b C3b.Red C3b.Green (fun x -> x = C3b.Black)
+[<Fact>]
+let ``defaults: C4b Black   Colors4b`` ()          = generateDefaultsTest Defs.Colors4b C4b.Red C4b.Green (fun x -> x = C4b.Black)
+[<Fact>]
+let ``defaults: C3f Black   Colors3f`` ()          = generateDefaultsTest Defs.Colors3f C3f.Red C3f.Green (fun x -> x = C3f.Black)
+[<Fact>]
+let ``defaults: C4f Black   Colors4f`` ()          = generateDefaultsTest Defs.Colors4f C4f.Red C4f.Green (fun x -> x = C4f.Black)
+
+[<Fact>]
+let ``defaults: V3d NaN     Normals3d`` ()         = generateDefaultsTest Defs.Normals3d V3d.IOO V3d.IOO (fun x -> x.IsNaN)
+[<Fact>]
+let ``defaults: V3f NaN     Normals3f`` ()         = generateDefaultsTest Defs.Normals3f V3f.IOO V3f.IOO (fun x -> x.IsNaN)
+
+[<Fact>]
+let ``defaults: V4d NaN     HeightsBilinear4d`` () = generateDefaultsTest Defs.HeightsBilinear4d V4d.IOOO V4d.OOOI (fun x -> x.IsNaN)
+[<Fact>]
+let ``defaults: V4f NaN     HeightsBilinear4f`` () = generateDefaultsTest Defs.HeightsBilinear4f V4f.IOOO V4f.OOOI (fun x -> x.IsNaN)
 
 [<Fact>]
 let ``merge: leaf 2x2 / leaf 2x2, same leaf, same samples`` () =
