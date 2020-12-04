@@ -198,19 +198,27 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
 
     member this.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () : QNode option[] =
         if this.Cell.IsCenteredAtOrigin then
+            let isSingleCenteredSample = this.Mapping.BufferOrigin.IsCenteredAtOrigin
+            
             let subLayers = cell.Children |> Array.map (fun subCell ->
                 let cell = subCell.Parent
                 let subBox = cell.GetBoundsForExponent(this.SampleExponent)
-                let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
+                let subLayers = 
+                    if isSingleCenteredSample then
+                        layers |> Array.choose (fun l -> l.MapSingleCenteredSampleTo cell |> Some)
+                    else
+                        layers |> Array.choose (fun l -> l.WithWindow subBox)
                 (cell, subLayers) 
                 )
-            subLayers |> Array.map (fun (subCell, subLayers) ->
+            let xs = subLayers |> Array.map (fun (subCell, subLayers) ->
                 let ebb = subLayers |> Seq.map(fun x -> x.BoundingBox) |> Box2d
                 if ebb.IsInvalid then
                     None
                 else
                     QNode(Guid.NewGuid(), ebb, subCell, splitLimitExp, subLayers, None) |> Some
                 )
+            invariant (xs |> Seq.exists(Option.isSome)) "1d3093d5-d242-454a-b47b-8aafc274d828"
+            xs
         else
             failwith "Node must be centered at origin to split into quadrant nodes at same level. Invariant 6a4321b1-0f59-4574-bf51-fcce423fa389."
 

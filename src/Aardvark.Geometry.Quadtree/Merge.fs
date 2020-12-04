@@ -718,10 +718,13 @@ module Merge =
         
                 | DisjointCells ->
                     let rc = c1.Union(c2)
-                    let rel = SubtreeRelation.ofTree rc
+                    let rel  = SubtreeRelation.ofTree    rc
+                    let rel' = SubtreeRelation.ofAnyTree rc
                     match first, second with
                     | NonCentered a, NonCentered b -> MergeDisjoint (rc, rel a, rel b)
-                    | _ -> failwith "Error 92660bcf-6c81-451a-850e-f6dc99e96286."
+                    | Centered    a, NonCentered b -> MergeDisjoint (rc, rel' first, rel b)
+                    | NonCentered a, Centered    b -> MergeDisjoint (rc, rel a, rel' second)
+                    | _ -> sprintf "Disjoint cells required: %A %A. Error 92660bcf-6c81-451a-850e-f6dc99e96286." (AnyTree.cell first) (AnyTree.cell second) |> failwith
         
                 | PartiallyOverlappingCells ->
                     // can happen with one centered cell and another non-centered cell
@@ -795,10 +798,15 @@ module Merge =
         let ofIndexedSubnodes (root : Cell2d) (children : (int * Tree) list) : CenterChildren =
             invariant (root.IsCenteredAtOrigin) "5beee604-5064-460f-9b81-cf98aaca0b3b"
             let cexp = children |> Seq.map (fun (_,t) -> t.Cell.Exponent) |> Seq.distinct |> Seq.exactlyOne
-            invariant (root.Exponent = cexp + 1) "135ace7c-3d64-41ea-8ec9-6a440a2ad5d5"
+            invariantm (root.Exponent = cexp + 1) (sprintf "root exp = %d; child exp = %d" root.Exponent cexp) "135ace7c-3d64-41ea-8ec9-6a440a2ad5d5"
             ofIndexedSubnodes root children |> CenterChildren
 
         let extract x = match x with | CenterChildren (a,b) -> (a,b)
+
+        let check x = if extract x |> snd |> Seq.choose id |> Seq.isEmpty then
+                        failwith "Empty center children. Error 11effdb1-d6cb-4168-945e-3e32840603b0."
+                      else
+                        x
 
         let splitLimitExponent x =
             extract x |> snd |> Seq.choose(Option.map(fun x -> x.SplitLimitExponent)) |> Seq.head
@@ -874,7 +882,7 @@ module Merge =
     let private splitCentered (node : CenterTree) : CenterChildren =
         let qnode = CenterTree.qnode node
         let ns = qnode.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () |> Array.map(Option.map(Tree.ofQNode))
-        CenterChildren(root=qnode.Cell.Parent, subnodes=ns)
+        CenterChildren(root=qnode.Cell.Parent, subnodes=ns) |> CenterChildren.check
         
 
     
@@ -1067,9 +1075,13 @@ module Merge =
                                                                                         Children.ofIndexedSubnodes rc [(xi, x); (yi, y)]
                                                                                         |> createNodeFromChildren  |> NonCentered               |> checkEbb
 
-            | MergeDisjoint (rc, NestedDirect x,       IndirectChild  (y,yi))   -> let ns1 = splitCentered x |> growParents
-                                                                                   let ns2 = CenterChildren.ofIndexedSubnodes rc [(yi, y)]
-                                                                                   mergeChildren' dom ns1 ns2 |> createNodeFromChildren' |> Centered
+            | MergeDisjoint (rc, NestedDirect x,       IndirectChild  (y,yi))   -> 
+                                                                                   if rc.Exponent = y.Cell.Exponent + 1 then
+                                                                                        let ns1 = splitCentered x |> growParents
+                                                                                        let ns2 = CenterChildren.ofIndexedSubnodes rc [(yi, y)]
+                                                                                        mergeChildren' dom ns1 ns2 |> createNodeFromChildren' |> Centered
+                                                                                   else
+                                                                                        mergeRec dom (x |> Centered) (y |> growParent |> NonCentered)
 
             | MergeDisjoint (_ , NestedIndirect x,     IndirectChild  (y, _))   -> mergeRec dom (growParent' x |> Centered) (y |> NonCentered)
                                                                                    |> checkEbb
@@ -1087,9 +1099,9 @@ module Merge =
             | SameRoot (Centered    first, Centered    second, d)               -> invariant (first.Cell = second.Cell) "fc986971-78ae-4fca-a367-eab059e8d68e"
                                                                                    match subnodes' first, subnodes' second with
                                                                                    | None,     None     -> createNodeFromLeafs d (first |> LeafNode.ofCenterTree) (second |> LeafNode.ofCenterTree) |> LeafNode.toAnyTree
-                                                                                   | None,     Some ns  -> mergeChildren' d (splitCentered first) ns   |> createNodeFromChildren' |> Centered
-                                                                                   | Some ns,  None     -> mergeChildren' d ns (splitCentered second)  |> createNodeFromChildren' |> Centered
-                                                                                   | Some ns1, Some ns2 -> mergeChildren' d ns1 ns2                    |> createNodeFromChildren' |> Centered
+                                                                                   | None,     Some ns  -> mergeChildren' d (splitCentered first) (growParents ns)   |> createNodeFromChildren' |> Centered
+                                                                                   | Some ns,  None     -> mergeChildren' d (growParents ns) (splitCentered second)  |> createNodeFromChildren' |> Centered
+                                                                                   | Some ns1, Some ns2 -> mergeChildren' d ns1 ns2                                  |> createNodeFromChildren' |> Centered
                                                                                    |> checkEbb
                                                                                    
             // subtree

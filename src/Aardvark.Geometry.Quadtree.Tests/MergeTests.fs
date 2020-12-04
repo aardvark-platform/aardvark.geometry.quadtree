@@ -539,8 +539,8 @@ let ``Merge_Random_Centered_SplitLimit1`` dominance =
             let e = r.Next(20) - 10
             let ox = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
             let oy = if e >= 0 then (r.Next(2000) - 1000) >>> e else (r.Next(2000) - 1000) <<< -e
-            let w  = r.Next(50) + 1
-            let h  = r.Next(50) + 1
+            let w  = r.Next(10) + 1
+            let h  = r.Next(10) + 1
 
             let other = createQuadtreeWithRandomValues ox oy w h e 0<powerOfTwo>
             let merged = Quadtree.Merge dominance quadtree other
