@@ -801,7 +801,7 @@ module Merge =
         let splitLimitExponent x =
             extract x |> snd |> Seq.choose(Option.map(fun x -> x.SplitLimitExponent)) |> Seq.head
 
-        let merge dom mf (c1 : CenterChildren) (c2 : CenterChildren) =
+        let merge dom mf (c1 : CenterChildren) (c2 : CenterChildren) : CenterChildren =
             let (root1, ns1) = extract c1
             let (root2, ns2) = extract c2
             invariant (root1 = root2) "2720c598-05a9-4a2d-80ec-78caf82cf3d7"
@@ -869,12 +869,10 @@ module Merge =
         Children(rc, ns)
 
     let private splitCentered (node : CenterTree) : CenterChildren =
-        match node with
-        | CenterLeaf q ->
-            let ns = q.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () |> Array.map(Option.map(Tree.ofQNode))
-            CenterChildren(root=q.Cell.Parent, subnodes=ns)
-        | CenterTree q ->
-            failwith "todo: split CenterTree"
+        let qnode = CenterTree.qnode node
+        let ns = qnode.SplitCenteredNodeIntoQuadrantNodesAtSameLevel () |> Array.map(Option.map(Tree.ofQNode))
+        CenterChildren(root=qnode.Cell.Parent, subnodes=ns)
+        
 
     
     let private createNodeFromChildren (children : Children) : Tree =
@@ -896,6 +894,9 @@ module Merge =
     
         let sle = CenterChildren.splitLimitExponent children
         let (root, ns) = CenterChildren.extract children
+        let snexp = ns |> Seq.choose(Option.map(fun x -> x.Cell.Exponent)) |> Seq.distinct |> Seq.exactlyOne
+        invariant (ns |> Array.exists(Option.isSome)) "e81ff857-15b3-415e-abb7-427f04146fe3"
+        invariant (root.Exponent = snexp + 1) "295b29f1-6a9e-4cb0-af7b-f8ad186569a2"
 
         let qns = ns |> Array.map (Option.map(Tree.qnode))
         let qnsls = qns |> Array.map (Option.map (fun x -> x.Layers))
@@ -983,6 +984,7 @@ module Merge =
             CenterChildren.merge dom mf ns1 ns2
 
         let mergeOverlapping (dom : Dominance) (centered : CenterTree) (other : Tree) : CenterTree =
+
             if centered.Cell.Exponent < other.Cell.Exponent then
                 let grown = growParent' centered
                 let r = mergeRec dom (grown |> Centered) (other |> NonCentered)
@@ -1005,14 +1007,16 @@ module Merge =
                     cns |> Array.mapi(fun i no ->
                         match no, i = quadrantOther with
                         | None, false   -> None
-                        | Some n, false -> Some(growParent n)
+                        | Some n, false -> Some n
                         | None, true    -> Some other
                         | Some n, true  -> 
-                            let merged = mergeRec dom (growParent n |> NonCentered) (other |> NonCentered)
+                            let merged = mergeRec dom (n |> NonCentered) (other |> NonCentered)
                             match merged with
                             | NonCentered m -> Some m
                             | _ -> failwith "Error 680cd32c-9045-4ab1-80e5-141d645212db."
                         )
+
+                invariant (ns |> Seq.choose(Option.map(fun x -> x.Cell.Exponent)) |> Seq.forall(fun e -> e = rc.Exponent - 1)) "bfb006ae-fad8-40ad-b48c-f703787ff24f"
 
                 let cc = CenterChildren(root=rc, subnodes=ns)
                 let n = createNodeFromChildren' cc
