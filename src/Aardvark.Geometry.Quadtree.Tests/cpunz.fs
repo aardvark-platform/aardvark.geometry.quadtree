@@ -412,16 +412,17 @@ module cpunz =
 
         ()
 
+    let hor1_main = V4f(1.0, 0.0,0.0,0.0)
+    let oblique1_main = V4f(1.5, 1.0,0.0,0.0)
+    let nanVal = V4f(nan, nan, nan, nan)  
+
     let createQuadTreePlanesWithNaN =
         
             // define mapping of raw data to raster space
-            let hor1 = V4f(1.0, 0.0,0.0,0.0)
-            let hor2 = V4f(2.0, 0.0,0.0,0.0)
-            let oblique12 = V4f(1.5, 1.0,0.0,0.0)
-            let nanVal = V4f(nan, nan, nan, nan)  
+            
             let parameters = [|nanVal; nanVal; nanVal; 
-                               hor1; oblique12; nanVal;
-                               hor1; oblique12; nanVal;
+                               hor1_main; oblique1_main; nanVal;
+                               hor1_main; oblique1_main; nanVal;
                                |]
         
             let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 3))
@@ -438,11 +439,17 @@ module cpunz =
     
     [<Fact>]
     let ``punz_double_merge_volume`` () =
+        let hor3 = V4f(3.0, 0.0,0.0,0.0)
+        let hor11 = V4f(1.1, 0.0,0.0,0.0)
+        let hor12 = V4f(1.2, 0.0,0.0,0.0)
+        let hor13 = V4f(1.3, 0.0,0.0,0.0)
+        let hor14 = V4f(1.4, 0.0,0.0,0.0)
+            
         let createOneCell = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(3.0, 0.0,0.0,0.0)
+            
                     
-            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            let parameters = [|hor3|]//;hor1;hor1;hor1|]
             
             let mapping = DataMapping(origin = Cell2d(4L, 4L, -1), size = V2i(1, 1))
             
@@ -457,13 +464,9 @@ module cpunz =
     
         let createOneSubCell4 = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(1.1, 0.0,0.0,0.0)
-            let hor2 = V4f(1.2, 0.0,0.0,0.0)
-            let hor3 = V4f(1.3, 0.0,0.0,0.0)
-            let hor4 = V4f(1.4, 0.0,0.0,0.0)
-                
-            let parameters = [|hor1;hor2;
-                               hor3;hor4|]
+            
+            let parameters = [|hor11;hor12;
+                               hor13;hor14|]
     
             let mapping = DataMapping(origin = Cell2d(2L, 4L, -2), size = V2i(2, 2))
     
@@ -486,22 +489,63 @@ module cpunz =
         let resultCells = newTree |> Query.All config
         let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                      |> Seq.collect (fun arr -> arr)
-                   
+
+        Assert.True((qtreeCells |> Seq.length) = 12 )
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,4,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,5,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(4,5,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor3) && elemCell.Equals(Cell2d(4,4,-1))))
+
         let subTree4 = createOneSubCell4
         let newTree4 = Quadtree.Merge SecondDominates newTree subTree4
         let resultCells4 = newTree4 |> Query.All config
         let qtreeCells4 = resultCells4 |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f)) 
                                        |> Seq.collect (fun arr -> arr)
-       
+        
+        
+        Assert.True((qtreeCells4 |> Seq.length) = 18 )
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,0))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,0))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
+
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,4,-1))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,5,-1))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(1,5,-1))))
+
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor11) && elemCell.Equals(Cell2d(2,8,-2))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor12) && elemCell.Equals(Cell2d(3,8,-2))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor13) && elemCell.Equals(Cell2d(2,9,-2))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor14) && elemCell.Equals(Cell2d(3,9,-2))))
+
+
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,1,0))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,4,-1))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,5,-1))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(4,5,-1))))
+        Assert.True(qtreeCells4 |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor3) && elemCell.Equals(Cell2d(4,4,-1))))
+        
+        
         ()
 
     [<Fact>]
     let ``punz_merge_verySmall_into_coarse_volume`` () =
+        let hor3 = V4f(3.0, 0.0,0.0,0.0)
         let createOneCell = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(3.0, 0.0,0.0,0.0)
+            
                     
-            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            let parameters = [|hor3|]//;hor1;hor1;hor1|]
             
             let mapping = DataMapping(origin = Cell2d(4L, 4L, -2), size = V2i(1, 1))
             
@@ -525,19 +569,45 @@ module cpunz =
         let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                      |> Seq.collect (fun arr -> arr)
                    
+        
+        Assert.True((qtreeCells |> Seq.length) = 15 )
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,2,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
+        
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(3,2,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(3,3,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(2,3,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor3) && elemCell.Equals(Cell2d(4,4,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(4,5,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(5,5,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(5,4,-2))))
+       
+        
         ()
 
     [<Fact>]
     let ``punz_merge_withOverlap_within_other_volume`` () =
+        
+        let hor11 = V4f(1.1, 0.0,0.0,0.0)
+        let hor12 = V4f(1.2, 0.0,0.0,0.0)
+        let hor13 = V4f(1.3, 0.0,0.0,0.0)
+        let hor14 = V4f(1.4, 0.0,0.0,0.0)
+
         let createOverlap = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(1.1, 0.0,0.0,0.0)
-            let hor2 = V4f(1.2, 0.0,0.0,0.0)
-            let hor3 = V4f(1.3, 0.0,0.0,0.0)
-            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+            
                 
-            let parameters = [|hor1;hor2;
-                               hor3;hor4|]
+            let parameters = [|hor11;hor12;
+                               hor13;hor14|]
     
             let mapping = DataMapping(origin = Cell2d(3L, 3L, -2), size = V2i(2, 2))
     
@@ -561,22 +631,71 @@ module cpunz =
         let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                      |> Seq.collect (fun arr -> arr)
                    
+        
+        Assert.True((qtreeCells |> Seq.length) = 33 )
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,1,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(3,0,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(3,1,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,2,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,3,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(3,1,-1))))
+
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
+        
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(3,2,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(3,3,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(2,3,-1))))
+
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor11) && elemCell.Equals(Cell2d(3,3,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(3,2,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,3,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,2,-2))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor12) && elemCell.Equals(Cell2d(4,3,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(4,2,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,2,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,3,-2))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor14) && elemCell.Equals(Cell2d(4,4,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(4,5,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(5,5,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(5,4,-2))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor13) && elemCell.Equals(Cell2d(3,4,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(3,5,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(2,5,-2))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(5,2,-2))))
+        
         ()
 
     [<Fact>]
     let ``punz_merge_withOverlap_overboarder_other_volume`` () =
-        
+        let hor11 = V4f(1.1, 0.0,0.0,0.0)
+        let hor12 = V4f(1.2, 0.0,0.0,0.0)
+        let hor13 = V4f(1.3, 0.0,0.0,0.0)
+        let hor14 = V4f(1.4, 0.0,0.0,0.0)
+
         let createOverlap = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(1.1, 0.0,0.0,0.0)
-            let hor2 = V4f(1.2, 0.0,0.0,0.0)
-            let hor3 = V4f(1.3, 0.0,0.0,0.0)
-            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+            
                 
-            let parameters = [|hor1;hor2;
-                               hor3;hor4|]
+            let parameters = [|hor11;hor12;
+                               hor13;hor14|]
     
-            let mapping = DataMapping(origin = Cell2d(11L, 11L, -2), size = V2i(2, 2))
+            let mapping = DataMapping(origin = Cell2d(5L, 5L, -1), size = V2i(2, 2))
     
             // a layer gives meaning to raw data
             let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
@@ -598,21 +717,67 @@ module cpunz =
         let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                      |> Seq.collect (fun arr -> arr)
                    
+        
+        
+        Assert.True((qtreeCells |> Seq.length) = 28 )
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,0))))
+        
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+
+        // new cells
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(3,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(3,1,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,3,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,3,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor11) && elemCell.Equals(Cell2d(5,5,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(4,4,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,4,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(4,5,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor12) && elemCell.Equals(Cell2d(6,5,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(6,4,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(7,4,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(7,5,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor14) && elemCell.Equals(Cell2d(6,6,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(7,6,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(6,7,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(7,7,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor13) && elemCell.Equals(Cell2d(5,6,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(4,6,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(4,7,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(5,7,-1))))
+
+        
+
         ()
 
     [<Fact>]
     let ``punz_merge_withOverlap_overboarder_overOrigin_other_volume`` () =
+        
+        let hor11 = V4f(1.1, 0.0,0.0,0.0)
+        let hor12 = V4f(1.2, 0.0,0.0,0.0)
+        let hor13 = V4f(1.3, 0.0,0.0,0.0)
+        let hor14 = V4f(1.4, 0.0,0.0,0.0)
+
         let createOverlap = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(1.1, 0.0,0.0,0.0)
-            let hor2 = V4f(1.2, 0.0,0.0,0.0)
-            let hor3 = V4f(1.3, 0.0,0.0,0.0)
-            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+            
                 
-            let parameters = [|hor1;hor2;
-                               hor3;hor4|]
+            let parameters = [|hor11;hor12;
+                               hor13;hor14|]
     
-            let mapping = DataMapping(origin = Cell2d(-1L, -1L, -2), size = V2i(2, 2))
+            let mapping = DataMapping(origin = Cell2d(-1L, -1L, -1), size = V2i(2, 2))
     
             // a layer gives meaning to raw data
             let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
@@ -634,21 +799,64 @@ module cpunz =
         let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                      |> Seq.collect (fun arr -> arr)
                    
+        
+        Assert.True((qtreeCells |> Seq.length) = 28 )
+        
+        
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,2,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+
+        // new cells
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,2,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-1,0))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,-1,0))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor14) && elemCell.Equals(Cell2d(0,0,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,1,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,1,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor13) && elemCell.Equals(Cell2d(-1,0,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,0,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,1,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,1,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor11) && elemCell.Equals(Cell2d(-1,-1,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,-2,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,-2,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,-1,-1))))
+
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor12) && elemCell.Equals(Cell2d(0,-1,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,-2,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-2,-1))))
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-1,-1))))
         ()
 
     
 
     [<Fact>]
     let ``punz_2_merge_fine_first_other_volume`` () =
+        
+        let hor11 = V4f(1.1, 0.0,0.0,0.0)
+        let hor12 = V4f(1.2, 0.0,0.0,0.0)
+        let hor13 = V4f(1.3, 0.0,0.0,0.0)
+        let hor14 = V4f(1.4, 0.0,0.0,0.0)
+
         let createOverlap = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(1.1, 0.0,0.0,0.0)
-            let hor2 = V4f(1.2, 0.0,0.0,0.0)
-            let hor3 = V4f(1.3, 0.0,0.0,0.0)
-            let hor4 = V4f(1.4, 0.0,0.0,0.0)
+            
                 
-            let parameters = [|hor1;hor2;
-                               hor3;hor4|]
+            let parameters = [|hor11;hor12;
+                               hor13;hor14|]
     
             let mapping = DataMapping(origin = Cell2d(4L, 4L, -2), size = V2i(2, 2))
     
@@ -660,11 +868,13 @@ module cpunz =
             let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
     
             qtree
+        
+        let hor3 = V4f(3.0, 0.0,0.0,0.0)
         let createOneCell0 = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(3.0, 0.0,0.0,0.0)
+            
                     
-            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            let parameters = [|hor3|]//;hor1;hor1;hor1|]
             
             let mapping = DataMapping(origin = Cell2d(1L, 1L, 0), size = V2i(1, 1))
             
@@ -676,12 +886,12 @@ module cpunz =
             let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
             
             qtree
-
+        let hor5 = V4f(5.0, 0.0,0.0,0.0)
         let createOneCell1 = 
             // define mapping of raw data to raster space
-            let hor1 = V4f(5.0, 0.0,0.0,0.0)
+            
                     
-            let parameters = [|hor1|]//;hor1;hor1;hor1|]
+            let parameters = [|hor5|]//;hor1;hor1;hor1|]
             
             let mapping = DataMapping(origin = Cell2d(0L, 0L, 1), size = V2i(1, 1))
             
