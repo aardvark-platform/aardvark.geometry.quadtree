@@ -222,19 +222,6 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
         else
             failwith "Node must be centered at origin to split into quadrant nodes at same level. Invariant 6a4321b1-0f59-4574-bf51-fcce423fa389."
 
-    //member this.Split () : QNode[] =
-
-    //    let subLayers = cell.Children |> Array.map (fun subCell ->
-    //        let subBox = subCell.GetBoundsForExponent(this.SampleExponent)
-    //        let subLayers = layers |> Array.choose (fun l -> l.WithWindow subBox)
-    //        (subCell, subLayers) 
-    //        )
-    //    let subNodes = subLayers |> Array.map (fun (subCell, subLayers) ->
-    //        QNode(Guid.NewGuid(), subCell, splitLimitExp, subLayers, None)
-    //        )
-
-    //    subNodes
-
     member this.SplitLayers () =
 
         let ssls = this.Layers |> Array.map (fun l -> l.SupersampleUntyped())

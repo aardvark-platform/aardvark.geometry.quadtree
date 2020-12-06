@@ -125,6 +125,10 @@ module Merge =
 
         let layerResultLevel = layerChildLevel.Resample ClampToEdge resampler bounds
 
+        //let childLayers = layersInOrder |> Array.filter (fun x -> x.SampleExponent = e - 1)
+        //let childLayersWindow = childLayers |> Seq.map (fun x -> x.SampleWindow) |> Box2l
+        //let childLayer = (layerChildLevel.WithWindow childLayersWindow).Value
+
         { Layer = layerResultLevel; ChildLayer = layerChildLevel }
 
 
@@ -313,252 +317,6 @@ module Merge =
             |> Seq.toArray
 
         result
-
-    ///// Creates new node from two nodes.
-    //let rec private create (cell : Cell2d) (splitLimitExponent : int) (domination : Dominance) 
-    //                   (n1o : QNode option) (sno1 : QNode option[])
-    //                   (n2o : QNode option) (sno2 : QNode option[])
-    //                   (strangerThings : bool)
-    //                   : QNodeRef =
-
-    //    invariant (domination <> MoreDetailedOrFirst && domination <> MoreDetailedOrSecond) "c134db85-643a-420d-8205-a795a7bce5ca"
-
-    //    // ensure that optional root nodes coincide with specified root cell
-    //    let check s (n : QNode option) = 
-    //        match n with 
-    //        | None -> ()
-    //        | Some n -> invariantm (n.Cell = cell) 
-    //                        (sprintf "%s node (%A) does not coincide with specified root (%A)." s n.Cell cell) 
-    //                        "3294c70f-7a89-4f75-83d5-ead39cad9ac6"
-    //    check "1st" n1o
-    //    check "2nd" n2o
-
-    //    // ensure that all subnodes are correctly placed ... 
-    //    for qi = 0 to 3 do
-    //        let q = cell.GetQuadrant(qi)
-    //        invariant (match sno1.[qi] with | Some n -> n.Cell = q | None -> true) "764bc804-3f9f-4031-9ec0-7ffe04531328"
-    //        invariant (match sno2.[qi] with | Some n -> n.Cell = q | None -> true) "50d449be-0a7e-47bc-a3dc-0cc5bfb4fc59"
-
-    //    // ensure that all subnodes have same resolution and split limit ...
-    //    invariantm 
-    //        ((sno1 |> Seq.append sno2 |> Seq.choose id |> Seq.map (fun n -> (n.SampleExponent, n.SplitLimitExponent))) |> Seq.distinct |> Seq.length < 2) // order does not matter
-    //        "Subnodes have different resolution or split limit." "018b42e9-34a5-4791-94d2-374d7e246f6c"
-        
-    //    // ..........
-    //    let parts1 = seq { yield n1o; yield! sno1 } |> Seq.choose id |> Seq.toArray
-    //    let parts2 = seq { yield n2o; yield! sno2 } |> Seq.choose id |> Seq.toArray
-
-    //    let ebb1 = parts1 |> Seq.map(fun x -> x.ExactBoundingBox) |> Box2d
-    //    let ebb2 = parts2 |> Seq.map(fun x -> x.ExactBoundingBox) |> Box2d
-
-    //    //if (n1o.IsSome && n2o.IsSome) && ebb1.Intersects(ebb2) then
-        
-    //    //    if domination = FirstDominates  && n1o.Value.SampleExponent > n2o.Value.SampleExponent &&  ebb1.Contains(ebb2) |> not then
-    //    //        failwith "foo 1"
-
-    //    //    if domination = SecondDominates && n2o.Value.SampleExponent > n1o.Value.SampleExponent &&  ebb2.Contains(ebb1) |> not then
-    //    //        failwith "foo 2"
-
-
-
-
-    //    // compute node layers
-    //    let l1o = n1o |> Option.map (fun n -> n.Layers)
-    //    let slo1 = sno1 |> Array.map (Option.map (fun n -> n.Layers))
-    //    let l2o = n2o |> Option.map (fun n -> n.Layers)
-    //    let slo2 = sno2 |> Array.map (Option.map (fun n -> n.Layers))
-    //    let layerResults = createLayers cell domination l1o slo1 l2o slo2
-    //    let layers = layerResults |> Array.map (fun x -> x.Layer)
-
-    //    // merge subnodes
-    //    let subnodes = Array.zeroCreate 4
-    //    let mutable hasSubNodes = false
-    //    for i = 0 to 3 do
-    //        let n = match sno1.[i], sno2.[i] with
-    //                | None,   None   -> None
-    //                | Some a, None
-    //                | None,   Some a ->
-    //                    hasSubNodes <- true
-    //                    if strangerThings then
-    //                        let sc = cell.GetQuadrant(i)
-    //                        let scwin = sc.GetBoundsForExponent(a.SampleExponent)
-    //                        let ls = layerResults |> Array.map (fun lr -> lr.ChildLayer.WithWindow(scwin).Value)
-    //                        let a2 = QNode(a.Cell, a.SplitLimitExponent, ls, a.SubNodes)
-    //                        Some a2
-    //                    else
-    //                        Some a
-    //                | Some a, Some b ->
-    //                    failwith "Collision. Error fc1a216d-65e8-4bb0-9d4b-b355f548a830."
-    //                    //invariant (a.Cell = b.Cell) "72d1f6cf-a7a3-41ab-bc50-216dcf23f770"
-    //                    //let sn1 = match a.SubNodes with | None -> Array.zeroCreate 4 | Some xs -> xs |> Array.map (fun x -> x.TryGetInMemory())
-    //                    //let sn2 = match b.SubNodes with | None -> Array.zeroCreate 4 | Some xs -> xs |> Array.map (fun x -> x.TryGetInMemory())
-    //                    //(create a.Cell splitLimitExponent domination (Some a) sn1 (Some b) sn2).TryGetInMemory()
-
-    //        subnodes.[i] <- n
-
-    //    // result
-    //    let ebb = [n1o; n2o] |> Seq.append sno1 |> Seq.append sno2 |> Seq.choose (Option.map(fun n -> n.ExactBoundingBox)) |> Box2d // order does not matter
-    //    if hasSubNodes then
-    //        QNode(ebb, cell, splitLimitExponent, layers, subnodes) |> InMemoryNode
-    //    else
-    //        QNode(ebb, cell, splitLimitExponent, layers) |> InMemoryNode
-
-
-    ///// Merge nodes, where one node is a subnode of the other, or both nodes are the same.
-    //let rec private mergeOverlappingNodes (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) : QNodeRef =
-
-    //    match firstRef.TryGetInMemory(), secondRef.TryGetInMemory() with
-    //    | None,    None    -> NoNode
-    //    | Some _,  None    -> firstRef
-    //    | None,    Some _  -> secondRef
-    //    | Some n1, Some n2 ->
-
-    //        invariant (n1.SplitLimitExponent = n2.SplitLimitExponent) "6b6b74c6-f8dc-4177-93ba-99bea3328332"
-
-    //        invariantm (QNode.CellOverlap(n1, n2)) 
-    //            (sprintf "Nodes must overlap. First %A. Second %A" n1.Cell n2.Cell)
-    //            "740fb9b2-de34-4c83-85fd-f4149da25c83"
-
-
-    //        if domination = FirstDominates && n1.ExactBoundingBox.Contains(n2.ExactBoundingBox) then
-    //            firstRef  // first fully occludes second
-            
-    //        elif domination = SecondDominates && n2.ExactBoundingBox.Contains(n1.ExactBoundingBox) then
-    //            secondRef // second fully occludes first
-
-    //        else
-
-
-    //            // common root cell
-    //            let rc = n1.Cell.Union(n2.Cell)
-    //            invariant (not rc.IsCenteredAtOrigin) "20364c6b-c265-4e08-be21-fc69a0f96758"
-
-    //            let (n1o, sno1) =
-    //                if rc = n1.Cell then
-    //                    invariant (rc.Exponent >= n2.Cell.Exponent)  "16e4749b-2f55-40a1-90d3-4f07701ae146"
-                
-    //                    (Some n1, match n1.SubNodes with
-    //                              | None    -> Array.create 4 None
-    //                              | Some ns -> ns |> Array.map (fun n -> n.TryGetInMemory())
-    //                              )
-
-    //                else
-    //                    invariant (rc = n2.Cell)                    "51a10ae0-1cdf-47de-ab56-8845a801e141"
-    //                    invariant (rc.Exponent > n1.Cell.Exponent)  "58773c53-749a-478e-9f24-12bc701c4a10"
-                
-    //                    let sno1 = Array.create 4 None
-    //                    let qi1 = rc.GetQuadrant(n1.Cell).Value
-    //                    sno1.[qi1] <- (firstRef |> QNode.extendUpTo (rc.GetQuadrant(qi1))).TryGetInMemory().Value |> Some
-
-    //                    (None, sno1)
-
-    //            let (n2o, sno2) = 
-    //                if rc = n2.Cell then
-    //                    invariant (rc.Exponent >= n1.Cell.Exponent)  "4f24c550-87aa-4772-9463-ea886f1bb81e"
-                
-    //                    (Some n2, match n2.SubNodes with
-    //                              | None    -> Array.create 4 None
-    //                              | Some ns -> ns |> Array.map (fun n -> n.TryGetInMemory())
-    //                              )
-
-    //                else
-    //                    invariant (rc = n1.Cell)                    "1f9777be-9ea0-4117-beb3-0630c2fd8094"
-    //                    invariant (rc.Exponent > n2.Cell.Exponent)  "f263af3f-d77e-4820-b03c-ef9bd65d089a"
-                
-    //                    let sno2 = Array.create 4 None
-    //                    let qi2 = rc.GetQuadrant(n2.Cell).Value
-    //                    sno2.[qi2] <- (secondRef |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
-
-    //                    (None, sno2)
-
-    //            // handle sno collisions
-    //            for qi = 0 to 3 do
-    //                match sno1.[qi], sno2.[qi] with
-    //                | Some a, Some b ->
-    //                    let m = (mergeOverlappingNodes domination (InMemoryNode a) (InMemoryNode b)).TryGetInMemory()
-    //                    sno1.[qi] <- None
-    //                    sno2.[qi] <- None
-    //                    match domination with
-    //                    | FirstDominates       -> sno1.[qi] <- m
-    //                    | SecondDominates      -> sno2.[qi] <- m
-    //                    | MoreDetailedOrFirst  -> failwith "MoreDetailedOrFirst is not allowed here. Invariant d7caca1a-9e00-4f9e-b20b-f4ca8865005a."
-    //                    | MoreDetailedOrSecond -> failwith "MoreDetailedOrSecond is not allowed here. Invariant 732e7657-9db4-49b5-8a96-d448318a7505."
-    //                | _ -> ()
-
-    //            // .... check if dominating lower-resolution layer needs to be pushed through to only partially overlapping higher-res sublayer
-    //            let mutable strangerThings = false
-    //            if n1.ExactBoundingBox.Intersects(n2.ExactBoundingBox) then
-                        
-    //                    let rec getMinSampleExponentRec (foo : QNode) =
-    //                        match foo.SubNodes with
-    //                        | None -> foo.SampleExponent
-    //                        | Some xs -> xs |> Seq.choose (fun x -> x.TryGetInMemory()) |> Seq.map getMinSampleExponentRec |> Seq.min
-
-    //                    let se1 = getMinSampleExponentRec n1
-    //                    let se2 = getMinSampleExponentRec n2
-    //                    if domination = FirstDominates  && se1 > se2 &&  n1.ExactBoundingBox.Contains(n2.ExactBoundingBox) |> not then
-    //                        strangerThings <- true
-
-    //                    if domination = SecondDominates && se2 > se1 &&  n2.ExactBoundingBox.Contains(n1.ExactBoundingBox) |> not then
-    //                        strangerThings <- true
-
-    //            create rc n1.SplitLimitExponent domination n1o sno1 n2o sno2 strangerThings
-
-
-    //let private resolveCentered (domination : Dominance) (firstRef : QNodeRef) (secondRef : QNodeRef) =
-    //    failwith "resolve centered"
-
-
-    
-    ///// Merge nodes that do not overlap.
-    //let private mergeNonOverlappingNodes (dominance : Dominance) (nr1 : QNodeRef) (nr2 : QNodeRef) : QNodeRef =
-    //    match nr1.TryGetInMemory(), nr2.TryGetInMemory() with
-    //    | None,    None    -> NoNode
-    //    | Some _,  None    -> nr1
-    //    | None,    Some _  -> nr2
-    //    | Some n1, Some n2 ->
-        
-    //        invariant (n1.DoesNotOverlap(n2))                                   "6ada6e09-ef33-4daf-9b0c-4c6dd30f0087"
-    //        invariant (n1.SplitLimitExponent = n2.SplitLimitExponent)           "5a057fc7-fe39-4c6e-a759-1a49054c34e7"
-
-    //        // common root cell
-    //        let rc = n1.Cell.Union(n2.Cell)
-    //        invariant (rc.Contains n1.Cell && rc.Exponent > n1.Cell.Exponent)   "e93e27b4-f9a3-484f-a3fa-6e28cb4e803b"
-    //        invariant (rc.Contains n2.Cell && rc.Exponent > n2.Cell.Exponent)   "6e4b0a9a-c059-4ba3-8fde-029482326669"
-
-    //        // quadrant index for n1 and n2
-    //        let qi1 = rc.GetQuadrant(n1.Cell).Value
-    //        let qi2 = rc.GetQuadrant(n2.Cell).Value
-
-    //        // init two sets of subnodes for root cell
-    //        let sno1 = Array.create 4 None
-    //        sno1.[qi1] <- (nr1 |> QNode.extendUpTo (rc.GetQuadrant(qi1))).TryGetInMemory().Value |> Some
-    //        let sno2 = Array.create 4 None
-    //        sno2.[qi2] <- (nr2 |> QNode.extendUpTo (rc.GetQuadrant(qi2))).TryGetInMemory().Value |> Some
-
-    //        // create root node from two sets of subnodes
-    //        create rc n1.SplitLimitExponent dominance None sno1 None sno2 false
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1129,10 +887,22 @@ module Merge =
                                                                                    |> checkEbb
                                                                                    
             // subtree
-            | MergeSubtree (NonCentered parent,  DirectChild (child, qi), d)    -> Children.ofIndexedSubnodes (Tree.cell parent) [(qi, child)]
-                                                                                   |> match subnodes parent with
-                                                                                      | None     -> mergeChildren d (splitleaf parent)
-                                                                                      | Some ns1 -> mergeChildren d ns1
+            | MergeSubtree (NonCentered parent,  DirectChild (child, qi), d)    -> 
+                                                                                   let qparent = Tree.qnode parent
+                                                                                   printfn "%A" qparent.Mapping
+                                                                                   let children = Children.ofIndexedSubnodes (Tree.cell parent) [(qi, child)]
+
+                                                                                   let childWindow = (Tree.qnode child).Mapping.Window
+
+                                                                                   let merged =
+                                                                                        match subnodes parent with
+                                                                                        | None     -> 
+                                                                                            let splitParent = splitleaf parent
+                                                                                            mergeChildren d splitParent children
+                                                                                        | Some ns1 ->
+                                                                                            mergeChildren d ns1 children
+
+                                                                                   merged
                                                                                    |> createNodeFromChildren |> NonCentered
                                                                                    |> checkEbb
 

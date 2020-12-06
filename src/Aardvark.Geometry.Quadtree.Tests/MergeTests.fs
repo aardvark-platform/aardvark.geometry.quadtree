@@ -4,6 +4,8 @@ open Aardvark.Geometry.Quadtree
 open Aardvark.Base
 open System
 open Xunit
+open Aardvark.Geometry.Quadtree.PrettyPrint
+open System.IO
 
 [<Measure>] type powerOfTwo
 
@@ -501,15 +503,25 @@ let ``Merge_Random_SplitLimit256`` dominance =
 
     let r = Random()
     for i = 1 to 25 do
-        let e = r.Next(20) - 10
-        let ox = if e >= 0 then (r.Next(2000)) >>> e else (r.Next(2000)) <<< -e
-        let oy = if e >= 0 then (r.Next(2000)) >>> e else (r.Next(2000)) <<< -e
+        let e = r.Next(5) - 2
+        let ox = if e >= 0 then (r.Next(100)) >>> e else (r.Next(100)) <<< -e
+        let oy = if e >= 0 then (r.Next(100)) >>> e else (r.Next(100)) <<< -e
         let w  = r.Next(50) + 1
         let h  = r.Next(50) + 1
 
         let other = createQuadtreeWithRandomValues ox oy w h e 8<powerOfTwo>
         let merged = Quadtree.Merge dominance quadtree other
         quadtree <- merged
+
+    //let f = { HAlign=Center; VAlign=Middle; Bgcolor=C3b.White}
+    //let pp = Cells.Group(
+    //                Position = {X=0;Y=0}, 
+    //                Format= f,
+    //                Label = "Merge_Random_SplitLimit256",
+    //                Content = [
+    //                    Cells.ofQNodeRef<float32> "mainTree" {X=0;Y=0} f Defs.Heights1f quadtree
+    //                ])
+    //File.WriteAllLines(@"T:\index.html", Cells.toHtml pp)
 
     ()
 
