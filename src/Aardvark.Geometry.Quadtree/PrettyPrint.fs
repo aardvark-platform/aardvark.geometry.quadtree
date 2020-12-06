@@ -2,6 +2,8 @@
 
 open Aardvark.Base
 open Aardvark.Data
+open System
+open System.IO
 
 module PrettyPrint =
 
@@ -34,6 +36,8 @@ module PrettyPrint =
         VAlign : VAlign
         Bgcolor : C3b
     }
+    with
+        static member Default = { HAlign=Left; VAlign=Top; Bgcolor=C3b.White }
     
     let private colorOfC3b (c : C3b) = sprintf "rgb(%d,%d,%d)" c.R c.G c.B
 
@@ -120,7 +124,9 @@ module PrettyPrint =
             | -3 -> C3b(128,255,255)
             | _ -> C3b.Gray80
 
-        let ofQNodeRef<'a> (name : string) (pos : Pos) (f : Format) (def : Durable.Def) (qref : QNodeRef) : Cells =
+        let ofQNodeRef<'a> (name : string) (pos : Pos) (def : Durable.Def) (qref : QNodeRef) : Cells =
+
+            let f = { HAlign=Left; VAlign=Top; Bgcolor=C3b.White }
 
             let rec foo (name : string) (pos : Pos) (f : Format) (xs : (Cell2d * 'a) list) =
 
@@ -163,40 +169,17 @@ module PrettyPrint =
             let allSamples = qref |> Query.Full |> Seq.toList |> List.collect (fun x -> x.GetSamples<'a> def |> Array.toList)
             let result = foo name pos f allSamples
             result
-        
 
-    //let rec private p<'a> (def : Durable.Def) (indent : string) (root : QNodeRef) =
 
-    //    match root.TryGetInMemory() with
-    //    | None -> printfn "%s{}" indent
-    //    | Some root ->
-    //        let ind = indent + "  "
-    //        printfn "%s{" indent
 
-    //        let layer = (root.TryGetLayer def).Value :?> Layer<'a>
+    let generateHtmlDebugView<'a> title def quadtrees =
+        let content = quadtrees |> List.mapi (fun i x -> Cells.ofQNodeRef<'a> (fst x) {X=0;Y=i*2} def (snd x))
+        Cells.Group({X=0;Y=0}, Format.Default, title, content) |> Cells.toHtml
 
-    //        let o = root.Mapping.BufferOrigin
-    //        let size = root.Mapping.WindowSize
-    //        for y = size.Y-1 downto 0 do
-    //            printf "%s" ind
-    //            for x = 0 to size.X-1 do
-    //                let c = Cell2d(o.X + int64 x, o.Y + int64 y, o.Exponent)
-    //                let s = layer.GetSample(Fail, c)
-    //                printf "((%d, %d, %d), %A)" c.X c.Y c.Exponent s
-    //            printfn ""
-
-    //        match root.SubNodes with
-    //        | None -> ()
-    //        | Some ns -> for n in ns do 
-    //                        match n with | NoNode -> () | _ -> p<'a> def ind n
-
-    //        printfn "%s}" indent
-
-    //        ()
-
-    //let print<'a> name (def : Durable.Def) (rootRef : QNodeRef) =
-    //    printfn ""
-    //    printfn "%s:" name
-    //    p<'a> def "" rootRef
-        
-
+    let shotHtmlDebugView<'a> title def quadtrees =
+        let html = generateHtmlDebugView<'a> title def quadtrees
+        let now = DateTime.Now
+        let filename = sprintf "quadtree_%04d-%02d-%02d-%02d-%02d-%02d.html" now.Year now.Month now.Day now.Hour now.Minute now.Second
+        let filename = Path.Combine(Path.GetTempPath(), filename)
+        File.WriteAllLines(filename, html)
+        System.Diagnostics.Process.Start(@"cmd.exe ", @"/c " + filename) |> ignore

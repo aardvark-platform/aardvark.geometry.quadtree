@@ -432,7 +432,7 @@ module cpunz =
                 
             // build the quadtree (incl. levels-of-detail)
                 
-            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo=0 } [| bilinParameters |]
         
             qtree
    
@@ -564,6 +564,7 @@ module cpunz =
         ()
 
     open PrettyPrint
+
     [<Fact>]
     let ``punz_merge_verySmall_into_coarse_volume`` () =
         let hor3 = V4f(3.0, 0.0,0.0,0.0)
@@ -580,7 +581,7 @@ module cpunz =
                     
             // build the quadtree (incl. levels-of-detail)
                     
-            let qtree = Quadtree.Build BuildConfig.Default [| bilinParameters |]
+            let qtree = Quadtree.Build  { BuildConfig.Default with SplitLimitPowerOfTwo=0 } [| bilinParameters |]
             
             qtree
     
@@ -590,50 +591,50 @@ module cpunz =
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
 
-
-        let f = { HAlign=Center; VAlign=Middle; Bgcolor=C3b.White}
-        let pp = Cells.Group(
-                        Position = {X=0;Y=0}, 
-                        Format= f,
-                        Label = "punz_merge_verySmall_into_coarse_volume",
-                        Content = [
-                            Cells.ofQNodeRef<V4f> "mainTree" {X=0;Y=0} f Defs.VolumesBilinear4f mainTree
-                            Cells.ofQNodeRef<V4f> "subTree"  {X=0;Y=2} f Defs.VolumesBilinear4f subTree
-                            Cells.ofQNodeRef<V4f> "newTree"  {X=0;Y=4} f Defs.VolumesBilinear4f newTree
-                        ])
-        File.WriteAllLines(@"T:\index.html", Cells.toHtml pp)
-    
         let config = Query.Config.Default  
-        let resultCells = newTree |> Query.All config
+        let resultCells = newTree |> Query.All config |> Seq.toArray
+        let foo = resultCells |> Seq.map (fun x -> x.GetSampleCells ()) |> Seq.toArray
         let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
-                                     |> Seq.collect (fun arr -> arr)
+                                     |> Seq.collect (fun arr -> arr) |> Seq.toArray
                    
-        
-        Assert.True((qtreeCells |> Seq.length) = 15 )
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,2,0))))
+    
+        for (c,x) in qtreeCells do printfn "%A -> %A" c x
+        shotHtmlDebugView<V4f> "punz_merge_verySmall_into_coarse_volume" Defs.VolumesBilinear4f [
+            ("mainTree", mainTree)
+            ("subTree", subTree)
+            ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
+            ]
+    
 
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
-        
+        Assert.True(qtreeCells.Length = 8)
 
-        // Christian Punz: hier wäre so ein Fall, wo bei den "neuen" Subzellen für mich nicht ganz nachvollziehbare Datenwerte entstehen,... ev. sollte einfach der alte von der übergeordneten Zelle übernommen werden
+        let check cell value = Assert.True(qtreeCells |> Seq.exists(fun (c,x) -> x = value && c = cell))
+        let checkNan cell    = qtreeCells |> Seq.exists (fun (c,x) -> c = cell && x.X.IsNaN()) |> Assert.True
+
+        checkNan (Cell2d(0,0,0))
+        checkNan (Cell2d(1,0,0))
+        checkNan (Cell2d(2,0,0))
+        checkNan (Cell2d(2,1,0))
+        checkNan (Cell2d(2,2,0))
+
+        check (Cell2d(0,1,0)) hor1_main
+        check (Cell2d(0,2,0)) hor1_main
+        
+        // Christian Punz: hier wäre so ein Fall, wo bei den "neuen" Subzellen für mich nicht ganz nachvollziehbare Datenwerte entstehen,...
+        // ev. sollte einfach der alte von der übergeordneten Zelle übernommen werden
         // die Deluxe Variante wäre ein Resampling der Werte, aber das hat jetzt keine hohe Priorität
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+        check (Cell2d(1,2,0)) oblique1_main
 
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(3,2,-1))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(3,3,-1))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(2,3,-1))))
+        check (Cell2d(3,2,-1)) oblique1_main
+        check (Cell2d(3,3,-1)) oblique1_main
+        check (Cell2d(2,3,-1)) oblique1_main
 
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor3) && elemCell.Equals(Cell2d(4,4,-2))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(4,5,-2))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(5,5,-2))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(5,4,-2))))
-       
+        check (Cell2d(4,4,-2)) hor3
         
+        check (Cell2d(4,5,-2)) oblique1_main
+        check (Cell2d(5,5,-2)) oblique1_main
+        check (Cell2d(5,4,-2)) oblique1_main
+       
         ()
 
     [<Fact>]
