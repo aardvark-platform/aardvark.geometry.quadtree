@@ -109,24 +109,6 @@ module Query =
 
                     invariant n.SubNodes.IsSome "0baa1ede-dde1-489b-ba3c-28a7e7a5bd3a"
 
-                    (* OLD
-                    // return samples from inner node, which are not covered by children
-                    let subWindows = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.SampleWindow))
-                    let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2l) =
-                        let sampleWindow = Box2l.FromMinAndSize(sample.XY * 2L, V2l(2, 2))
-                        subWindow.Intersects sampleWindow
-                    let inline notContainedBySubWindows (s : Cell2d) = subWindows |> Array.exists (subWindowContainsSample s) |> not
-                    
-                    // get all samples _inside_ the query
-                    let allSamples = n.GetAllSamples() |> Array.filter isSampleInside
-
-                    // partition by whether samples are
-                    // - intersecting subnode-samples (-> unsafe), or 
-                    // - not intersecting subnode-samples (safe)
-                    let (safeSamples, unsafeSamples) = allSamples |> Array.partition notContainedBySubWindows
-                    *)
-
-
                     // return samples from inner node, which are not covered by children
                     let subWindows = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.ExactBoundingBox))
                     let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2d) =
@@ -189,7 +171,7 @@ module Query =
                             yield! r
         }
     
-    /// Returns all samples inside given cell.
+    /// Returns all samples inside given tree.
     let All (config : Config) (root : QNodeRef) : Result seq =
         match root.TryGetInMemory() with
         | None -> Seq.empty
@@ -266,6 +248,10 @@ module Query =
         | Some root -> Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
 
+    (* 
+        Faster implementation than "Generic". 
+        Todo: replace all occurences of "Generic" with this one and then replace old "Generic" with this one.
+    *)
     /// The generic query function.
     let rec Generic' 
             (config : Config) 
@@ -351,7 +337,16 @@ module Query =
         | None -> Seq.empty
         | Some root -> Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside root
 
-
+    /// Enumerates all samples in quadtree, including samples from inner cells.
+    let rec Full (root : QNodeRef) : Result seq = seq {
+        match root.TryGetInMemory() with
+        | None -> ()
+        | Some n ->
+            yield { Node = n; Selection = FullySelected }
+            match n.SubNodes with
+            | None -> ()
+            | Some subnodes -> for subnode in subnodes do yield! Full subnode
+        }
 
 module Sample =
     

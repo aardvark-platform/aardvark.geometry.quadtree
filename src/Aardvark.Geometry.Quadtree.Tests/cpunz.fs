@@ -538,6 +538,32 @@ module cpunz =
         
         ()
 
+    open PrettyPrint
+    let generatePrettyPrintTable () =
+    
+        let f = { HAlign=Center; VAlign=Middle}
+        
+        let cells = 
+            Group(
+                {X=0;Y=0}, f, "Label 1", [
+                    Text({X=0; Y=0}, f, "Hello World!")
+                    Text({X=1; Y=0}, f, "(1,0)")
+                    Text({X=0; Y=1}, f, "(0,1)")
+                    Text({X=3; Y=4}, f, "(3,4)")
+                    Group(
+                        {X=2;Y=3}, f, "Label 2", [
+                            Text({X=0; Y=0}, f, "Hello World!")
+                            Text({X=1; Y=0}, f, "(1,0)")
+                            Text({X=0; Y=1}, f, "(0,1)")
+                            Text({X=3; Y=4}, f, "(3,4)")
+                        ])
+                ])
+    
+        File.WriteAllLines(@"T:\index.html", cells |> Cells.toHtml)
+    
+        ()
+
+    open PrettyPrint
     [<Fact>]
     let ``punz_merge_verySmall_into_coarse_volume`` () =
         let hor3 = V4f(3.0, 0.0,0.0,0.0)
@@ -563,6 +589,19 @@ module cpunz =
         let subTree = createOneCell 
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
+
+
+        let f = { HAlign=Center; VAlign=Middle}
+        let pp = Cells.Group(
+                        Position = {X=0;Y=0}, 
+                        Format= f,
+                        Label = "punz_merge_verySmall_into_coarse_volume",
+                        Content = [
+                            Cells.ofQNodeRef<V4f> "mainTree" {X=0;Y=0} f Defs.VolumesBilinear4f mainTree
+                            Cells.ofQNodeRef<V4f> "subTree"  {X=0;Y=2} f Defs.VolumesBilinear4f subTree
+                            Cells.ofQNodeRef<V4f> "newTree"  {X=0;Y=4} f Defs.VolumesBilinear4f newTree
+                        ])
+        File.WriteAllLines(@"T:\index.html", Cells.toHtml pp)
     
         let config = Query.Config.Default  
         let resultCells = newTree |> Query.All config

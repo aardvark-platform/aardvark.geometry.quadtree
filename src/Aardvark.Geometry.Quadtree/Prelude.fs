@@ -26,6 +26,11 @@ module Prelude =
         let qi = parent.GetQuadrant(cell).Value
         (parent, qi)
 
+    let rec getParentForLevel level (c : Cell2d) =
+        if c.Exponent > level then failwith "Cell exponent must be less or equal than requiested level. Invariant e51c067e-bfb9-4548-a685-322dfad65da2."
+        if c.Exponent = level then c else getParentForLevel level c.Parent
+            
+
 module Option =
 
     let merge2 f x y = match x, y with | None, None -> None | Some x, None | None, Some x -> Some x | Some x, Some y -> f x y |> Some

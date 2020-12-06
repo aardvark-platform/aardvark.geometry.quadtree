@@ -543,47 +543,4 @@ module QNode =
             let result = merged |> Array.map (fun x -> x.Value)
             result
 
-    ///// Returns same tree if already starting at root, or new extended tree starting at root.
-    ///// Root must contain node. Newly created nodes contain resampled layers (LoD).
-    //let rec extendUpTo (root : Cell2d) (nodeRef : QNodeRef) : QNodeRef =
-
-    //    match nodeRef.TryGetInMemory() with
-    //    | None      -> NoNode
-    //    | Some node ->
-            
-    //        //invariantm (not node.Cell.IsCenteredAtOrigin) "Node must not be centered."          "c8f2a8bd-2f4f-4467-843e-1d660d6ac329"
-    //        invariantm (root.Contains(node.Cell)) "Root must contain node."                     "a48ca4ab-3f20-45ff-bd3c-c08f2a8fcc15"
-    //        invariant (root.Exponent >= node.Cell.Exponent)                                     "cda4b28d-4449-4db2-80b8-40c0617ecf22"
-    //        invariant (root.BoundingBox.Contains(node.SampleWindowBoundingBox))                 "3eb5c9c4-a78e-4788-b1b2-2727564524ee"
-              
-    //        let numberOfLevelsBelowRoot = root.Exponent - node.Cell.Exponent
-    //        match numberOfLevelsBelowRoot with
-                
-    //        | 0 -> // already at desired root -> done
-    //            invariant (root = node.Cell)                                                    "cede9588-7ea0-408d-89a3-86ed9d916930"
-    //            InMemoryNode node
-
-    //        | 1 -> // one level below root, both non-centered
-
-    //            invariant (root.Exponent = node.Cell.Exponent + 1)                              "b652d9bc-340a-4312-8407-9fdee62ffcaa"
-
-    //            let qi = root.GetQuadrant(node.Cell)
-                
-    //            invariantm qi.HasValue 
-    //                (sprintf "Node %A must be quadrant of root %A." node.Cell root )            "09575aa7-38b3-4afa-bb63-389af3301fc0"
-                    
-                
-    //            let subnodes = Array.create 4 NoNode
-    //            subnodes.[qi.Value] <- InMemoryNode node
-
-    //            let lodlayers = generateLodLayers subnodes root
-                
-    //            let result = QNode(Guid.NewGuid(), root, node.SplitLimitExponent, lodlayers, subnodes)
-                
-    //            InMemoryNode result
-
-    //        | x ->    // more than 1 level below root
-    //            invariant (x > 1) "de49dcd3-a45a-4854-b71b-45866d6f82de"
-    //            nodeRef
-    //            |> extendUpTo node.Cell.Parent 
-    //            |> extendUpTo root
+    
