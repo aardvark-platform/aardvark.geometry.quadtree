@@ -617,7 +617,7 @@ let cpunz20201116 () =
 open PrettyPrint
 let prettyPrintTest () =
 
-    let f = { HAlign=Center; VAlign=Middle}
+    let f = { HAlign=Center; VAlign=Middle; Bgcolor=C3b.White }
     
     let cells = 
         Group(

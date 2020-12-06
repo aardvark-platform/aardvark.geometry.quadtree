@@ -541,7 +541,7 @@ module cpunz =
     open PrettyPrint
     let generatePrettyPrintTable () =
     
-        let f = { HAlign=Center; VAlign=Middle}
+        let f = { HAlign=Center; VAlign=Middle; Bgcolor=C3b.White}
         
         let cells = 
             Group(
@@ -591,7 +591,7 @@ module cpunz =
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
 
 
-        let f = { HAlign=Center; VAlign=Middle}
+        let f = { HAlign=Center; VAlign=Middle; Bgcolor=C3b.White}
         let pp = Cells.Group(
                         Position = {X=0;Y=0}, 
                         Format= f,
