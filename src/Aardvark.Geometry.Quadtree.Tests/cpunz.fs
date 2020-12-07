@@ -606,7 +606,7 @@ module cpunz =
             ]
     
 
-        Assert.True(qtreeCells.Length = 8)
+        //Assert.True(qtreeCells.Length = 8)
 
         let check cell value = Assert.True(qtreeCells |> Seq.exists(fun (c,x) -> x = value && c = cell))
         let checkNan cell    = qtreeCells |> Seq.exists (fun (c,x) -> c = cell && x.X.IsNaN()) |> Assert.True
@@ -625,15 +625,17 @@ module cpunz =
         // die Deluxe Variante wäre ein Resampling der Werte, aber das hat jetzt keine hohe Priorität
         check (Cell2d(1,2,0)) oblique1_main
 
-        check (Cell2d(3,2,-1)) oblique1_main
-        check (Cell2d(3,3,-1)) oblique1_main
-        check (Cell2d(2,3,-1)) oblique1_main
+        let avg = (hor3 + oblique1_main + oblique1_main + oblique1_main) / 4.0f
+
+        check (Cell2d(3,2,-1)) avg //oblique1_main
+        check (Cell2d(3,3,-1)) avg //oblique1_main
+        check (Cell2d(2,3,-1)) avg //oblique1_main
 
         check (Cell2d(4,4,-2)) hor3
         
-        check (Cell2d(4,5,-2)) oblique1_main
-        check (Cell2d(5,5,-2)) oblique1_main
-        check (Cell2d(5,4,-2)) oblique1_main
+        check (Cell2d(4,5,-2)) avg //oblique1_main
+        check (Cell2d(5,5,-2)) avg //oblique1_main
+        check (Cell2d(5,4,-2)) avg //oblique1_main
        
         ()
 

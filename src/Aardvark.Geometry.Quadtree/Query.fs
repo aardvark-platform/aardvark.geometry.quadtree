@@ -41,6 +41,7 @@ module Query =
         | FullySelected
         | CellsSelected of Cell2d[]
         | SubCellsSelected of Cell2d[]
+        | SubSubCellsSelected of Cell2d[]
         | WindowSelected of Box2l
         | SubtractionSelected of Box2l // full node except given box
         | NotSelected
@@ -55,13 +56,19 @@ module Query =
             | NotSelected -> Array.empty
             | CellsSelected cells -> cells
             | SubCellsSelected cells -> cells
+            | SubSubCellsSelected cells -> cells
             | WindowSelected window -> this.Node.GetAllSamplesInsideWindow(window)
             | SubtractionSelected second -> this.Node.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.SampleExponent)
             | FullySelected -> this.Node.GetAllSamples()
         member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
             let cells = this.GetSampleCells ()
-            let result = cells |> Array.map (fun p -> (p, layer.GetSample(Fail, p)))
+            let result = cells |> Array.map (fun p ->
+                if p.Exponent = layer.Mapping.BufferOrigin.Exponent then
+                    (p, layer.GetSample(Fail, p))
+                else
+                    (p, layer.GetSample(Fail, p.Parent))
+                )
             result
 
     /// The generic query function.
@@ -144,9 +151,6 @@ module Query =
                             let isNotCovered = exactSubBounds |> Array.exists (fun sw -> sw.Contains(sb)) |> not
                             isNotCovered
 
-                        //let foo1 = unsafeSamples |> Seq.collect (fun x -> x.Children) |> Seq.toArray
-                        //let foo2 = foo1 |> Array.filter notCoveredBySubSamples
-
                         // fill holes ...
                         let holeFillingSamples = 
                             unsafeSamples
@@ -161,6 +165,38 @@ module Query =
                         let result = { Node = n; Selection = SubCellsSelected holeFillingSamples }
                         if config.Verbose then printfn "[Generic ] YIELD %A" result
                         yield result
+
+
+
+                        let onlyPartiallyCoveredBySubSamples (s : Cell2d) =
+                            let sb = s.BoundingBox
+                            let isPartiallyCovered = exactSubBounds |> Array.forall (fun sw -> not(sw.Contains(sb)) && sw.Intersects(sb))
+                            isPartiallyCovered
+
+                        let partiallyCoveredSamples =
+                            unsafeSamples
+                            // ... by splitting each unsafe sample into 4 subsamples, ...
+                                |> Seq.collect (fun x -> x.Children)
+                            // ... and keeping those only partially covered by subnode samples
+                                |> Seq.filter onlyPartiallyCoveredBySubSamples
+                            // .. and fully inside the whole tree's footprint (to avoid "border" cases ;-))
+                                |> Seq.filter (fun x -> n.ExactBoundingBox.Contains(x.BoundingBox))
+                                |> Seq.toArray
+
+                        let holeFillingFragments =
+                            partiallyCoveredSamples
+                            |> Seq.collect (fun x -> x.Children)
+                            // ... only keep those not fully covered by existing subnode samples
+                            |> Seq.filter notCoveredBySubSamples
+                            |> Seq.toArray
+                            
+                        if holeFillingFragments.Length > 0 then
+                            let result = { Node = n; Selection = SubSubCellsSelected holeFillingFragments }
+                            yield result
+
+
+
+
 
                     // recursively return samples from children (a.k.a. subnode samples)
                     match n.SubNodes with

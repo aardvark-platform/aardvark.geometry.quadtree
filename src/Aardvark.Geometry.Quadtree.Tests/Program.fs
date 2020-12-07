@@ -1,3 +1,6 @@
+open Aardvark.Base
+
+
 module Program =
 
     let [<EntryPoint>] main _ =
