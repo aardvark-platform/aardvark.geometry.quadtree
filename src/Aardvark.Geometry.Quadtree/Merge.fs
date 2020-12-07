@@ -362,22 +362,14 @@ module Merge =
             if root.IsLeafNode then Leaf(root) else Tree(root)
 
         let inline qnode n = match n with | Leaf n | Tree n -> n
-        let inline cell n = match n with | Leaf n | Tree n -> n.Cell
-        let inline isLeaf n = (qnode n).IsLeafNode
-        let inline isCentered n = (cell n).IsCenteredAtOrigin
-        let inline exactBounds n = (qnode n).ExactBoundingBox
-        let inline splitLimitExponent n = (qnode n).SplitLimitExponent
 
         let tryGetChildren n : Children option =
             match (qnode n).SubNodes with
-            | Some ns -> Children(cell n, ns |> Array.map(fun n -> n.TryGetInMemory()) |> Array.map(Option.map(ofQNode))) |> Some
+            | Some ns -> Children((qnode n).Cell, ns |> Array.map(fun n -> n.TryGetInMemory()) |> Array.map(Option.map(ofQNode))) |> Some
             | None    -> None
 
     type Tree with
-        member this.Cell with get() = Tree.cell this
-        member this.ExactBounds with get() = Tree.exactBounds this
-        member this.SplitLimitExponent with get() = Tree.splitLimitExponent this
-
+        member this.QNode with get() = Tree.qnode this
 
     /// Centered tree.
     type CenterTree =
@@ -445,7 +437,7 @@ module Merge =
     module SubtreeRelation =
 
         let ofTree (root : Cell2d) (child : Tree) : SubtreeRelation option =
-            let c = child.Cell 
+            let c = child.QNode.Cell 
             if root.Exponent > c.Exponent then
                 let qi = root.GetQuadrant(c)
                 match Option.ofNullable qi with
@@ -551,13 +543,13 @@ module Merge =
         invariant (children.Length > 0 && children.Length <= 4)                 "0cf7c961-6e82-4117-935c-b83043fc0465"
         let ns = Array.create 4 None
         for x in children do
-            invariant (x.Index >= 0 && x.Index < 4)                                         "bfb84957-3024-443e-b026-3e7db0f45c74"
-            invariant (ns.[x.Index].IsNone)                                           "1ccd65be-6c4e-4135-af5d-d25af3aed1da"
+            invariant (x.Index >= 0 && x.Index < 4)                             "bfb84957-3024-443e-b026-3e7db0f45c74"
+            invariant (ns.[x.Index].IsNone)                                     "1ccd65be-6c4e-4135-af5d-d25af3aed1da"
+            let c = x.Child.QNode.Cell
             if root.IsCenteredAtOrigin then
-                let c = x.Child.Cell
                 invariant (c.Exponent + 1 = root.Exponent && c.TouchesOrigin)   "bb213b45-6f28-4ca4-9254-f2cebbf12b00"
             else
-                invariant (x.Child.Cell.Parent = root)                         "cd9bd921-74aa-4719-89f5-ca28a7bd40f5"
+                invariant (c.Parent = root)                                     "cd9bd921-74aa-4719-89f5-ca28a7bd40f5"
             ns.[x.Index] <- Some x.Child
         (root, ns)
 
@@ -571,7 +563,7 @@ module Merge =
         let extract  x = match x with | Children (a,b) -> (a,b)
         
         let splitLimitExponent x =
-            extract x |> snd |> Seq.choose(Option.map(fun x -> x.SplitLimitExponent)) |> Seq.head
+            extract x |> snd |> Seq.choose(Option.map(fun x -> x.QNode.SplitLimitExponent)) |> Seq.head
 
         let merge dom mf c1 c2 =
             let (root1, ns1) = extract c1
@@ -579,9 +571,9 @@ module Merge =
             invariant (root1 = root2) "88703a21-e46e-4f27-87cf-410544c9c04b"
             let f a b = match a, b with 
                         | None, None -> None | Some x, None | None, Some x -> Some x
-                        | Some x, Some y ->
-                            let ebx = Tree.exactBounds x
-                            let eby = Tree.exactBounds y
+                        | Some (x : Tree), Some y ->
+                            let ebx = x.QNode.ExactBoundingBox
+                            let eby = y.QNode.ExactBoundingBox
                             if   dom = FirstDominates && ebx.Contains(eby) then Some x
                             elif dom = SecondDominates && eby.Contains(ebx) then Some y
                             else mf x y |> Some
@@ -592,7 +584,7 @@ module Merge =
 
         let ofIndexedSubnodes (root : Cell2d) (children : DirectChild list) : CenterChildren =
             invariant (root.IsCenteredAtOrigin) "5beee604-5064-460f-9b81-cf98aaca0b3b"
-            let cexp = children |> Seq.map (fun x -> x.Child.Cell.Exponent) |> Seq.distinct |> Seq.exactlyOne
+            let cexp = children |> Seq.map (fun x -> x.Child.QNode.Cell.Exponent) |> Seq.distinct |> Seq.exactlyOne
             invariantm (root.Exponent = cexp + 1) (sprintf "root exp = %d; child exp = %d" root.Exponent cexp) "135ace7c-3d64-41ea-8ec9-6a440a2ad5d5"
             ofIndexedSubnodes root children |> CenterChildren
 
@@ -604,7 +596,7 @@ module Merge =
                         x
 
         let splitLimitExponent x =
-            extract x |> snd |> Seq.choose(Option.map(fun x -> x.SplitLimitExponent)) |> Seq.head
+            extract x |> snd |> Seq.choose(Option.map(fun x -> x.QNode.SplitLimitExponent)) |> Seq.head
 
         let merge dom mf (c1 : CenterChildren) (c2 : CenterChildren) : CenterChildren =
             let (root1, ns1) = extract c1
@@ -612,9 +604,9 @@ module Merge =
             invariant (root1 = root2) "2720c598-05a9-4a2d-80ec-78caf82cf3d7"
             let f a b = match a, b with 
                         | None, None -> None | Some x, None | None, Some x -> Some x
-                        | Some x, Some y ->
-                            let ebx = Tree.exactBounds x
-                            let eby = Tree.exactBounds y
+                        | Some (x : Tree), Some y ->
+                            let ebx = x.QNode.ExactBoundingBox
+                            let eby = y.QNode.ExactBoundingBox
                             if   dom = FirstDominates && ebx.Contains(eby) then Some x
                             elif dom = SecondDominates && eby.Contains(ebx) then Some y
                             else mf x y |> Some
@@ -629,7 +621,7 @@ module Merge =
     module LeafNode =
 
         let inline ofTree (n : Tree) : LeafNode =
-            invariant (Tree.isLeaf n) "b4b2cda5-5ea8-4e0a-883d-c422a6afd760"
+            invariant (n.QNode.IsLeafNode) "b4b2cda5-5ea8-4e0a-883d-c422a6afd760"
             n |> NonCentered |> LeafNode
 
         let inline ofCenterTree (n : CenterTree) : LeafNode =
@@ -647,7 +639,7 @@ module Merge =
 
     module InnerNode =
         let inline ofTree (n : Tree) : InnerNode =
-            invariant (not(Tree.isLeaf n)) "cb91131f-2d2c-4fde-ac8c-c2ad715ad7ca"
+            invariant (n.QNode.IsInnerNode) "cb91131f-2d2c-4fde-ac8c-c2ad715ad7ca"
             n |> NonCentered |> InnerNode
 
         let inline ofCenterTree (n : CenterTree) : InnerNode =
@@ -704,7 +696,7 @@ module Merge =
     
         let sle = CenterChildren.splitLimitExponent children
         let (root, ns) = CenterChildren.extract children
-        let snexp = ns |> Seq.choose(Option.map(fun x -> x.Cell.Exponent)) |> Seq.distinct |> Seq.exactlyOne
+        let snexp = ns |> Seq.choose(Option.map(fun x -> x.QNode.Cell.Exponent)) |> Seq.distinct |> Seq.exactlyOne
         invariant (ns |> Array.exists(Option.isSome)) "e81ff857-15b3-415e-abb7-427f04146fe3"
         invariant (root.Exponent = snexp + 1) "295b29f1-6a9e-4cb0-af7b-f8ad186569a2"
 
@@ -720,13 +712,14 @@ module Merge =
 
     /// Attaches a parent node to n and creates LoD layers for parent.
     let private growParent (n : Tree) : Tree =
-        let cell = Tree.cell n
+        let cell = n.QNode.Cell
         let parentCell = cell.Parent
         let qi = parentCell.GetQuadrant(cell).Value
         let ns = Array.create 4 None
         ns.[qi] <- Some n
         let children = Children(root = cell.Parent, subnodes = ns)
-        createNodeFromChildren children
+        let result = createNodeFromChildren children
+        result
 
     /// Attaches a parent node to n and creates LoD layers for parent.
     let private growParent' (n : CenterTree) : CenterTree =
@@ -794,8 +787,9 @@ module Merge =
         let mergeOverlapping (dom : Dominance) (centered : CenterTree) (other : Tree) : CenterTree =
 
             let centeredCell = centered.QNode.Cell
+            let otherCell = other.QNode.Cell
 
-            if centeredCell.Exponent < other.Cell.Exponent then
+            if centeredCell.Exponent < otherCell.Exponent then
                 let grown = growParent' centered
                 let r = mergeRec dom (grown |> Centered) (other |> NonCentered)
                 match r with
@@ -803,11 +797,11 @@ module Merge =
                 | _ -> failwith "Error 39207884-7188-4b47-a48f-ce27f13fc59b."
             else
 
-                let rc = Cell2d(Box2d(centeredCell.BoundingBox, other.Cell.BoundingBox))
+                let rc = Cell2d(Box2d(centeredCell.BoundingBox, otherCell.BoundingBox))
                 invariant (rc.IsCenteredAtOrigin) "1320c782-5905-46c8-9d3a-87e589a52d53"
-                invariant (rc.Exponent = other.Cell.Exponent + 1) "7ae77298-6633-4930-a07e-89f165028646"
+                invariant (rc.Exponent = otherCell.Exponent + 1) "7ae77298-6633-4930-a07e-89f165028646"
                 
-                let quadrantOther = rc.GetQuadrant(other.Cell).Value
+                let quadrantOther = rc.GetQuadrant(otherCell).Value
 
                 let cns = 
                     (CenterTree.qnode centered).SplitCenteredNodeIntoQuadrantNodesAtSameLevel ()
@@ -826,7 +820,7 @@ module Merge =
                             | _ -> failwith "Error 680cd32c-9045-4ab1-80e5-141d645212db."
                         )
 
-                invariant (ns |> Seq.choose(Option.map(fun x -> x.Cell.Exponent)) |> Seq.forall(fun e -> e = rc.Exponent - 1)) "bfb006ae-fad8-40ad-b48c-f703787ff24f"
+                invariant (ns |> Seq.choose(Option.map(fun x -> x.QNode.Cell.Exponent)) |> Seq.forall(fun e -> e = rc.Exponent - 1)) "bfb006ae-fad8-40ad-b48c-f703787ff24f"
 
                 let cc = CenterChildren(root=rc, subnodes=ns)
                 let n = createNodeFromChildren' cc
@@ -875,7 +869,7 @@ module Merge =
             
             // collision
 
-            | SameRoot (first, second, d)                                       -> invariant (first.Cell = second.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
+            | SameRoot (first, second, d)                                       -> invariant (first.QNode.Cell = second.QNode.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
                                                                                    match subnodes first, subnodes second with
                                                                                    | None,     None     -> createNodeFromLeafs           d         (leaf first)  (leaf second) |> LeafNode.toAnyTree    |> checkEbb
                                                                                    | None,     Some ns  -> createNodeFromLeafAndChildren d         (leaf first )  ns           |> InnerNode.toAnyTree   |> checkEbb
@@ -895,24 +889,20 @@ module Merge =
             | MergeSubtree (NonCentered parent,  RelChildDirect y, d)           -> 
                                                                                    let qparent = Tree.qnode parent
                                                                                    printfn "%A" qparent.Mapping
-                                                                                   let children = Children.ofIndexedSubnodes (Tree.cell parent) [y]
+                                                                                   let children = Children.ofIndexedSubnodes parent.QNode.Cell [y]
 
-                                                                                   let childWindow = (Tree.qnode y.Child).Mapping.Window
+                                                                                   match subnodes parent with
+                                                                                   | None     ->
+                                                                                        let rc = parent.QNode.Cell
+                                                                                        let ns = Children.ofIndexedSubnodes rc [y]
+                                                                                        createNodeFromLeafAndChildren d (leaf parent) ns |> InnerNode.toAnyTree
+                                                                                   | Some ns1 ->
+                                                                                        mergeChildren d ns1 children
+                                                                                        |> createNodeFromChildren |> NonCentered
 
-                                                                                   let merged =
-                                                                                        match subnodes parent with
-                                                                                        | None     -> 
-                                                                                            let splitParent = splitleaf parent
-                                                                                            mergeChildren d splitParent children
-                                                                                        | Some ns1 ->
-                                                                                            mergeChildren d ns1 children
-
-                                                                                   merged
-                                                                                   |> createNodeFromChildren |> NonCentered
-                                                                                   |> checkEbb
 
             | MergeSubtree (Centered parent,     RelChildDirect y, d)           -> 
-                                                                                   invariant (parent.QNode.Cell.Exponent = y.Child.Cell.Exponent + 1) "a66e432b-699a-4b6d-a658-db55c9895963"
+                                                                                   invariant (parent.QNode.Cell.Exponent = y.Child.QNode.Cell.Exponent + 1) "a66e432b-699a-4b6d-a658-db55c9895963"
 
                                                                                    let ns2 = CenterChildren.ofIndexedSubnodes parent.QNode.Cell [y]
                                                                                    

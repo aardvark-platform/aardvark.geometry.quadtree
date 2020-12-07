@@ -235,6 +235,16 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
                 None
             )
 
+    member this.WithWindow (w : Box2l) : QNode option =
+        let ols = layers |> Array.map(fun l -> l.WithWindow(w))
+        if ols |> Array.forall(Option.isNone) then
+            None
+        else
+            invariant (ols |> Array.forall(Option.isSome)) "110a6ae3-c525-47ad-bb81-65fd183dd449"
+            let ls = ols |> Array.map Option.get
+            let ebb = ls.[0].BoundingBox
+            let n = QNode(ebb, cell, splitLimitExp, ls)
+            Some n
 
     member this.GetAllSamples () : Cell2d[] =
         this.SampleWindow.GetAllSamples(this.SampleExponent)
