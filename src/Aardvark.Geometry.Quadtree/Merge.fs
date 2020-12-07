@@ -395,19 +395,19 @@ module Merge =
             if root.IsLeafNode then CenterLeaf(root) else CenterTree(root)
 
         let inline qnode n = match n with | CenterLeaf n | CenterTree n -> n
-        let inline cell n = match n with | CenterLeaf n | CenterTree n -> n.Cell
-        let inline isLeaf n = (qnode n).IsLeafNode
-        let inline isCentered n = (cell n).IsCenteredAtOrigin
-        let inline exactBounds n = (qnode n).ExactBoundingBox
-        let inline splitLimitExponent n = (qnode n).SplitLimitExponent
+        //let inline cell n = match n with | CenterLeaf n | CenterTree n -> n.Cell
+        //let inline isLeaf n = (qnode n).IsLeafNode
+        //let inline isCentered n = (cell n).IsCenteredAtOrigin
+        //let inline exactBounds n = (qnode n).ExactBoundingBox
+        //let inline splitLimitExponent n = (qnode n).SplitLimitExponent
 
         let tryGetChildren n : CenterChildren option =
-            match (qnode n).SubNodes with
-            | Some ns -> CenterChildren(cell n, ns |> Array.map(fun n -> n.TryGetInMemory()) |> Array.map(Option.map(Tree.ofQNode))) |> Some
+            let qn = qnode n
+            match qn.SubNodes with
+            | Some ns -> CenterChildren(qn.Cell, ns |> Array.map(fun n -> n.TryGetInMemory()) |> Array.map(Option.map(Tree.ofQNode))) |> Some
             | None    -> None
 
-    type CenterTree with
-        member this.Cell with get() = CenterTree.cell this
+    type CenterTree with member this.QNode with get() = CenterTree.qnode this
 
     /// Centered or non-centered tree.
     type AnyTree =
@@ -422,92 +422,102 @@ module Merge =
             else 
                 root |> Tree.ofQNode |> NonCentered
 
-        let inline qnode n = match n with | NonCentered n -> Tree.qnode n | Centered n    -> CenterTree.qnode n
-        let inline cell n = (qnode n).Cell
-        let inline isLeaf n = (qnode n).IsLeafNode
-        let inline isCentered n = (cell n).IsCenteredAtOrigin
-        let inline ebbox n = (qnode n).ExactBoundingBox
-        let inline ebboxContains first second = (ebbox first).Contains(ebbox second)
+        let inline qnode n = match n with | NonCentered n -> Tree.qnode n | Centered n -> CenterTree.qnode n
 
-    type AnyTree with
-        member this.ExactBoundingBox with get() = AnyTree.ebbox this
+    type AnyTree with member this.QNode with get() = AnyTree.qnode this
 
+
+    type DirectChild     = { Child : Tree; Index : int }
+    type IndirectChild   = { Child : Tree; Index : int }
+    type DirectNested    = { Child : CenterTree }
+    type IndirectNested  = { Child : CenterTree }
 
     type SubtreeRelation =
         /// non-centered child (e-1)
-        | DirectChild    of child : Tree * qi : int
+        | RelChildDirect    of DirectChild
         /// non-centered child (e-n where n>1)
-        | IndirectChild  of child : Tree * qi : int
+        | RelChildIndirect  of IndirectChild
         /// centered parent Cell2d(e) -> centered child Cell2d(e-1)
-        | NestedDirect   of child : CenterTree
+        | RelNestedDirect   of DirectNested
         /// centered parent Cell2d(e) -> centered child Cell2d(e-n where n>1)
-        | NestedIndirect of child : CenterTree
-        /// child is not in a subtree relation with respect to root
-        | InvalidSubtree of child : AnyTree * root : Cell2d
+        | RelNestedIndirect of IndirectNested
 
     module SubtreeRelation =
 
-        let ofTree (root : Cell2d) (child : Tree) : SubtreeRelation =
+        let ofTree (root : Cell2d) (child : Tree) : SubtreeRelation option =
             let c = child.Cell 
             if root.Exponent > c.Exponent then
                 let qi = root.GetQuadrant(c)
-                if qi.HasValue then
+                match Option.ofNullable qi with
+                | Some qi ->
                     let isDirect = c.Exponent + 1 = root.Exponent
-                    if isDirect then DirectChild(child, qi.Value) else IndirectChild(child, qi.Value)
-                else
-                    InvalidSubtree(NonCentered child, root)
+                    if isDirect then 
+                        RelChildDirect { Child = child; Index = qi }   |> Some
+                    else 
+                        RelChildIndirect { Child = child; Index = qi } |> Some
+                | None -> None
             else
-                InvalidSubtree(NonCentered child, root)
+                None
 
-        let ofAnyTree (root : Cell2d) (child : AnyTree) : SubtreeRelation =
-            let c = AnyTree.cell child
+        let ofAnyTree (root : Cell2d) (child : AnyTree) : SubtreeRelation option =
+            let c = child.QNode.Cell
             if root.Exponent > c.Exponent then
                 let isDirect = c.Exponent + 1 = root.Exponent
                 let qi = root.GetQuadrant(c)
                 match root.IsCenteredAtOrigin, qi.HasValue, child with
-                | _,     true,  NonCentered x -> if isDirect then DirectChild(x, qi.Value) else IndirectChild(x, qi.Value)
-                | true,  false, Centered    x -> if isDirect then NestedDirect(x)          else NestedIndirect(x)
-                | _ -> InvalidSubtree(child, root)
+                | _,     true,  NonCentered x -> if isDirect then Some(RelChildDirect { Child = x; Index = qi.Value }) else Some(RelChildIndirect { Child = x; Index = qi.Value })
+                | true,  false, Centered    x -> if isDirect then Some(RelNestedDirect { Child = x })               else Some(RelNestedIndirect { Child = x })
+                | _ -> None
             else
-                InvalidSubtree(child, root)
+                None
             
 
     type MergeRelation =
-        | MergeWinner       of winner : AnyTree * loser : AnyTree
-        | MergeDisjoint     of commonRootCell : Cell2d * first : SubtreeRelation * second : SubtreeRelation
-        | SameRoot          of first : AnyTree * second : AnyTree * dominance : Dominance
-        | MergeSubtree      of parent : AnyTree * child : SubtreeRelation * dominance : Dominance
-        | MergeNested       of centeredLarge : CenterTree * centeredSmall : CenterTree * dominance : Dominance
-        | MergeOverlapping  of centered : CenterTree * other : Tree * dominance : Dominance
+        | MergeWinner                   of winner : AnyTree * loser : AnyTree
+        | MergeDirectChildren           of commonRootCell : Cell2d * first : DirectChild * second : DirectChild
+        | MergeIndirectChildren         of commonRootCell : Cell2d * first : IndirectChild * second : IndirectChild
+        | MergeDirectIndirect           of commonRootCell : Cell2d * direct : DirectChild * indirect : IndirectChild
+        | MergeDisjointNestedDirect     of commonRootCell : Cell2d * nested : DirectNested * disjoint : IndirectChild
+        | MergeDisjointNestedIndirect   of commonRootCell : Cell2d * nested : IndirectNested * disjoint : IndirectChild
+
+        //| MergeDisjoint                 of commonRootCell : Cell2d * first : SubtreeRelation * second : SubtreeRelation
+        | SameRoot                      of first : Tree * second : Tree * dominance : Dominance
+        | SameRootCentered              of first : CenterTree * second : CenterTree * dominance : Dominance
+        | MergeSubtree                  of parent : AnyTree * child : SubtreeRelation * dominance : Dominance
+        | MergeNested                   of centeredLarge : CenterTree * centeredSmall : CenterTree * dominance : Dominance
+        | MergeOverlapping              of centered : CenterTree * other : Tree * dominance : Dominance
 
     module MergeRelation =
 
         let rec create (dominance : Dominance) (first : AnyTree) (second : AnyTree) : MergeRelation =
 
-            let c1 = AnyTree.cell first
-            let c2 = AnyTree.cell second
+            let c1 = first.QNode.Cell
+            let c2 = second.QNode.Cell
 
-            //let failWithConfiguration error =
-            //    sprintf "Configuration (first=%A, second=%A, dominance=%A). Error %s." 
-            //            c1 c2 dominance error |> failwith
-
-            if dominance = FirstDominates && (AnyTree.ebboxContains first second) then
+            let ebb1 = first.QNode.ExactBoundingBox
+            let ebb2 = second.QNode.ExactBoundingBox
+            if dominance = FirstDominates && (ebb1.Contains(ebb2)) then
                 MergeWinner (first, second)
-            elif dominance = SecondDominates && (AnyTree.ebboxContains second first) then
+            elif dominance = SecondDominates && (ebb2.Contains(ebb1)) then
                 MergeWinner (second, first)
             else
                 match cellRelationOf c1 c2 with
         
                 | DisjointCells ->
                     let rc = c1.Union(c2)
-                    let rel  = SubtreeRelation.ofTree    rc
-                    let rel' = SubtreeRelation.ofAnyTree rc
-                    match first, second with
-                    | NonCentered a, NonCentered b -> MergeDisjoint (rc, rel a, rel b)
-                    | Centered    a, NonCentered b -> MergeDisjoint (rc, rel' first, rel b)
-                    | NonCentered a, Centered    b -> MergeDisjoint (rc, rel a, rel' second)
-                    | _ -> sprintf "Disjoint cells required: %A %A. Error 92660bcf-6c81-451a-850e-f6dc99e96286." (AnyTree.cell first) (AnyTree.cell second) |> failwith
-        
+                    let rel = SubtreeRelation.ofAnyTree rc
+                    match rel first, rel second with
+                    | Some x, Some y ->
+                        match x, y with
+                        | RelChildDirect    n1,       RelChildDirect   n2        -> MergeDirectChildren         (rc, n1,     n2      )
+                        | RelChildIndirect  n1,       RelChildIndirect n2        -> MergeIndirectChildren       (rc, n1,     n2      )
+                        | RelChildDirect    direct,   RelChildIndirect indirect
+                        | RelChildIndirect  indirect, RelChildDirect   direct    -> MergeDirectIndirect         (rc, direct, indirect)
+                        | RelNestedDirect   nested,   RelChildIndirect disjoint  -> MergeDisjointNestedDirect   (rc, nested, disjoint)
+                        | RelNestedIndirect nested,   RelChildIndirect disjoint  -> MergeDisjointNestedIndirect (rc, nested, disjoint)
+                        | _ -> failwith "Invariant 68c18eaa-175a-4583-9daf-a6e0d7547d5e."
+                    | _ -> failwith "Invariant 3f22e2c5-f755-4bb9-8d05-8fec7e408c89."
+
                 | PartiallyOverlappingCells ->
                     // can happen with one centered cell and another non-centered cell
                     match first, second with
@@ -519,39 +529,42 @@ module Merge =
                     create dominance.Flipped second first
                 
                 | FirstCellContainsSecond ->
-                    if dominance = FirstDominates && (AnyTree.ebbox first).Contains((AnyTree.ebbox second)) then
+                    if dominance = FirstDominates && ebb1.Contains(ebb2) then
                         MergeWinner (first, second)
                     else
                         match first, second with
                         | Centered    _, NonCentered _
-                        | NonCentered _, NonCentered _ -> MergeSubtree (first, second |> SubtreeRelation.ofAnyTree c1, dominance)
+                        | NonCentered _, NonCentered _ -> MergeSubtree (first, (second |> SubtreeRelation.ofAnyTree c1).Value, dominance)
                         | Centered    a, Centered    b -> MergeNested  (a, b, dominance)
                         | NonCentered a, Centered    b -> failwith "todo: create NonCentered a, Centered b"
 
                 | IdenticalCells ->
                     invariant (c1 = c2) "8c6566b8-66b8-492d-8e30-05fefd210cb7"
-                    SameRoot (first, second, dominance)
+                    match first, second with
+                    | NonCentered a, NonCentered b -> SameRoot(a, b, dominance)
+                    | Centered    a, Centered    b -> SameRootCentered(a, b, dominance)
+                    | _ -> failwith "A centered cell and a non-centered cell cannot be identical. Invariant daae44b4-56ad-4851-b263-7645d132b296."
                         
        
     
-    let private ofIndexedSubnodes (root : Cell2d) (children : (int * Tree) list) : (Cell2d * Tree option[]) =
+    let private ofIndexedSubnodes (root : Cell2d) (children : DirectChild list) : (Cell2d * Tree option[]) =
         invariant (children.Length > 0 && children.Length <= 4)                 "0cf7c961-6e82-4117-935c-b83043fc0465"
         let ns = Array.create 4 None
-        for (i, n) in children do
-            invariant (i >= 0 && i < 4)                                         "bfb84957-3024-443e-b026-3e7db0f45c74"
-            invariant (ns.[i].IsNone)                                           "1ccd65be-6c4e-4135-af5d-d25af3aed1da"
+        for x in children do
+            invariant (x.Index >= 0 && x.Index < 4)                                         "bfb84957-3024-443e-b026-3e7db0f45c74"
+            invariant (ns.[x.Index].IsNone)                                           "1ccd65be-6c4e-4135-af5d-d25af3aed1da"
             if root.IsCenteredAtOrigin then
-                let c = n.Cell
+                let c = x.Child.Cell
                 invariant (c.Exponent + 1 = root.Exponent && c.TouchesOrigin)   "bb213b45-6f28-4ca4-9254-f2cebbf12b00"
             else
-                invariant ((Tree.cell n).Parent = root)                         "cd9bd921-74aa-4719-89f5-ca28a7bd40f5"
-            ns.[i] <- Some n
+                invariant (x.Child.Cell.Parent = root)                         "cd9bd921-74aa-4719-89f5-ca28a7bd40f5"
+            ns.[x.Index] <- Some x.Child
         (root, ns)
 
     
     module Children =
 
-        let ofIndexedSubnodes (root : Cell2d) (children : (int * Tree) list) : Children =
+        let ofIndexedSubnodes (root : Cell2d) (children : DirectChild list) : Children =
             invariant (not root.IsCenteredAtOrigin) "a89439d5-1490-4120-b451-50be51a0e262"
             ofIndexedSubnodes root children |> Children
 
@@ -577,9 +590,9 @@ module Merge =
     
     module CenterChildren =
 
-        let ofIndexedSubnodes (root : Cell2d) (children : (int * Tree) list) : CenterChildren =
+        let ofIndexedSubnodes (root : Cell2d) (children : DirectChild list) : CenterChildren =
             invariant (root.IsCenteredAtOrigin) "5beee604-5064-460f-9b81-cf98aaca0b3b"
-            let cexp = children |> Seq.map (fun (_,t) -> t.Cell.Exponent) |> Seq.distinct |> Seq.exactlyOne
+            let cexp = children |> Seq.map (fun x -> x.Child.Cell.Exponent) |> Seq.distinct |> Seq.exactlyOne
             invariantm (root.Exponent = cexp + 1) (sprintf "root exp = %d; child exp = %d" root.Exponent cexp) "135ace7c-3d64-41ea-8ec9-6a440a2ad5d5"
             ofIndexedSubnodes root children |> CenterChildren
 
@@ -620,14 +633,14 @@ module Merge =
             n |> NonCentered |> LeafNode
 
         let inline ofCenterTree (n : CenterTree) : LeafNode =
-            invariant (CenterTree.isLeaf n) "8ca00fe1-a5df-4fbd-99d5-a109d43cf6bc"
+            invariant (n.QNode.IsLeafNode) "8ca00fe1-a5df-4fbd-99d5-a109d43cf6bc"
             n |> Centered |> LeafNode
 
         let inline toAnyTree (n : LeafNode) : AnyTree = match n with | LeafNode n -> n
 
         let inline qnode n = n |> toAnyTree |> AnyTree.qnode
-        let inline cell n = (qnode n).Cell
-        let inline ebbox n = (qnode n).ExactBoundingBox
+
+    type LeafNode with member this.QNode with get() = LeafNode.qnode this
 
 
     type InnerNode      = InnerNode of node : AnyTree
@@ -638,13 +651,17 @@ module Merge =
             n |> NonCentered |> InnerNode
 
         let inline ofCenterTree (n : CenterTree) : InnerNode =
-            invariant (not(CenterTree.isLeaf n)) "a0874e5c-b42f-4310-8b02-cdf44c8ea6f4"
+            invariant (n.QNode.IsInnerNode) "a0874e5c-b42f-4310-8b02-cdf44c8ea6f4"
             n |> Centered |> InnerNode
 
         let inline toAnyTree (n : InnerNode) : AnyTree = match n with | InnerNode n -> n
 
-        let inline qnode n = n |> toAnyTree |> AnyTree.qnode
-        let inline cell n = (qnode n).Cell
+        let inline qnode n =
+            let (InnerNode node) = n
+            node |> AnyTree.qnode
+
+    type InnerNode with member this.QNode with get() = InnerNode.qnode this
+    
 
     
     
@@ -655,7 +672,7 @@ module Merge =
         let sls = n.SplitLayers ()
         let ns = Array.map2 (fun (q : Cell2d) ls -> match ls with
                                                     | Some ls ->
-                                                       let ebb = q.BoundingBox.Intersection(LeafNode.ebbox leaf)
+                                                       let ebb = q.BoundingBox.Intersection(leaf.QNode.ExactBoundingBox)
                                                        QNode(ebb, q, n.SplitLimitExponent, ls) |> Tree.ofQNode |> Some
                                                     | None -> None
                  ) qs sls
@@ -724,7 +741,7 @@ module Merge =
 
         let lrs = createLayers qa.Cell dom (Some qa.Layers) Array.empty (Some qb.Layers) Array.empty
         let ls = lrs |> Array.map (fun r -> r.Layer)
-        let ebb = Box2d(LeafNode.ebbox a, LeafNode.ebbox b)
+        let ebb = Box2d(a.QNode.ExactBoundingBox, b.QNode.ExactBoundingBox)
         QNode(ebb, qa.Cell, qa.SplitLimitExponent, ls) |> Leaf |> LeafNode.ofTree
 
     let private createNodeFromLeafAndChildren (dom : Dominance) (a : LeafNode) (b : Children) : InnerNode =
@@ -758,18 +775,15 @@ module Merge =
         
         (* helpers *)
 
-        
         let growParents (ns : CenterChildren) =
             match ns with | CenterChildren (root, ns) -> CenterChildren(root.Parent, ns |> Array.map(Option.map(growParent)))
-
 
         let mergeChildren (dom : Dominance) (ns1 : Children) (ns2 : Children) : Children =
             let mf a' b' = match mergeRec dom (NonCentered a') (NonCentered b') with
                            | NonCentered tree -> tree
                            | _ -> failwith "Invariant 4673872b-d6be-491d-a2a0-b99054afbe65."
             Children.merge dom mf ns1 ns2
-            
-
+          
         let mergeChildren' (dom : Dominance) (ns1 : CenterChildren) (ns2 : CenterChildren) : CenterChildren =
             invariant (ns1.Cell = ns2.Cell) "62a8d91a-3a97-46dd-b69f-aaa02ee98973"
             let mf a' b' = match mergeRec dom (NonCentered a') (NonCentered b') with
@@ -779,7 +793,9 @@ module Merge =
 
         let mergeOverlapping (dom : Dominance) (centered : CenterTree) (other : Tree) : CenterTree =
 
-            if centered.Cell.Exponent < other.Cell.Exponent then
+            let centeredCell = centered.QNode.Cell
+
+            if centeredCell.Exponent < other.Cell.Exponent then
                 let grown = growParent' centered
                 let r = mergeRec dom (grown |> Centered) (other |> NonCentered)
                 match r with
@@ -787,7 +803,7 @@ module Merge =
                 | _ -> failwith "Error 39207884-7188-4b47-a48f-ce27f13fc59b."
             else
 
-                let rc = Cell2d(Box2d(centered.Cell.BoundingBox, other.Cell.BoundingBox))
+                let rc = Cell2d(Box2d(centeredCell.BoundingBox, other.Cell.BoundingBox))
                 invariant (rc.IsCenteredAtOrigin) "1320c782-5905-46c8-9d3a-87e589a52d53"
                 invariant (rc.Exponent = other.Cell.Exponent + 1) "7ae77298-6633-4930-a07e-89f165028646"
                 
@@ -829,7 +845,6 @@ module Merge =
             //x
 
         let inline leaf x = x |> LeafNode.ofTree
-        let inline inner x = x |> InnerNode.ofTree
         let inline splitleaf x = leaf x |> split
         let inline subnodes x = Tree.tryGetChildren x
         let inline subnodes' x = CenterTree.tryGetChildren x
@@ -843,34 +858,24 @@ module Merge =
             | MergeWinner (winner, _)                                           -> winner
             
             // disjoint
-            | MergeDisjoint (_ , IndirectChild (x, _), IndirectChild  (y, _))   -> mergeRec dom (x |> growParent |> NonCentered) (y |> growParent |> NonCentered)
-            | MergeDisjoint (_ , IndirectChild (x, _), DirectChild    (y, _))   -> mergeRec dom (x |> growParent |> NonCentered) (y               |> NonCentered)
-            | MergeDisjoint (_ , IndirectChild (x, _), NestedDirect   (y   ))
-            | MergeDisjoint (_ , IndirectChild (x, _), NestedIndirect (y   ))   -> mergeRec dom.Flipped (Centered y) (NonCentered x) 
-        
-            | MergeDisjoint (_ , DirectChild   (x, _), IndirectChild  (y, _))   -> mergeRec dom (x               |> NonCentered) (y |> growParent |> NonCentered)
+            
+            | MergeDisjointNestedDirect (_, nested, disjoint)                   -> mergeRec dom (nested.Child |> Centered) (disjoint.Child |> growParent |> NonCentered)        |> checkEbb
+            | MergeDisjointNestedIndirect (_, nested, disjoint)                 -> mergeRec dom (growParent' nested.Child |> Centered) (disjoint.Child |> NonCentered)          |> checkEbb
+            | MergeDirectIndirect (_ , direct, indirect)                        -> mergeRec dom (indirect.Child |> growParent |> NonCentered) (direct.Child |> NonCentered)     |> checkEbb
+            | MergeIndirectChildren (_, x, y)                                   -> mergeRec dom (x.Child |> growParent |> NonCentered) (y.Child |> growParent |> NonCentered)   |> checkEbb
 
-            | MergeDisjoint (rc, DirectChild   (x,xi), DirectChild    (y,yi))   -> if rc.IsCenteredAtOrigin then
-                                                                                        CenterChildren.ofIndexedSubnodes rc [(xi, x); (yi, y)]
+            | MergeDirectChildren (rc, x, y)                                    -> 
+                                                                                   if rc.IsCenteredAtOrigin then
+                                                                                        CenterChildren.ofIndexedSubnodes rc [x;y]
                                                                                         |> createNodeFromChildren' |> Centered                  |> checkEbb
                                                                                    else
-                                                                                        Children.ofIndexedSubnodes rc [(xi, x); (yi, y)]
+                                                                                        Children.ofIndexedSubnodes rc [x;y]
                                                                                         |> createNodeFromChildren  |> NonCentered               |> checkEbb
 
-            | MergeDisjoint (rc, NestedDirect x,       IndirectChild  (y,yi))   -> 
-                                                                                   if rc.Exponent = y.Cell.Exponent + 1 then
-                                                                                        let ns1 = splitCentered x |> growParents
-                                                                                        let ns2 = CenterChildren.ofIndexedSubnodes rc [(yi, y)]
-                                                                                        mergeChildren' dom ns1 ns2 |> createNodeFromChildren' |> Centered
-                                                                                   else
-                                                                                        mergeRec dom (x |> Centered) (y |> growParent |> NonCentered)
-
-            | MergeDisjoint (_ , NestedIndirect x,     IndirectChild  (y, _))   -> mergeRec dom (growParent' x |> Centered) (y |> NonCentered)
-                                                                                   |> checkEbb
             
             // collision
 
-            | SameRoot (NonCentered first, NonCentered second, d)               -> invariant (first.Cell = second.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
+            | SameRoot (first, second, d)                                       -> invariant (first.Cell = second.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
                                                                                    match subnodes first, subnodes second with
                                                                                    | None,     None     -> createNodeFromLeafs           d         (leaf first)  (leaf second) |> LeafNode.toAnyTree    |> checkEbb
                                                                                    | None,     Some ns  -> createNodeFromLeafAndChildren d         (leaf first )  ns           |> InnerNode.toAnyTree   |> checkEbb
@@ -878,7 +883,7 @@ module Merge =
                                                                                    | Some ns1, Some ns2 -> mergeChildren d ns1 ns2 |> createNodeFromChildren |> NonCentered                             |> checkEbb
                                                                                    |> checkEbb
                                                                                    
-            | SameRoot (Centered    first, Centered    second, d)               -> invariant (first.Cell = second.Cell) "fc986971-78ae-4fca-a367-eab059e8d68e"
+            | SameRootCentered (first, second, d)                               -> invariant (first.QNode.Cell = second.QNode.Cell) "fc986971-78ae-4fca-a367-eab059e8d68e"
                                                                                    match subnodes' first, subnodes' second with
                                                                                    | None,     None     -> createNodeFromLeafs d (first |> LeafNode.ofCenterTree) (second |> LeafNode.ofCenterTree) |> LeafNode.toAnyTree
                                                                                    | None,     Some ns  -> mergeChildren' d (splitCentered first) (growParents ns)   |> createNodeFromChildren' |> Centered
@@ -887,12 +892,12 @@ module Merge =
                                                                                    |> checkEbb
                                                                                    
             // subtree
-            | MergeSubtree (NonCentered parent,  DirectChild (child, qi), d)    -> 
+            | MergeSubtree (NonCentered parent,  RelChildDirect y, d)           -> 
                                                                                    let qparent = Tree.qnode parent
                                                                                    printfn "%A" qparent.Mapping
-                                                                                   let children = Children.ofIndexedSubnodes (Tree.cell parent) [(qi, child)]
+                                                                                   let children = Children.ofIndexedSubnodes (Tree.cell parent) [y]
 
-                                                                                   let childWindow = (Tree.qnode child).Mapping.Window
+                                                                                   let childWindow = (Tree.qnode y.Child).Mapping.Window
 
                                                                                    let merged =
                                                                                         match subnodes parent with
@@ -906,16 +911,16 @@ module Merge =
                                                                                    |> createNodeFromChildren |> NonCentered
                                                                                    |> checkEbb
 
-            | MergeSubtree (Centered parent,     DirectChild (child, qi), d)    -> 
-                                                                                   invariant (parent.Cell.Exponent = child.Cell.Exponent + 1) "a66e432b-699a-4b6d-a658-db55c9895963"
+            | MergeSubtree (Centered parent,     RelChildDirect y, d)           -> 
+                                                                                   invariant (parent.QNode.Cell.Exponent = y.Child.Cell.Exponent + 1) "a66e432b-699a-4b6d-a658-db55c9895963"
 
-                                                                                   let ns2 = CenterChildren.ofIndexedSubnodes parent.Cell [(qi, child)]
+                                                                                   let ns2 = CenterChildren.ofIndexedSubnodes parent.QNode.Cell [y]
                                                                                    
                                                                                    let merged = 
                                                                                         match subnodes' parent with
                                                                                         | None ->
                                                                                                 let ns1LeveledUp = splitCentered parent // c needs to level up +1 to preserve layer resolution
-                                                                                                invariant (ns1LeveledUp.Cell.Exponent = parent.Cell.Exponent + 1) "a26d4664-3a30-4233-821e-f53be450dff6"
+                                                                                                invariant (ns1LeveledUp.Cell.Exponent = parent.QNode.Cell.Exponent + 1) "a26d4664-3a30-4233-821e-f53be450dff6"
                                                                                                 let ns2LeveledUp = growParents ns2
                                                                                                 let merged = mergeChildren' d ns1LeveledUp ns2LeveledUp
                                                                                                 merged
@@ -927,22 +932,22 @@ module Merge =
                                                                                    result |> Centered
                                                                                                      
 
-            | MergeSubtree (parent, IndirectChild (child,  _), d)               -> mergeRec d parent (child |> growParent |> NonCentered) 
+            | MergeSubtree (parent, RelChildIndirect y, d)                      -> mergeRec d parent (y.Child |> growParent |> NonCentered) 
                                                                                    |> checkEbb
             
 
-            | MergeSubtree (parent, NestedDirect (child),      d)               -> match parent with
+            | MergeSubtree (parent, RelNestedDirect y,      d)                  -> match parent with
                                                                                    | NonCentered x ->
                                                                                        sprintf "Expected centered parent, but %A. Error 841b5fa0-c130-457b-9632-9d3e637a3377." x |> failwith
                                                                                    | Centered parent ->
                                                                                        let ns1 = splitCentered parent
-                                                                                       let ns2 = splitCentered child |> growParents
+                                                                                       let ns2 = splitCentered y.Child |> growParents
                                                                                        mergeChildren' d ns1 ns2 |> createNodeFromChildren' |> Centered
                                                                                    |> checkEbb
                                                                                     
 
-            | MergeSubtree (parent, NestedIndirect (child),    dominance)       -> invariant (AnyTree.isCentered parent) "3c46c7a4-660a-4693-b4c1-ea7d4c46d7b3"
-                                                                                   mergeRec dominance parent (child |> growParent' |> Centered)
+            | MergeSubtree (parent, RelNestedIndirect y,    dominance)          -> invariant (parent.QNode.Cell.IsCenteredAtOrigin) "3c46c7a4-660a-4693-b4c1-ea7d4c46d7b3"
+                                                                                   mergeRec dominance parent (y.Child |> growParent' |> Centered)
                                                                                    |> checkEbb
                                                                                    
 
@@ -954,26 +959,6 @@ module Merge =
             // partially overlapping
             | MergeOverlapping (centered, other, d)                             -> mergeOverlapping d centered other |> Centered |> checkEbb
             
-
-            // invalid
-            | SameRoot (Centered    _, NonCentered _, _)                        -> failwith' relation "b29d2af5-376f-467a-99eb-834135d68d4a"
-            | SameRoot (NonCentered _, Centered    _, _)                        -> failwith' relation "d14f075a-7dd7-4b3b-a05b-ea4379a49a99"
-
-            | MergeDisjoint (_ , DirectChild _,    NestedDirect  _)             -> failwith' relation "4cf244b3-28b0-4f67-a723-f090ad9ba9eb"
-            | MergeDisjoint (_ , NestedDirect _,   DirectChild _)               -> failwith' relation "cbad6def-c0fb-4c08-9c81-2f20e24b62db"
-
-            | MergeDisjoint (_ , DirectChild _,    NestedIndirect  _)           -> failwith' relation "18852a24-7ea2-4676-a85d-e5d53abc6e5e"
-            | MergeDisjoint (_ , NestedIndirect _, DirectChild _)               -> failwith' relation "3f0cf471-74a1-49cd-bf6a-89175d2bac73"
-
-            | MergeDisjoint (_ , NestedDirect _,   NestedDirect _)              -> failwith' relation "b77eb555-1014-42a2-9610-2a3834a1b0f7"
-            | MergeDisjoint (_ , NestedDirect _,   NestedIndirect _)            -> failwith' relation "576b5b2f-53f0-4657-9473-71b520685df2"
-            | MergeDisjoint (_ , NestedIndirect _, NestedDirect _)              -> failwith' relation "77fa2ed2-c160-4e6e-9b4f-c846c43951c4"
-            | MergeDisjoint (_ , NestedIndirect _, NestedIndirect _)            -> failwith' relation "3d988409-2238-4a5e-887e-7fae6394db12"
-
-            | MergeDisjoint (_, InvalidSubtree _, _)                            -> failwith' relation "4cc83f47-ffea-4f89-9aa2-b08dbc9bd5a2"
-            | MergeDisjoint (_, _, InvalidSubtree _)                            -> failwith' relation "7f06b094-6493-4216-bb4c-69ae01f67ece"
-            | MergeSubtree  (_, InvalidSubtree _, _)                            -> failwith' relation "429dcc39-1dae-48f8-8670-d5e6ed2c24f1"
-
         result |> checkEbb
         
 

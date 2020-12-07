@@ -432,7 +432,7 @@ module cpunz =
                 
             // build the quadtree (incl. levels-of-detail)
                 
-            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo=0 } [| bilinParameters |]
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo=8 } [| bilinParameters |]
         
             qtree
    
@@ -581,7 +581,7 @@ module cpunz =
                     
             // build the quadtree (incl. levels-of-detail)
                     
-            let qtree = Quadtree.Build  { BuildConfig.Default with SplitLimitPowerOfTwo=0 } [| bilinParameters |]
+            let qtree = Quadtree.Build  { BuildConfig.Default with SplitLimitPowerOfTwo=8 } [| bilinParameters |]
             
             qtree
     
