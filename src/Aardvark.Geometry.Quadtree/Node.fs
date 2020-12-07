@@ -246,6 +246,14 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
             let n = QNode(ebb, cell, splitLimitExp, ls)
             Some n
 
+    member this.WithoutChildren () : QNode =
+        if this.IsLeafNode then
+            this
+        else
+            let ebb = layers.[0].BoundingBox
+            QNode(ebb, cell, splitLimitExp, layers)
+
+
     member this.GetAllSamples () : Cell2d[] =
         this.SampleWindow.GetAllSamples(this.SampleExponent)
 

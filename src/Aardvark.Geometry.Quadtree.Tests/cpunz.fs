@@ -432,7 +432,7 @@ module cpunz =
                 
             // build the quadtree (incl. levels-of-detail)
                 
-            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo=8 } [| bilinParameters |]
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo=0 } [| bilinParameters |]
         
             qtree
    
@@ -581,7 +581,7 @@ module cpunz =
                     
             // build the quadtree (incl. levels-of-detail)
                     
-            let qtree = Quadtree.Build  { BuildConfig.Default with SplitLimitPowerOfTwo=8 } [| bilinParameters |]
+            let qtree = Quadtree.Build  { BuildConfig.Default with SplitLimitPowerOfTwo=0 } [| bilinParameters |]
             
             qtree
     
@@ -599,11 +599,11 @@ module cpunz =
                    
     
         for (c,x) in qtreeCells do printfn "%A -> %A" c x
-        shotHtmlDebugView<V4f> "punz_merge_verySmall_into_coarse_volume" Defs.VolumesBilinear4f [
-            ("mainTree", mainTree)
-            ("subTree", subTree)
-            ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
-            ]
+        //showHtmlDebugView<V4f> "punz_merge_verySmall_into_coarse_volume" Defs.VolumesBilinear4f [
+        //    ("mainTree", mainTree)
+        //    ("subTree", subTree)
+        //    ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
+        //    ]
     
 
         //Assert.True(qtreeCells.Length = 8)

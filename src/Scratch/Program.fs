@@ -627,7 +627,7 @@ let prettyPrintTest () =
     let b = createQuadtree 5 3 12 8 -1 2.0f
     let m = Quadtree.Merge SecondDominates a b
 
-    shotHtmlDebugView<float32> "merge test" Defs.Heights1f [
+    showHtmlDebugView<float32> "merge test" Defs.Heights1f [
         ("a: e= 0, origin (0,0), size (10,7)], split=2x2", a)
         ("b: e=-1, origin (5,3), size (12,8)]. split 2x2", b)
         ("m = Quadtree.Merge SecondDominates a b", m)

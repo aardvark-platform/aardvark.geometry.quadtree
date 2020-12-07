@@ -181,7 +181,7 @@ module PrettyPrint =
         let content = quadtrees |> List.mapi (fun i x -> Cells.ofQNodeRef<'a> (sprintf "<h2>%s</h2>" (fst x)) {X=0;Y=i*2} def (snd x))
         Cells.Group({X=0;Y=0}, Format.Default, sprintf "<h1>%s</h1>" title, content) |> Cells.toHtml
 
-    let shotHtmlDebugView<'a> title def quadtrees =
+    let showHtmlDebugView<'a> title def quadtrees =
         let html = generateHtmlDebugView<'a> title def quadtrees
         let now = DateTime.Now
         let filename = sprintf "quadtree_%04d-%02d-%02d-%02d-%02d-%02d.html" now.Year now.Month now.Day now.Hour now.Minute now.Second

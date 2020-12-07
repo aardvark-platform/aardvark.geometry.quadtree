@@ -560,7 +560,11 @@ module Merge =
             invariant (not root.IsCenteredAtOrigin) "a89439d5-1490-4120-b451-50be51a0e262"
             ofIndexedSubnodes root children |> Children
 
-        let extract  x = match x with | Children (a,b) -> (a,b)
+        let extract x = match x with | Children (a,b) -> (a,b)
+
+        let ebbox x =
+            match x with
+            | Children(root, subnodes) -> subnodes |> Seq.choose(Option.map(fun x -> x.QNode.ExactBoundingBox)) |> Box2d
         
         let splitLimitExponent x =
             extract x |> snd |> Seq.choose(Option.map(fun x -> x.QNode.SplitLimitExponent)) |> Seq.head
@@ -690,7 +694,9 @@ module Merge =
         let bebbs = qns |> Seq.choose id |> Seq.map (fun x -> x.ExactBoundingBox) |> Seq.toArray
         let desiredEbb = Box2d(bebbs)
 
-        QNode(desiredEbb, root, sle, ls, qns) |> Tree
+        let result = QNode(desiredEbb, root, sle, ls, qns) |> Tree
+        invariant ((Children.ebbox children) = result.QNode.ExactBoundingBox) "a5470404-0ebb-4687-a2c3-ba498c9e6dde"
+        result
 
     let private createNodeFromChildren' (children : CenterChildren) : CenterTree =
     
@@ -772,10 +778,21 @@ module Merge =
             match ns with | CenterChildren (root, ns) -> CenterChildren(root.Parent, ns |> Array.map(Option.map(growParent)))
 
         let mergeChildren (dom : Dominance) (ns1 : Children) (ns2 : Children) : Children =
+
             let mf a' b' = match mergeRec dom (NonCentered a') (NonCentered b') with
                            | NonCentered tree -> tree
                            | _ -> failwith "Invariant 4673872b-d6be-491d-a2a0-b99054afbe65."
-            Children.merge dom mf ns1 ns2
+
+            let bbBefore = Box2d(Children.ebbox ns1, Children.ebbox ns2)
+
+            match ns1, ns2 with
+            | Children (root1, sn1), Children (root2, sn2) ->
+                invariant (root1 = root2) "45b32edc-826a-4236-83f5-0e28a6560889"
+                let bbBefore = Array.append sn1 sn2 |> Seq.choose(Option.map(fun x -> x.QNode.ExactBoundingBox)) |> Box2d
+                let result = Children.merge dom mf ns1 ns2
+                let bbAfter = Children.ebbox result
+                invariant (bbBefore = bbAfter) "1b88195f-195c-446b-922a-74f8d5fb3923"
+                result
           
         let mergeChildren' (dom : Dominance) (ns1 : CenterChildren) (ns2 : CenterChildren) : CenterChildren =
             invariant (ns1.Cell = ns2.Cell) "62a8d91a-3a97-46dd-b69f-aaa02ee98973"
@@ -870,12 +887,17 @@ module Merge =
             // collision
 
             | SameRoot (first, second, d)                                       -> invariant (first.QNode.Cell = second.QNode.Cell) "8746b419-e469-4e57-b6ba-60c3d5aae3b8"
-                                                                                   match subnodes first, subnodes second with
-                                                                                   | None,     None     -> createNodeFromLeafs           d         (leaf first)  (leaf second) |> LeafNode.toAnyTree    |> checkEbb
-                                                                                   | None,     Some ns  -> createNodeFromLeafAndChildren d         (leaf first )  ns           |> InnerNode.toAnyTree   |> checkEbb
-                                                                                   | Some ns,  None     -> createNodeFromLeafAndChildren d.Flipped (leaf second)  ns           |> InnerNode.toAnyTree   |> checkEbb
-                                                                                   | Some ns1, Some ns2 -> mergeChildren d ns1 ns2 |> createNodeFromChildren |> NonCentered                             |> checkEbb
-                                                                                   |> checkEbb
+                                                                                   let result =
+                                                                                     match subnodes first, subnodes second with
+                                                                                     | None,     None     -> createNodeFromLeafs           d         (leaf first)  (leaf second) |> LeafNode.toAnyTree    |> checkEbb
+                                                                                     | None,     Some ns  -> createNodeFromLeafAndChildren d         (leaf first )  ns           |> InnerNode.toAnyTree   |> checkEbb
+                                                                                     | Some ns,  None     -> createNodeFromLeafAndChildren d.Flipped (leaf second)  ns           |> InnerNode.toAnyTree   |> checkEbb
+                                                                                     | Some ns1, Some ns2 -> mergeChildren d ns1 ns2 |> createNodeFromChildren |> NonCentered                             |> checkEbb
+                                                                                     |> checkEbb
+
+                                                                                   invariant (Box2d(first.QNode.ExactBoundingBox, second.QNode.ExactBoundingBox) = result.QNode.ExactBoundingBox) "1711484b-1c27-4dc5-ba27-ea301f4ef6c9"
+
+                                                                                   result
                                                                                    
             | SameRootCentered (first, second, d)                               -> invariant (first.QNode.Cell = second.QNode.Cell) "fc986971-78ae-4fca-a367-eab059e8d68e"
                                                                                    match subnodes' first, subnodes' second with
@@ -897,8 +919,11 @@ module Merge =
                                                                                         let ns = Children.ofIndexedSubnodes rc [y]
                                                                                         createNodeFromLeafAndChildren d (leaf parent) ns |> InnerNode.toAnyTree
                                                                                    | Some ns1 ->
-                                                                                        mergeChildren d ns1 children
-                                                                                        |> createNodeFromChildren |> NonCentered
+                                                                                        let ns = mergeChildren d ns1 children
+                                                                                        let parentWithoutChildren = parent.QNode.WithoutChildren() |> Tree.ofQNode |> leaf
+                                                                                        let result = createNodeFromLeafAndChildren d parentWithoutChildren ns |> InnerNode.toAnyTree
+                                                                                        invariant (result.QNode.ExactBoundingBox = parent.QNode.ExactBoundingBox) "e39129e8-fe45-4224-b663-2eb533d89b6a"
+                                                                                        result
 
 
             | MergeSubtree (Centered parent,     RelChildDirect y, d)           -> 
