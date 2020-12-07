@@ -3,6 +3,7 @@ module QueryTests
 open Xunit
 open Aardvark.Geometry.Quadtree
 open Aardvark.Base
+open PrettyPrint
 
 let private createQuadtree () =
     let size = V2i(10, 7)

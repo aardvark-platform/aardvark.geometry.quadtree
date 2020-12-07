@@ -96,6 +96,11 @@ module PrettyPrint =
             yield "<html>"
             yield "<head>"
             yield "<style>"
+            
+            yield "html {"
+            yield "  font-family: \"Consolas\";"
+            yield "}"
+
             yield "table {"
             yield "  border: 1px solid black;"
             yield "  border-collapse: collapse;"
@@ -173,8 +178,8 @@ module PrettyPrint =
 
 
     let generateHtmlDebugView<'a> title def quadtrees =
-        let content = quadtrees |> List.mapi (fun i x -> Cells.ofQNodeRef<'a> (fst x) {X=0;Y=i*2} def (snd x))
-        Cells.Group({X=0;Y=0}, Format.Default, title, content) |> Cells.toHtml
+        let content = quadtrees |> List.mapi (fun i x -> Cells.ofQNodeRef<'a> (sprintf "<h2>%s</h2>" (fst x)) {X=0;Y=i*2} def (snd x))
+        Cells.Group({X=0;Y=0}, Format.Default, sprintf "<h1>%s</h1>" title, content) |> Cells.toHtml
 
     let shotHtmlDebugView<'a> title def quadtrees =
         let html = generateHtmlDebugView<'a> title def quadtrees

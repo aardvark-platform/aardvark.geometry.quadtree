@@ -338,10 +338,10 @@ module Merge =
     let cellRelationOf (a : Cell2d) (b : Cell2d) =
         if a.Intersects(b) then
             match a.Contains(b), b.Contains(a) with
-            | false, false -> PartiallyOverlappingCells
-            | false, true  -> SecondCellContainsFirst
-            | true, false  -> FirstCellContainsSecond
             | true, true   -> IdenticalCells
+            | true, false  -> FirstCellContainsSecond
+            | false, true  -> SecondCellContainsFirst
+            | false, false -> PartiallyOverlappingCells
         else
             DisjointCells
 
@@ -958,14 +958,18 @@ module Merge =
             // invalid
             | SameRoot (Centered    _, NonCentered _, _)                        -> failwith' relation "b29d2af5-376f-467a-99eb-834135d68d4a"
             | SameRoot (NonCentered _, Centered    _, _)                        -> failwith' relation "d14f075a-7dd7-4b3b-a05b-ea4379a49a99"
+
             | MergeDisjoint (_ , DirectChild _,    NestedDirect  _)             -> failwith' relation "4cf244b3-28b0-4f67-a723-f090ad9ba9eb"
-            | MergeDisjoint (_ , DirectChild _,    NestedIndirect  _)           -> failwith' relation "18852a24-7ea2-4676-a85d-e5d53abc6e5e"
             | MergeDisjoint (_ , NestedDirect _,   DirectChild _)               -> failwith' relation "cbad6def-c0fb-4c08-9c81-2f20e24b62db"
+
+            | MergeDisjoint (_ , DirectChild _,    NestedIndirect  _)           -> failwith' relation "18852a24-7ea2-4676-a85d-e5d53abc6e5e"
+            | MergeDisjoint (_ , NestedIndirect _, DirectChild _)               -> failwith' relation "3f0cf471-74a1-49cd-bf6a-89175d2bac73"
+
             | MergeDisjoint (_ , NestedDirect _,   NestedDirect _)              -> failwith' relation "b77eb555-1014-42a2-9610-2a3834a1b0f7"
             | MergeDisjoint (_ , NestedDirect _,   NestedIndirect _)            -> failwith' relation "576b5b2f-53f0-4657-9473-71b520685df2"
             | MergeDisjoint (_ , NestedIndirect _, NestedDirect _)              -> failwith' relation "77fa2ed2-c160-4e6e-9b4f-c846c43951c4"
             | MergeDisjoint (_ , NestedIndirect _, NestedIndirect _)            -> failwith' relation "3d988409-2238-4a5e-887e-7fae6394db12"
-            | MergeDisjoint (_ , NestedIndirect _, DirectChild _)               -> failwith' relation "3f0cf471-74a1-49cd-bf6a-89175d2bac73"
+
             | MergeDisjoint (_, InvalidSubtree _, _)                            -> failwith' relation "4cc83f47-ffea-4f89-9aa2-b08dbc9bd5a2"
             | MergeDisjoint (_, _, InvalidSubtree _)                            -> failwith' relation "7f06b094-6493-4216-bb4c-69ae01f67ece"
             | MergeSubtree  (_, InvalidSubtree _, _)                            -> failwith' relation "429dcc39-1dae-48f8-8670-d5e6ed2c24f1"

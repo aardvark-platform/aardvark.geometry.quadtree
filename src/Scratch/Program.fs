@@ -617,25 +617,21 @@ let cpunz20201116 () =
 open PrettyPrint
 let prettyPrintTest () =
 
-    let f = { HAlign=Center; VAlign=Middle; Bgcolor=C3b.White }
-    
-    let cells = 
-        Group(
-            {X=0;Y=0}, f, "Label 1", [
-                Text({X=0; Y=0}, f, "Hello World!")
-                Text({X=1; Y=0}, f, "(1,0)")
-                Text({X=0; Y=1}, f, "(0,1)")
-                Text({X=3; Y=4}, f, "(3,4)")
-                Group(
-                    {X=2;Y=3}, f, "Label 2", [
-                        Text({X=0; Y=0}, f, "Hello World!")
-                        Text({X=1; Y=0}, f, "(1,0)")
-                        Text({X=0; Y=1}, f, "(0,1)")
-                        Text({X=3; Y=4}, f, "(3,4)")
-                    ])
-            ])
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
 
-    File.WriteAllLines(@"T:\index.html", cells |> Cells.toHtml)
+    let createQuadtree ox oy w h e (value : float32) =
+        let xs = Array.create (w*h) value
+        Quadtree.Build config [| Layer(Defs.Heights1f, xs, DataMapping(V2l(int64 ox, int64 oy), V2i(int w,h), exponent = e)) |]
+
+    let a = createQuadtree 0 0 10  7  0 1.0f
+    let b = createQuadtree 5 3 12 8 -1 2.0f
+    let m = Quadtree.Merge SecondDominates a b
+
+    shotHtmlDebugView<float32> "merge test" Defs.Heights1f [
+        ("a: e= 0, origin (0,0), size (10,7)], split=2x2", a)
+        ("b: e=-1, origin (5,3), size (12,8)]. split 2x2", b)
+        ("m = Quadtree.Merge SecondDominates a b", m)
+        ]
 
     ()
 
