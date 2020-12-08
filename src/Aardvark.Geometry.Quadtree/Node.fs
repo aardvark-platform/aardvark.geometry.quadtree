@@ -428,13 +428,13 @@ module IQNodeExtensions =
         member this.GetLayer def : ILayer = this.LayerSet.Value.GetLayer def
 
         /// Throws if no such layer.
-        member this.GetLayer<'a> def : Layer<'a> = this.GetLayer def
+        member this.GetLayer<'a> def : Layer<'a> = this.LayerSet.Value.GetLayer def :?> Layer<'a>
 
         member this.TryGetLayer (semantic : Durable.Def) : ILayer option =
             match this.LayerSet with | None -> None | Some x -> x.TryGetLayer(semantic)
 
         member this.TryGetLayer<'a> (semantic : Durable.Def) : Layer<'a> option =
-            match this.TryGetLayer(semantic) with | None -> None | Some x -> Some(x :?> Layer<'a>)
+            match this.LayerSet with | None -> None | Some x -> x.TryGetLayer<'a>(semantic)
 
         member this.IsLeafNode with get()  = this.SubNodes.IsNone
         member this.IsInnerNode with get() = this.SubNodes.IsSome
