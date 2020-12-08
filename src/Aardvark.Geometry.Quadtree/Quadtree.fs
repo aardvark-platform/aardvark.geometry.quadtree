@@ -20,10 +20,19 @@ with
 module Quadtree =
 
     let rec private tryCount a b (root : QNodeRef) =
-        match root.TryGetInMemory() with 
-        | None -> 0 
-        | Some n -> 
+
+        match root with
+        | NoNode -> 0
+        | InMemoryNode n ->
             match n.SubNodes with 
+            | None -> a 
+            | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
+        | InMemoryInner n ->
+            match n.SubNodes with 
+            | None -> a 
+            | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
+        | OutOfCoreNode (_, load) ->
+            match load().SubNodes  with 
             | None -> a 
             | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
 
@@ -33,7 +42,7 @@ module Quadtree =
 
 
 
-    let rec private build (config : BuildConfig) (rootCell : Cell2d) (layers : ILayer[]) : QNode =
+    let rec private build (config : BuildConfig) (rootCell : Cell2d) (layers : ILayer[]) : QNodeRef =
     
         invariant (layers.Length > 0)                                                       "dccf4ce3-b163-41b7-9bd9-0a3e7b76e3a5"
         invariant (layers |> Array.groupBy (fun l -> l.SampleExponent) |> Array.length = 1) "4071f97e-1809-422a-90df-29c774cedc7b"
@@ -56,24 +65,24 @@ module Quadtree =
                 match subLayers.Length with
                 | 0 -> NoNode
                 | _ -> let n = build config subCell subLayers
-                       InMemoryNode n
+                       n
                 )
 
             let children = rootCell.Children
             for i = 0 to 3 do
-                match subNodes.[i].TryGetInMemory() with
-                | Some x -> invariant (x.Cell = children.[i])                               "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e"
-                | None -> ()
+                match subNodes.[i] with
+                | InMemoryNode x    -> invariant (x.Cell = children.[i])   "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e"
+                | InMemoryInner x       -> invariant (x.Cell = children.[i])   "817d1b42-8fd9-465c-9cac-4d197a9a5bb9"
+                | NoNode            -> ()
+                | _                 -> failwith "Todo 6f5d63bc-ece6-49ef-b634-879f81a4fc36."
 
-            let lodLayers = QNode.generateLodLayers subNodes rootCell
-
-            let layerSet = LayerSet(lodLayers)
-            QNode(Guid.NewGuid(), ebb, rootCell, config.SplitLimitPowerOfTwo, Some layerSet, Some subNodes)
+            let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExp = config.SplitLimitPowerOfTwo; SubNodes = Some subNodes }
+            result |> InMemoryInner
         
         else
             
             let layerSet = LayerSet(layers)
-            QNode(ebb, rootCell, config.SplitLimitPowerOfTwo, Some layerSet)
+            QNode(ebb, rootCell, config.SplitLimitPowerOfTwo, Some layerSet) |> InMemoryNode
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.
@@ -95,7 +104,7 @@ module Quadtree =
         while rootCell.Exponent < minRootExponent do
             rootCell <- rootCell.Parent
 
-        build config rootCell layers |> InMemoryNode
+        build config rootCell layers
 
     /// Returns new merged quadtree. Immutable merge.
     let Merge (domination : Dominance) (first : QNodeRef) (second : QNodeRef) =
@@ -108,6 +117,7 @@ module Quadtree =
         | InMemoryNode n -> n.Save options
         | OutOfCoreNode (id, _) -> id
         | NoNode -> Guid.Empty
+        | InMemoryInner n -> failwith "Implement InnerNode.Save. Todo d608feca-e330-491a-aa5d-98ab24158e27."
 
     /// Load quadtree with given id.
     /// Returns the tree's root node, with children being loaded lazily.

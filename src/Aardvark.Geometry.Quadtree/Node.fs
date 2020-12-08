@@ -70,9 +70,12 @@ with
             Exists  = fun id        -> store.Contains(id.ToString())
         }
 
+/// Leaf node with original data.
 and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : LayerSet option, subNodes : QNodeRef[] option) =
 
     do
+        invariant (exactBoundingBox.IsValid) "661f5dfa-2706-4935-ae4e-1d25f02224ae"
+
         match layers with
         | Some layers ->
             
@@ -105,16 +108,7 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
                     invariant (x.Cell = children.[i])                               "6243dc09-fae4-47d5-8ea7-834c3265988b"
                     invariant (cell.Exponent = x.Cell.Exponent + 1)                 "780d98cc-ecab-43fc-b492-229fb0e208a3"
                 | OutOfCoreNode _ -> ()
-
-    member val ExactBoundingBox =
-        if exactBoundingBox.IsInvalid then
-            match subNodes with
-            | None -> layers.Value.BoundingBox
-            | Some ns ->
-                let boxes : Box2d seq = ns |> Seq.map (fun n -> n.TryGetInMemory()) |> Seq.choose id |> Seq.map (fun n -> n.ExactBoundingBox)
-                Box2d(boxes)
-        else
-            exactBoundingBox
+                | InMemoryInner _ -> failwith "QNode must not contain QInnerNode as child. Error 7099d79a-ca2e-4817-bb31-5adffeedceef."
 
     new (uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : LayerSet option, subNodes : QNode option[]) =
         let subNodes = subNodes |> Array.map (fun x -> match x with | Some n -> InMemoryNode n | None -> NoNode)
@@ -137,6 +131,8 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
     member _.Id with get() = uid
 
     member _.Cell with get() = cell
+
+    member _.ExactBoundingBox with get() = exactBoundingBox
 
     /// The maximum tile size, given as width = height = 2^SplitLimitExponent.
     member _.SplitLimitExponent with get() = splitLimitExp
@@ -162,6 +158,7 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
                     | None -> None
                     | Some xs ->
                         xs |> Array.map (fun n ->
+
                             match n.TryGetInMemory() with
                             | None -> NoNode
                             | Some x -> 
@@ -201,6 +198,7 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
                 | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
                 | NoNode            -> () // nothing to store
                 | OutOfCoreNode _   -> () // already stored
+                | InMemoryInner n       -> failwith "Implement InnerNode.Save. Todo 2f9dc484-2c48-4b8e-9b4f-a23d108f7279."
 
             // collect subnode IDs 
             let ids = xs |> Array.map (fun x -> 
@@ -208,6 +206,7 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
                 | NoNode -> Guid.Empty
                 | InMemoryNode n -> n.Id
                 | OutOfCoreNode (id, _) -> id
+                | InMemoryInner n -> n.Id
                 )
             map.Add(kvp Defs.SubnodeIds ids)
         | None -> ()
@@ -329,6 +328,7 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
                                         | InMemoryNode n        -> n
                                         | NoNode                -> failwith "Invariant de92e0d9-0dd2-4fc1-b4c7-0ace2910ce24."
                                         | OutOfCoreNode (_, _)  -> failwith "Invariant 59c84c71-9043-41d4-abc0-4e1f49b8e2ba."
+                                        | InMemoryInner _           -> failwith "Invariant 91691cf0-d728-4814-994a-96707d95be1f."
                                         ))
                                 )
                             Some xs
@@ -338,8 +338,15 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
-//and
-//    QMergeNode = 
+and
+    QInnerNode = {
+        Id : Guid
+        ExactBoundingBox : Box2d
+        Cell : Cell2d
+        SplitLimitExp : int
+        SubNodes : QNodeRef[] option
+        }
+
 
 
 and
@@ -347,6 +354,7 @@ and
     QNodeRef =
     | NoNode
     | InMemoryNode of QNode
+    | InMemoryInner of QInnerNode
     | OutOfCoreNode of Guid * (unit -> QNode)
     with
 
@@ -354,6 +362,7 @@ and
             match this with
             | NoNode -> Box2d.Invalid
             | InMemoryNode n -> n.ExactBoundingBox
+            | InMemoryInner n -> n.ExactBoundingBox
             | OutOfCoreNode (_, load) -> load().ExactBoundingBox
 
         member this.ContainsLayer (semantic : Durable.Def) =
@@ -379,6 +388,7 @@ and
             | NoNode -> None
             | InMemoryNode n -> Some n
             | OutOfCoreNode (_, load) -> load() |> Some
+            | InMemoryInner n -> failwith "What? Todo 978144a8-6df7-465c-a081-06e8421e6f03."
 
         /// Forces property Id. Throws exception if NoNode.
         member this.Id with get() = match this.TryGetInMemory() with | Some n -> n.Id | None -> Guid.Empty
@@ -407,90 +417,90 @@ module QNode =
 
     let tryGetInMemory (n : QNodeRef) = n.TryGetInMemory()
 
-    /// Takes all layers of up to 4 quadrants of given root cell (subNodeRefs)
-    /// and generates layers for root cell (with half the resolution). 
-    let generateLodLayers (subNodeRefs : QNodeRef[]) (rootCell : Cell2d) : ILayer[] =
+    ///// Takes all layers of up to 4 quadrants of given root cell (subNodeRefs)
+    ///// and generates layers for root cell (with half the resolution). 
+    //let generateLodLayers (subNodeRefs : QNodeRef[]) (rootCell : Cell2d) : ILayer[] =
     
-        if subNodeRefs.Length = 0 then
+    //    if subNodeRefs.Length = 0 then
 
-            // No data -> done.
-            Array.empty
+    //        // No data -> done.
+    //        Array.empty
 
-        else
+    //    else
 
-            (*
-                Get all nodes into memory (except NoNode).
-                All nodes should be unique quadrants of root cell.
-            *)
-            let subnodes = subNodeRefs |> Array.choose (fun x -> x.TryGetInMemory())
+    //        (*
+    //            Get all nodes into memory (except NoNode).
+    //            All nodes should be unique quadrants of root cell.
+    //        *)
+    //        let subnodes = subNodeRefs |> Array.choose (fun x -> x.TryGetInMemory())
 
-            let noNodeCount = subNodeRefs |> Array.sumBy (fun x -> match x with | NoNode -> 1 | _ -> 0)
-            invariantm (subnodes.Length = subNodeRefs.Length - noNodeCount)
-                "Failed to load all nodes into memory."
-                "0607fed7-91cc-4a68-ba01-2512288c607a"
+    //        let noNodeCount = subNodeRefs |> Array.sumBy (fun x -> match x with | NoNode -> 1 | _ -> 0)
+    //        invariantm (subnodes.Length = subNodeRefs.Length - noNodeCount)
+    //            "Failed to load all nodes into memory."
+    //            "0607fed7-91cc-4a68-ba01-2512288c607a"
 
-            invariantm (subnodes |> Array.forall (fun n -> rootCell.Contains(n.Cell)))
-                (sprintf "All subnodes must be contained in root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
-                "8c78a230-e467-4f97-b2e0-0db79e003a46"
+    //        invariantm (subnodes |> Array.forall (fun n -> rootCell.Contains(n.Cell)))
+    //            (sprintf "All subnodes must be contained in root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
+    //            "8c78a230-e467-4f97-b2e0-0db79e003a46"
 
-            invariantm (subnodes |> Array.forall (fun n -> rootCell.Exponent = n.Cell.Exponent + 1))
-                (sprintf "All subnodes must be quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
-                "16a32b30-51a6-43fe-ab67-9fc854b1dde2"
+    //        invariantm (subnodes |> Array.forall (fun n -> rootCell.Exponent = n.Cell.Exponent + 1))
+    //            (sprintf "All subnodes must be quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
+    //            "16a32b30-51a6-43fe-ab67-9fc854b1dde2"
 
-            invariantm (subnodes |> Array.distinctBy (fun n -> n.Cell) |> Array.length = subnodes.Length)
-                (sprintf "All subnodes must be unique quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
-                "3688841c-fe01-4d0d-b7e3-21e0c20a9c6c"
+    //        invariantm (subnodes |> Array.distinctBy (fun n -> n.Cell) |> Array.length = subnodes.Length)
+    //            (sprintf "All subnodes must be unique quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
+    //            "3688841c-fe01-4d0d-b7e3-21e0c20a9c6c"
 
 
-            (*
-                What is the target sample size?
-            *)
+    //        (*
+    //            What is the target sample size?
+    //        *)
             
-            // ... first, check if all subnodes have the same split limit exponent,
-            //     which specifies the tile size as width = height = 2^SplitLimitExponent
-            let xs = subnodes |> Array.map (fun n -> n.SplitLimitExponent) |> Array.distinct
+    //        // ... first, check if all subnodes have the same split limit exponent,
+    //        //     which specifies the tile size as width = height = 2^SplitLimitExponent
+    //        let xs = subnodes |> Array.map (fun n -> n.SplitLimitExponent) |> Array.distinct
             
-            invariantm (xs.Length = 1) 
-                (sprintf "Can't combine nodes with different split limit exponents (%A)." xs)
-                "a9bf0243-e481-49a5-908e-d5af94cec2af"
+    //        invariantm (xs.Length = 1) 
+    //            (sprintf "Can't combine nodes with different split limit exponents (%A)." xs)
+    //            "a9bf0243-e481-49a5-908e-d5af94cec2af"
 
-            let splitLimitExponent = xs |> Array.exactlyOne
+    //        let splitLimitExponent = xs |> Array.exactlyOne
 
-            // ... we want to fit a tile of width = height = 2^splitLimitExponent
-            //     into a root cell of size rootCell.Exponent
-            let targetSampleSize = rootCell.Exponent - splitLimitExponent
+    //        // ... we want to fit a tile of width = height = 2^splitLimitExponent
+    //        //     into a root cell of size rootCell.Exponent
+    //        let targetSampleSize = rootCell.Exponent - splitLimitExponent
 
             
-            (*
-                collect all layers from all nodes
-            *)
-            let allLayers = subnodes |> Array.collect (fun x -> match x.LayerSet with | None -> Array.empty | Some x -> x.Layers) 
+    //        (*
+    //            collect all layers from all nodes
+    //        *)
+    //        let allLayers = subnodes |> Array.collect (fun x -> match x.LayerSet with | None -> Array.empty | Some x -> x.Layers) 
 
-            invariantm (allLayers |> Array.forall (fun layer -> layer.SampleExponent + 1 = targetSampleSize))
-                (sprintf "All layers must have a sample size of 1 less than the target sample size (%d). Layers are (%A)." targetSampleSize allLayers)
-                "8d206e1c-d54a-4841-829d-2e783bde0815"
+    //        invariantm (allLayers |> Array.forall (fun layer -> layer.SampleExponent + 1 = targetSampleSize))
+    //            (sprintf "All layers must have a sample size of 1 less than the target sample size (%d). Layers are (%A)." targetSampleSize allLayers)
+    //            "8d206e1c-d54a-4841-829d-2e783bde0815"
 
-            (*
-                resample all layers to half the resolution
-            *)
-            let allLayersResampled = allLayers |> Array.map (fun layer -> layer.ResampleUntyped rootCell)
+    //        (*
+    //            resample all layers to half the resolution
+    //        *)
+    //        let allLayersResampled = allLayers |> Array.map (fun layer -> layer.ResampleUntyped rootCell)
 
-            invariantm (allLayersResampled |> Array.forall (fun layer -> layer.SampleExponent = targetSampleSize))
-                (sprintf "All resampled layers must have target sample size (%d). Resampled layers are (%A)." targetSampleSize allLayersResampled)
-                "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
+    //        invariantm (allLayersResampled |> Array.forall (fun layer -> layer.SampleExponent = targetSampleSize))
+    //            (sprintf "All resampled layers must have target sample size (%d). Resampled layers are (%A)." targetSampleSize allLayersResampled)
+    //            "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
 
 
-            (*
-                finally, merge resampled layers with same definition
-            *)
-            let resampledByDef = allLayersResampled |> Array.groupBy (fun layer -> layer.Def)
-            let merged = resampledByDef |> Array.map (fun (_, xs) -> Layer.Merge xs)
+    //        (*
+    //            finally, merge resampled layers with same definition
+    //        *)
+    //        let resampledByDef = allLayersResampled |> Array.groupBy (fun layer -> layer.Def)
+    //        let merged = resampledByDef |> Array.map (fun (_, xs) -> Layer.Merge xs)
 
-            invariantm (merged |> Array.forall (fun x -> x.IsSome))
-                (sprintf "There should be a merge result for each definition. Merged layers are %A." merged)
-                "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
+    //        invariantm (merged |> Array.forall (fun x -> x.IsSome))
+    //            (sprintf "There should be a merge result for each definition. Merged layers are %A." merged)
+    //            "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
 
-            let result = merged |> Array.map (fun x -> x.Value)
-            result
+    //        let result = merged |> Array.map (fun x -> x.Value)
+    //        result
 
     
