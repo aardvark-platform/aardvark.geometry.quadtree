@@ -421,6 +421,22 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_2`` () =
 
     ()
 
+
+[<Fact>]
+let ``ExactBoundingBox 1`` () =
+    let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
+    Assert.True(a.ExactBoundingBox = Box2d(V2d(0.0,0.0),V2d(1.0,1.0)))
+
+[<Fact>]
+let ``ExactBoundingBox 2`` () =
+    let a = createQuadtreeWithValue 0 0 2 1  0 0<powerOfTwo> 10.0f
+    Assert.True(a.ExactBoundingBox = Box2d(V2d(0.0,0.0),V2d(2.0,1.0)))
+
+[<Fact>]
+let ``ExactBoundingBox 3`` () =
+    let a = createQuadtreeWithValue 1 0 2 1  0 0<powerOfTwo> 10.0f
+    Assert.True(a.ExactBoundingBox = Box2d(V2d(1.0,0.0),V2d(3.0,1.0)))
+
 [<Fact>]
 let ``Merge_LayersWithDifferentResolution_1`` () =
 
@@ -434,6 +450,12 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
     let m = Quadtree.Merge MoreDetailedOrSecond a b
     Assert.True(Quadtree.CountLeafs m = 2)
     Assert.True(m.Cell = Cell2d(0,0,1))
+
+    showHtmlDebugView<float32> "Merge_LayersWithDifferentResolution_1" Defs.Heights1f [
+        ("a", a)
+        ("b", b)
+        ("m = Quadtree.Merge MoreDetailedOrSecond a b",  m)
+        ]
 
     let l = m.GetLayer<float32> Defs.Heights1f
     let x = l.GetSample(Fail, Cell2d(0,0,1))

@@ -77,7 +77,7 @@ module PrettyPrint =
 
             yield sprintf "<table style=\"background-color:%s\">" (colorOfC3b cells.Format.Bgcolor)
             let bb = box cells
-            for y = bb.Min.Y to bb.Max.Y do
+            for y = bb.Max.Y downto bb.Min.Y do
                 yield "<tr>"
                 for x = bb.Min.X to bb.Max.X do
                     yield "<td>"

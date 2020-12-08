@@ -35,8 +35,8 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
                 (sprintf "If buffer origin is centered cell (%A), then buffer (%A) size must be 1x1, and window (%A) must be invalid." bufferOrigin bufferSize window)
                 "eca25b79-d810-4712-966f-7b71cb79d257"
         else
-            invariantm (bufferSize.X > 0 && bufferSize.Y > 0)
-                (sprintf "Buffer size must be greater than zero (%A)." bufferSize)
+            invariantm (bufferSize.X >= 0 && bufferSize.Y >= 0)
+                (sprintf "Buffer size must be greater or equal than zero (%A)." bufferSize)
                 "eca25b79-d810-4712-966f-7b71cb79d257"
 
             let max = bufferOrigin.XY + V2l(bufferSize)

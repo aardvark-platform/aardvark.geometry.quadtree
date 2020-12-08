@@ -250,8 +250,12 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
         if this.IsLeafNode then
             this
         else
-            let ebb = layers.[0].BoundingBox
-            QNode(ebb, cell, splitLimitExp, layers)
+            //let ebb = layers.[0].BoundingBox
+            QNode(exactBoundingBox, cell, splitLimitExp, layers)
+
+    member this.WithLayers (newLayers : ILayer[]) : QNode =
+        //let ebb = newLayers.[0].BoundingBox
+        QNode(exactBoundingBox, cell, splitLimitExp, newLayers, subNodes)
 
 
     member this.GetAllSamples () : Cell2d[] =

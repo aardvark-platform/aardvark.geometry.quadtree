@@ -1034,6 +1034,7 @@ let ``sm 2020-12-07`` () =
 
     let m1 = Quadtree.Merge SecondDominates a b
     let m2 = Quadtree.Merge SecondDominates m1 c
+
     //showHtmlDebugView<float> "merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 levels" Defs.Heights1d [
     //    ("a", a)
     //    ("b", b)
@@ -1353,11 +1354,11 @@ let ``merge: leaf 4x4 L-1 / leaf 1x1 L0, samples replace 1 quadrant`` () =
     
     let m = Quadtree.Merge SecondDominates aRef bRef
     
-    showHtmlDebugView<float> "merge: leaf 4x4 L-1 / leaf 1x1 L0, samples replace 1 quadrant" Defs.Heights1d [
-        ("aRef", aRef)
-        ("bRef", bRef)
-        ("m = Quadtree.Merge SecondDominates aRef bRef",  m)
-        ]
+    //showHtmlDebugView<float> "merge: leaf 4x4 L-1 / leaf 1x1 L0, samples replace 1 quadrant" Defs.Heights1d [
+    //    ("aRef", aRef)
+    //    ("bRef", bRef)
+    //    ("m = Quadtree.Merge SecondDominates aRef bRef",  m)
+    //    ]
 
     m
     |> checkQuadtree {

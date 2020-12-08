@@ -151,10 +151,21 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
 
         else
 
-            let min = this.SampleMin.Parent
-            let maxIncl = this.SampleMaxIncl.Parent
-            let inline getSample x y = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
+            let wmin = this.SampleMin
+            let wmin = Cell2d(
+                        (if wmin.X % 2L = 0L then wmin.X else wmin.X + 1L), 
+                        (if wmin.Y % 2L = 0L then wmin.Y else wmin.Y + 1L),
+                        wmin.Exponent)
 
+            let wmax = this.SampleMaxIncl
+            let wmax = Cell2d(
+                        (if wmax.X % 2L = 1L then wmax.X else wmax.X - 1L),
+                        (if wmax.Y % 2L = 1L then wmax.Y else wmax.Y - 1L),
+                        wmin.Exponent)
+
+            let min = wmin.Parent
+            let maxIncl = wmax.Parent
+            
             let w = int(maxIncl.X - min.X)
             let h = int(maxIncl.Y - min.Y)
 
