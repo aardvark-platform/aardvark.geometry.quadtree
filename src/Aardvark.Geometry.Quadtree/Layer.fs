@@ -408,13 +408,13 @@ type LayerSet(layers : ILayer[]) =
         layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id)
 
     member this.TryGetLayer<'a> (semantic : Durable.Def) : Layer<'a> option =
-        layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id) |> Option.map (fun x -> x :?> Layer<'a>)
+        this.TryGetLayer(semantic) |> Option.map (fun x -> x :?> Layer<'a>)
 
     member this.GetLayer(semantic : Durable.Def) : ILayer =
         layers |> Array.find    (fun x -> x.Def.Id = semantic.Id)
 
     member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
-        layers |> Array.find    (fun x -> x.Def.Id = semantic.Id) :?> Layer<'a>
+        this.GetLayer(semantic) :?> Layer<'a>
 
     member this.WithWindow (w : Box2l) : LayerSet option =
         let ols = layers |> Array.map(fun l -> l.WithWindow(w))

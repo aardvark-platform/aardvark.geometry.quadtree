@@ -23,10 +23,11 @@ with
         | MoreDetailedOrFirst  -> MoreDetailedOrSecond
         | MoreDetailedOrSecond -> MoreDetailedOrFirst
         
+
 module Merge =
 
     /// Immutable merge.
-    let merge (dominance : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef =
+    let merge (dom : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef =
 
         match first.TryGetInMemory(), second.TryGetInMemory() with
         | None,   None   -> NoNode

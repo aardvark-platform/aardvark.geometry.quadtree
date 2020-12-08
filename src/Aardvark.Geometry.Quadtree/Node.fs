@@ -70,7 +70,26 @@ with
             Exists  = fun id        -> store.Contains(id.ToString())
         }
 
-type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : LayerSet option, subNodes : QNodeRef[] option) =
+type IQNode =
+    abstract member Id : Guid
+    abstract member ExactBoundingBox : Box2d
+    abstract member Cell : Cell2d
+    abstract member SplitLimitExponent : int
+    abstract member LayerSet : LayerSet option
+    abstract member SubNodes : QNodeRef[] option
+
+    abstract member Save : SerializationOptions -> Guid
+
+    abstract member UpdateLayerSemantic : Durable.Def * Durable.Def -> IQNode option
+
+    abstract member GetAllSamples : unit -> Cell2d[]
+    abstract member GetAllSamplesInsideWindow : Box2l -> Cell2d[]
+    abstract member GetAllSamplesFromFirstMinusSecond : Box2l * Box2l -> Cell2d[]
+    abstract member GetSample : V2d -> Cell2d
+
+
+
+and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : LayerSet option, subNodes : QNodeRef[] option) =
 
     do
         match layers with
@@ -134,19 +153,106 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
     new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : LayerSet option, subNodes : QNodeRef[] option) =
         QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers, subNodes)
 
-    member _.Id with get() = uid
+    interface IQNode with
+
+        member _.Id with get() = uid
+
+        member _.Cell with get() = cell
+
+        member this.ExactBoundingBox with get() = this.ExactBoundingBox
+
+        /// The maximum tile size, given as width = height = 2^SplitLimitExponent.
+        member _.SplitLimitExponent with get() = splitLimitExp
+
+        /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
+        /// Returns 'Some <newUpdatedOctree>' if 'oldSemantic' exists and is replaced.
+        /// Returns 'None' if 'oldSemantic' does not exist.
+        /// Throws if quadtree contains both 'oldSemantic' and 'newSemantic'.
+        member this.UpdateLayerSemantic (oldSemantic : Durable.Def, newSemantic : Durable.Def) : IQNode option =
+
+            match layers with
+            | None -> None
+            | Some layers ->
+
+                match layers.UpdateLayerSemantic(oldSemantic, newSemantic) with
+                | None -> None
+                | Some newLayers ->
+               
+                    let id = Guid.NewGuid()
+
+                    let newChildren = 
+                        match subNodes with
+                        | None -> None
+                        | Some xs ->
+                            xs |> Array.map (fun n ->
+                                match n.TryGetInMemory() with
+                                | None -> NoNode
+                                | Some x -> 
+                                    match x.UpdateLayerSemantic(oldSemantic, newSemantic) with
+                                    | None   -> n
+                                    | Some y -> InMemoryNode y
+                                )
+                            |> Some
+
+                    QNode(id, exactBoundingBox, cell, splitLimitExp, Some newLayers, newChildren) :> IQNode |> Some
+        
+        member this.Save options : Guid =
+            let map = List<KeyValuePair<Durable.Def, obj>>()
+
+            // node properties
+            map.Add(kvp Defs.NodeId uid)
+            map.Add(kvp Defs.CellBounds cell)
+            map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
+            map.Add(kvp Defs.ExactBoundingBox this.ExactBoundingBox)
+                
+            // layers
+            match layers with
+            | None -> ()
+            | Some layers ->
+                for layer in layers.Layers do
+                    let layerDef = Defs.GetLayerFromDef layer.Def
+                    let dm = layer.Materialize().ToDurableMap ()
+                    map.Add(kvp layerDef dm)
+
+            // children
+            match subNodes with
+            | Some xs ->
+
+                // recursively store subnodes (where necessary)
+                for x in xs do 
+                    match x with 
+                    | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
+                    | NoNode            -> () // nothing to store
+                    | OutOfCoreNode _   -> () // already stored
+
+                // collect subnode IDs 
+                let ids = xs |> Array.map (fun x -> 
+                    match x with 
+                    | NoNode -> Guid.Empty
+                    | InMemoryNode n -> n.Id
+                    | OutOfCoreNode (id, _) -> id
+                    )
+                map.Add(kvp Defs.SubnodeIds ids)
+            | None -> ()
+
+            let buffer = DurableCodec.Serialize(Defs.Node, map)
+            options.Save uid buffer
+            uid
+
+        member _.LayerSet with get() = layers
+
+        member _.SubNodes with get() = subNodes
+
+        member this.GetAllSamples () : Cell2d[] = this.GetAllSamples ()
+        member this.GetAllSamplesInsideWindow (window : Box2l) : Cell2d[] = this.GetAllSamplesInsideWindow (window)
+        member this.GetAllSamplesFromFirstMinusSecond (first : Box2l, second : Box2l) : Cell2d[] = this.GetAllSamplesFromFirstMinusSecond(first, second)
+        member this.GetSample (p : V2d) : Cell2d = this.GetSample(p)
+
 
     member _.Cell with get() = cell
-
-    /// The maximum tile size, given as width = height = 2^SplitLimitExponent.
-    member _.SplitLimitExponent with get() = splitLimitExp
-
     member _.LayerSet with get() = layers
-
     member _.SubNodes with get() = subNodes
-
     member _.IsInnerNode with get() = subNodes.IsSome
-
     member _.IsLeafNode  with get() = subNodes.IsNone
 
     member this.ContainsLayer (semantic : Durable.Def) : bool =
@@ -177,7 +283,7 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
                 Some n
 
     member this.WithoutChildren () : QNode =
-        match this.SubNodes with
+        match subNodes with
         | Some _ -> QNode(exactBoundingBox, cell, splitLimitExp, layers)
         | None   -> this
 
@@ -197,7 +303,7 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
             window.GetAllSamples(layers.SampleExponent)
         | None -> Array.empty
 
-    member this.GetAllSamplesFromFirstMinusSecond (first : Box2l) (second : Box2l) : Cell2d[] =
+    member this.GetAllSamplesFromFirstMinusSecond (first : Box2l, second : Box2l) : Cell2d[] =
         match layers with
         | Some layers -> first.GetAllSamplesFromFirstMinusSecond(second, layers.SampleExponent)
         | None -> Array.empty
@@ -205,80 +311,8 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
     member this.GetSample (p : V2d) : Cell2d =
         layers.Value.Mapping.GetSampleCell(p)
 
-    /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
-    /// Returns 'Some <newUpdatedOctree>' if 'oldSemantic' exists and is replaced.
-    /// Returns 'None' if 'oldSemantic' does not exist.
-    /// Throws if quadtree contains both 'oldSemantic' and 'newSemantic'.
-    member this.UpdateLayerSemantic (oldSemantic : Durable.Def, newSemantic : Durable.Def) : QNode option =
-
-        match layers with
-        | None -> None
-        | Some layers ->
-
-            match layers.UpdateLayerSemantic(oldSemantic, newSemantic) with
-            | None -> None
-            | Some newLayers ->
-               
-                let id = Guid.NewGuid()
-
-                let newChildren = 
-                    match subNodes with
-                    | None -> None
-                    | Some xs ->
-                        xs |> Array.map (fun n ->
-                            match n.TryGetInMemory() with
-                            | None -> NoNode
-                            | Some x -> 
-                                match x.UpdateLayerSemantic(oldSemantic, newSemantic) with
-                                | None   -> n
-                                | Some y -> InMemoryNode y
-                            )
-                        |> Some
-
-                QNode(id, exactBoundingBox, cell, splitLimitExp, Some newLayers, newChildren) |> Some
-        
-    member this.Save options : Guid =
-        let map = List<KeyValuePair<Durable.Def, obj>>()
-
-        // node properties
-        map.Add(kvp Defs.NodeId uid)
-        map.Add(kvp Defs.CellBounds cell)
-        map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
-        map.Add(kvp Defs.ExactBoundingBox this.ExactBoundingBox)
-            
-        // layers
-        match layers with
-        | None -> ()
-        | Some layers ->
-            for layer in layers.Layers do
-                let layerDef = Defs.GetLayerFromDef layer.Def
-                let dm = layer.Materialize().ToDurableMap ()
-                map.Add(kvp layerDef dm)
-
-        // children
-        match subNodes with
-        | Some xs ->
-
-            // recursively store subnodes (where necessary)
-            for x in xs do 
-                match x with 
-                | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
-                | NoNode            -> () // nothing to store
-                | OutOfCoreNode _   -> () // already stored
-
-            // collect subnode IDs 
-            let ids = xs |> Array.map (fun x -> 
-                match x with 
-                | NoNode -> Guid.Empty
-                | InMemoryNode n -> n.Id
-                | OutOfCoreNode (id, _) -> id
-                )
-            map.Add(kvp Defs.SubnodeIds ids)
-        | None -> ()
-
-        let buffer = DurableCodec.Serialize(Defs.Node, map)
-        options.Save uid buffer
-        uid
+   
+    
 
     static member Load (options: SerializationOptions) (id : Guid) : QNodeRef =
         if id = Guid.Empty then
@@ -336,12 +370,16 @@ type QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : 
                 else
                     failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
+//and
+//    QMergeNode = 
+
+
 and
 
     QNodeRef =
     | NoNode
-    | InMemoryNode of QNode
-    | OutOfCoreNode of Guid * (unit -> QNode)
+    | InMemoryNode of IQNode
+    | OutOfCoreNode of Guid * (unit -> IQNode)
     with
 
         member this.ExactBoundingBox with get() =
@@ -352,7 +390,7 @@ and
 
         member this.ContainsLayer (semantic : Durable.Def) =
             match this.TryGetInMemory() with
-            | Some n -> n.ContainsLayer semantic
+            | Some n -> match n.LayerSet with | None -> false | Some x -> x.ContainsLayer semantic
             | None   -> false
 
         /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
@@ -368,7 +406,7 @@ and
                 | Some x -> (true,  InMemoryNode x)
 
         /// Get referenced node (from memory or load out-of-core), or None if NoNode.
-        member this.TryGetInMemory () : QNode option =
+        member this.TryGetInMemory () : IQNode option =
             match this with
             | NoNode -> None
             | InMemoryNode n -> Some n
@@ -380,15 +418,38 @@ and
         /// Forces property Cell. Throws exception if NoNode.
         member this.Cell with get() = this.TryGetInMemory().Value.Cell
 
-        /// Throws if no such layer.
-        member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
+
+[<AutoOpen>]
+module IQNodeExtensions =
+
+    type IQNode with
 
         /// Throws if no such layer.
-        member this.GetLayer def = this.TryGetInMemory().Value.GetLayer def
+        member this.GetLayer def : ILayer = this.LayerSet.Value.GetLayer def
 
-        member this.TryGetLayer<'a> def = this.TryGetInMemory().Value.TryGetLayer<'a> def
+        /// Throws if no such layer.
+        member this.GetLayer<'a> def : Layer<'a> = this.GetLayer def
 
-        member this.TryGetLayer def = this.TryGetInMemory().Value.TryGetLayer def
+        member this.TryGetLayer (semantic : Durable.Def) : ILayer option =
+            match this.LayerSet with | None -> None | Some x -> x.TryGetLayer(semantic)
+
+        member this.TryGetLayer<'a> (semantic : Durable.Def) : Layer<'a> option =
+            match this.TryGetLayer(semantic) with | None -> None | Some x -> Some(x :?> Layer<'a>)
+
+        member this.IsLeafNode with get()  = this.SubNodes.IsNone
+        member this.IsInnerNode with get() = this.SubNodes.IsSome
+
+type QNodeRef with
+
+    /// Throws if no such layer.
+    member this.GetLayer def = this.TryGetInMemory().Value.GetLayer def
+
+    /// Throws if no such layer.
+    member this.GetLayer<'a> def = this.TryGetInMemory().Value.GetLayer<'a> def
+    
+    member this.TryGetLayer def = this.TryGetInMemory().Value.TryGetLayer def
+
+    member this.TryGetLayer<'a> def = this.TryGetInMemory().Value.TryGetLayer<'a> def
 
 module QNode =
 
@@ -397,7 +458,7 @@ module QNode =
         | Some n -> InMemoryNode n
         | None -> NoNode
 
-    let tryGetInMemory (n : QNodeRef) : QNode option = n.TryGetInMemory()
+    let tryGetInMemory (n : QNodeRef) = n.TryGetInMemory()
 
     /// Takes all layers of up to 4 quadrants of given root cell (subNodeRefs)
     /// and generates layers for root cell (with half the resolution). 

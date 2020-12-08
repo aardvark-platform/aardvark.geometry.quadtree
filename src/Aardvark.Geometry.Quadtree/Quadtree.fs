@@ -95,7 +95,7 @@ module Quadtree =
         while rootCell.Exponent < minRootExponent do
             rootCell <- rootCell.Parent
 
-        build config rootCell layers |> InMemoryNode
+        build config rootCell layers :> IQNode |> InMemoryNode
 
     /// Returns new merged quadtree. Immutable merge.
     let Merge (domination : Dominance) (first : QNodeRef) (second : QNodeRef) =
