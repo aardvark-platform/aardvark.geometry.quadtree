@@ -262,35 +262,33 @@ let ``Quadtree.TryGetLayer`` () =
     
     let q = genQuadtree ()
     
-    (q |> Quadtree.TryGetLayer<V4f>(Defs.BilinearParams4f )).IsSome     |> Assert.True
-    (q |> Quadtree.TryGetLayer<V4f>(Defs.HeightsBilinear4f)).IsSome     |> Assert.False
+    q.TryGetLayer<V4f>(Defs.BilinearParams4f ).IsSome   |> Assert.True
+    q.TryGetLayer<V4f>(Defs.HeightsBilinear4f).IsSome   |> Assert.False
 
-    (q |> Quadtree.TryGetLayerUntyped(Defs.BilinearParams4f )).IsSome   |> Assert.True
-    (q |> Quadtree.TryGetLayerUntyped(Defs.HeightsBilinear4f)).IsSome   |> Assert.False
+    q.TryGetLayer(Defs.BilinearParams4f ).IsSome        |> Assert.True
+    q.TryGetLayer(Defs.HeightsBilinear4f).IsSome        |> Assert.False
 
 [<Fact>]
 let ``Quadtree.UpdateLayerSemantic, existing -> non-existing, works`` () =
     
     let q = genQuadtree ()
     
-    failwith "todo: update test"
-    //(q.TryGetInMemory().Value.LayerSet.Layers.Length = 2)                     |> Assert.True
-    (q |> Quadtree.ContainsLayer(Defs.Colors4f))                                    |> Assert.True
-    (q |> Quadtree.ContainsLayer(Defs.BilinearParams4f))                            |> Assert.True
-    (q |> Quadtree.GetLayer<V4f>(Defs.BilinearParams4f)).Data.[0] = V4f(1,2,3,4)    |> Assert.True
-    (q |> Quadtree.ContainsLayer(Defs.HeightsBilinear4f))                           |> Assert.False
+    q.LayerSet.Value.Layers.Length = 2                              |> Assert.True
+    q.ContainsLayer(Defs.Colors4f)                                  |> Assert.True
+    q.ContainsLayer(Defs.BilinearParams4f)                          |> Assert.True
+    q.GetLayer<V4f>(Defs.BilinearParams4f).Data.[0] = V4f(1,2,3,4)  |> Assert.True
+    q.ContainsLayer(Defs.HeightsBilinear4f)                         |> Assert.False
 
     // existing -> non-existing
     let (updated, r) = q.UpdateLayerSemantic(Defs.BilinearParams4f, Defs.HeightsBilinear4f)
     
-    updated                                                                         |> Assert.True
-    r.Id = q.Id                                                                     |> Assert.False
-    failwith "todo: update test"
-    //(r.TryGetInMemory().Value.LayerSet.Layers.Length = 2)                     |> Assert.True
-    (r |> Quadtree.ContainsLayer(Defs.Colors4f))                                    |> Assert.True
-    (r |> Quadtree.ContainsLayer(Defs.HeightsBilinear4f))                           |> Assert.True
-    (r |> Quadtree.GetLayer<V4f>(Defs.HeightsBilinear4f)).Data.[0] = V4f(1,2,3,4)   |> Assert.True
-    (r |> Quadtree.ContainsLayer(Defs.BilinearParams4f))                            |> Assert.False
+    updated                                                         |> Assert.True
+    r.Id = q.Id                                                     |> Assert.False
+    q.LayerSet.Value.Layers.Length = 2                              |> Assert.True
+    r.ContainsLayer(Defs.Colors4f)                                  |> Assert.True
+    r.ContainsLayer(Defs.HeightsBilinear4f)                         |> Assert.True
+    r.GetLayer<V4f>(Defs.HeightsBilinear4f).Data.[0] = V4f(1,2,3,4) |> Assert.True
+    r.ContainsLayer(Defs.BilinearParams4f)                          |> Assert.False
 
 [<Fact>]
 let ``Quadtree.UpdateLayerSemantic, existing -> existing, fails`` () =
@@ -312,8 +310,7 @@ let ``Quadtree.UpdateLayerSemantic, non-existing -> non-existing, nop`` () =
     
     updated                                                         |> Assert.False
     r.Id = q.Id                                                     |> Assert.True
-    failwith "todo: update test"
-    //r.TryGetInMemory().Value.LayerSet.Layers.Length = 2       |> Assert.True
+    r.LayerSet.Value.Layers.Length = 2                              |> Assert.True
     r.ContainsLayer(Defs.Colors4f)                                  |> Assert.True
     r.ContainsLayer(Defs.BilinearParams4f)                          |> Assert.True
     r.GetLayer<V4f>(Defs.BilinearParams4f).Data.[0] = V4f(1,2,3,4)  |> Assert.True
@@ -329,8 +326,7 @@ let ``Quadtree.UpdateLayerSemantic, non-existing -> existing, nop`` () =
 
     updated                                                         |> Assert.False
     r.Id = q.Id                                                     |> Assert.True
-    failwith "todo: update test"
-    //r.TryGetInMemory().Value.LayerSet.Layers.Length = 2       |> Assert.True
+    r.LayerSet.Value.Layers.Length = 2                              |> Assert.True
     r.ContainsLayer(Defs.Colors4f)                                  |> Assert.True
     r.ContainsLayer(Defs.BilinearParams4f)                          |> Assert.True
     r.GetLayer<V4f>(Defs.BilinearParams4f).Data.[0] = V4f(1,2,3,4)  |> Assert.True

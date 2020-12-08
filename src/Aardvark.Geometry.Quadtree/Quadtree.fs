@@ -67,7 +67,7 @@ module Quadtree =
                 | NoNode            -> ()
                 | _                 -> failwith "Todo 6f5d63bc-ece6-49ef-b634-879f81a4fc36."
 
-            let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExp = config.SplitLimitPowerOfTwo; SubNodes = subNodes }
+            let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = config.SplitLimitPowerOfTwo; SubNodes = subNodes }
             result |> InMemoryInner
         
         else

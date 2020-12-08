@@ -264,9 +264,9 @@ let ``Positions`` () =
     let r = Sample.Positions Query.Config.Default ps q |> Seq.toArray
 
     let count = r |> Array.sumBy (fun x -> x.Cells.Length)
-    Assert.True(5 = count)
+    count = 5       |> Assert.True
 
     let xs = r |> Array.collect (fun x -> x.GetSamples<float32> Defs.Heights1f)
-    Assert.True(5 = xs.Length)
+    xs.Length = 5   |> Assert.True
 
     

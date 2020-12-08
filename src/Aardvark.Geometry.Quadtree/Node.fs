@@ -258,7 +258,7 @@ and
         Id : Guid
         ExactBoundingBox : Box2d
         Cell : Cell2d
-        SplitLimitExp : int
+        SplitLimitExponent : int
         SubNodes : QNodeRef[]
         }
 
@@ -289,13 +289,21 @@ and
             | InMemoryInner n -> n.Cell
             | OutOfCoreNode (_, load) -> load().Cell
 
-         /// Forces property ExactBoundingBox. Loads out-of-core data if necessary. Throws exception if NoNode.
+         /// Returns node's exact bounding box, or invalid box for NoNode.
         member this.ExactBoundingBox with get() =
             match this with
-            | NoNode -> failwith "ExactBoundingBox does not exist for NoNode. Error 7562939f-336a-4a59-b1bd-0f70ef9937e2."
+            | NoNode -> Box2d.Invalid
             | InMemoryNode n -> n.ExactBoundingBox
             | InMemoryInner n -> n.ExactBoundingBox
             | OutOfCoreNode (_, load) -> load().ExactBoundingBox
+
+        /// Forces property SplitLimitExp. Throws exception if NoNode.
+        member this.SplitLimitExponent with get() =
+            match this with
+            | NoNode -> failwith "SplitLimitExp does not exist for NoNode. Error 4424a37e-dcd8-4ae0-975c-7ae6d926aaa8."
+            | InMemoryNode n -> n.SplitLimitExponent
+            | InMemoryInner n -> n.SplitLimitExponent
+            | OutOfCoreNode (_, load) -> load().SplitLimitExponent
 
         member this.ContainsLayer (semantic : Durable.Def) =
             match this with
@@ -303,6 +311,13 @@ and
             | InMemoryInner _ -> false
             | InMemoryNode n -> n.ContainsLayer semantic
             | OutOfCoreNode (_, load) -> load().ContainsLayer semantic
+
+        member this.LayerSet with get() : LayerSet option =
+            match this with
+            | NoNode -> None
+            | InMemoryInner _ -> None
+            | InMemoryNode n -> Some(n.LayerSet)
+            | OutOfCoreNode (_, load) -> Some(load().LayerSet)
 
         member this.IsLeafNode with get() =
             match this with

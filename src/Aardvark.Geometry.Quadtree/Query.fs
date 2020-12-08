@@ -398,13 +398,13 @@ module Sample =
 
         seq {
 
-            invariantm (n.Cell.Exponent >= config.MinExponent)
-                "Query cannot start at node with exponent smaller than configured minExponent."
-                "c7c3713d-2c9d-4924-a9dd-a2e15dd0a2a8."
+            //invariantm (n.Cell.Exponent >= config.MinExponent)
+            //    "Query cannot start at node with exponent smaller than configured minExponent."
+            //    "c7c3713d-2c9d-4924-a9dd-a2e15dd0a2a8."
 
-            invariantm (n.Cell.BoundingBox.Contains(positionsBounds))
-                "Positions bounds not contained in node."
-                "0f367a54-cafb-405d-aad4-cf5ec36216f6"
+            //invariantm (n.Cell.BoundingBox.Contains(positionsBounds))
+            //    "Positions bounds not contained in node."
+            //    "0f367a54-cafb-405d-aad4-cf5ec36216f6"
 
             let swbb = n.ExactBoundingBox
 
