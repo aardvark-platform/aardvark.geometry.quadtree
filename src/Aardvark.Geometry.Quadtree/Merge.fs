@@ -27,6 +27,7 @@ with
 module Merge =
 
     let mergeInnerInner (dom : Dominance) (a : QInnerNode) (b : QInnerNode) : QNodeRef =
+
         failwith "todo: mergeInnerInner"
 
     let mergeInnerLeaf  (dom : Dominance) (a : QInnerNode) (b : QNode)      : QNodeRef =
@@ -38,21 +39,29 @@ module Merge =
     /// Immutable merge.
     let rec merge (dom : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef =
 
-        match first, second with
-        | NoNode, _ | _, NoNode -> ()
-        | _ ->
-            invariantm (first.SplitLimitExponent = second.SplitLimitExponent)
-                "Cannot merge quadtrees with different split limits."   "6222eb6b-a7aa-43c1-9323-e28d6275696b"
+        let winner = 
+            match first, second with
+            | NoNode, _  | _, NoNode -> None
+            | _ ->  
+                invariantm (first.SplitLimitExponent = second.SplitLimitExponent)
+                    "Cannot merge quadtrees with different split limits." "6222eb6b-a7aa-43c1-9323-e28d6275696b"
 
-        match first, second with
-        | NoNode,               b                       -> b
-        | a,                    NoNode                  -> a
+                match dom, first.ExactBoundingBox, second.ExactBoundingBox with
+                | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
+                | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
+                | _ -> None
 
-        | InMemoryInner a,      InMemoryInner b         -> mergeInnerInner dom a b
-        | InMemoryInner a,      InMemoryNode  b         -> mergeInnerLeaf  dom a b
-        | InMemoryNode a ,      InMemoryInner b         -> mergeInnerLeaf  dom.Flipped b a
-        | InMemoryNode a ,      InMemoryNode  b         -> mergeLeafLeaf   dom a b
+        match winner with
+        | Some w -> w
+        | None   -> match first, second with
+                    | NoNode,               b                       -> b
+                    | a,                    NoNode                  -> a
 
-        | OutOfCoreNode (_,a),  OutOfCoreNode (_,b)     -> merge dom (a() |> InMemoryNode) (b() |> InMemoryNode)
-        | OutOfCoreNode (_,a),  b                       -> merge dom (a() |> InMemoryNode) (b                  )
-        | a,                    OutOfCoreNode (_,b)     -> merge dom (a                  ) (b() |> InMemoryNode)
+                    | InMemoryInner a,      InMemoryInner b         -> mergeInnerInner dom a b
+                    | InMemoryInner a,      InMemoryNode  b         -> mergeInnerLeaf  dom a b
+                    | InMemoryNode a ,      InMemoryInner b         -> mergeInnerLeaf  dom.Flipped b a
+                    | InMemoryNode a ,      InMemoryNode  b         -> mergeLeafLeaf   dom a b
+
+                    | OutOfCoreNode (_,a),  OutOfCoreNode (_,b)     -> merge dom (a() |> InMemoryNode) (b() |> InMemoryNode)
+                    | OutOfCoreNode (_,a),  b                       -> merge dom (a() |> InMemoryNode) (b                  )
+                    | a,                    OutOfCoreNode (_,b)     -> merge dom (a                  ) (b() |> InMemoryNode)
