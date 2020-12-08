@@ -54,10 +54,8 @@ let checkQuadtree spec (rootRef : QNodeRef) =
 
     Assert.True(spec.Cell                   = rootRef.Cell)
     Assert.True(spec.IsLeafNode             = rootRef.IsLeafNode)
-
-    failwith "todo"
-    //Assert.True(spec.SampleExponent         = root.LayerSet.SampleExponent)
-    //Assert.True(spec.SplitLimitExponent     = root.SplitLimitExponent)
+    Assert.True(spec.SampleExponent         = rootRef.LayerSet.Value.SampleExponent)
+    Assert.True(spec.SplitLimitExponent     = rootRef.SplitLimitExponent)
 
     for s in spec.Samples do
         let map = s.Data |> Map.ofSeq
