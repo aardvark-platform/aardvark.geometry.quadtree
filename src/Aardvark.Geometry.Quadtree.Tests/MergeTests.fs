@@ -113,10 +113,10 @@ let ``Merge_NonOverlapping_Adjacent_DifferentExp`` () =
     let q01 = createQuadtree 0 8 8 8 0 1<powerOfTwo>
     let q11 = createQuadtree 16 16 16 16 -1 1<powerOfTwo>
 
-    let bb00 = q00.SampleWindowBoundingBox
-    let bb10 = q10.SampleWindowBoundingBox
-    let bb01 = q01.SampleWindowBoundingBox
-    let bb11 = q11.SampleWindowBoundingBox
+    //let bb00 = q00.SampleWindowBoundingBox
+    //let bb10 = q10.SampleWindowBoundingBox
+    //let bb01 = q01.SampleWindowBoundingBox
+    //let bb11 = q11.SampleWindowBoundingBox
 
     Assert.True(Quadtree.CountLeafs q00 = 1)
     Assert.True(Quadtree.CountLeafs q10 = 4)

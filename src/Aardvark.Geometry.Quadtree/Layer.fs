@@ -2,6 +2,7 @@
 
 open Aardvark.Base
 open Aardvark.Data
+open System
 open System.Collections.Immutable
 open System.Collections.Generic
 
@@ -14,14 +15,14 @@ type ILayer =
     abstract member MapSingleCenteredSampleTo : Cell2d -> ILayer
     abstract member WithSemantic : Durable.Def -> ILayer
     abstract member ResampleUntyped : Cell2d -> ILayer
-    abstract member SupersampleUntyped : unit -> ILayer
+    //abstract member SupersampleUntyped : unit -> ILayer
     abstract member Materialize : unit -> ILayer
     abstract member ToDurableMap : unit -> seq<KeyValuePair<Durable.Def, obj>>
 
 [<AutoOpen>]
 module ILayerExtensions =
     type ILayer with
-        /// Resolution (=size of a sample).
+
         member this.SampleExponent    with get() = this.Mapping.BufferOrigin.Exponent
         member this.SampleMin         with get() = Cell2d(this.Mapping.Window.Min, this.SampleExponent)
         member this.SampleMaxExcl     with get() = Cell2d(this.Mapping.Window.Max, this.SampleExponent)
@@ -52,23 +53,30 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             "971a69a6-cd25-43b8-b85b-7dd783456552"
 
     interface ILayer with
+        
         member this.Def with get() = def
+        
         member this.Mapping with get() = mapping
+        
         member this.WithWindow (w : Box2l) =
             mapping.WithWindow(w) 
             |> Option.map (fun m -> Layer(def, data, m) :> ILayer)
+        
         member this.MapSingleCenteredSampleTo (c : Cell2d) =
             invariant (mapping.BufferOrigin.IsCenteredAtOrigin) "1a276e80-0404-4e69-9777-acbac1a4ed6a"
             invariant (c.TouchesOrigin) "e2326309-7171-4b9b-841e-4f0a5ef028d7"
             invariant (data.Length = 1) "bf2b4330-67fd-4283-880f-f9c96dafee61"
             Layer(def, data, DataMapping(c, V2i.II)) :> ILayer
+        
         member this.WithSemantic (newSemantic : Durable.Def) =
             Layer(newSemantic, data, mapping) :> ILayer
+
         member this.ResampleUntyped (resampleRoot : Cell2d) =
             let f = Resamplers.getResamplerFor def 
             let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a)) resampleRoot
             r :> ILayer
-        member this.SupersampleUntyped () = this.Supersample () :> ILayer
+
+        //member this.SupersampleUntyped () = this.Supersample () :> ILayer
 
         member this.Materialize () =
             if mapping.Window.Min = V2l.OO && mapping.WindowSize = mapping.BufferSize then
@@ -184,39 +192,37 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
             let newMapping = DataMapping(min, maxIncl)
             Layer(def, buffer, newMapping)
 
-    member this.Supersample () : Layer<'a> =
+    //member this.Supersample () : Layer<'a> =
 
-        if mapping.BufferOrigin.IsCenteredAtOrigin then
+    //    if mapping.BufferOrigin.IsCenteredAtOrigin then
 
-            let s = data.[mapping.GetBufferIndex(mapping.BufferOrigin)]
-            let newMapping = DataMapping(origin = V2l(-1,-1), size = V2i(2,2), exponent = mapping.BufferOrigin.Exponent - 1)
-            Layer(def, [|s;s;s;s|], newMapping)
+    //        let s = data.[mapping.GetBufferIndex(mapping.BufferOrigin)]
+    //        let newMapping = DataMapping(origin = V2l(-1,-1), size = V2i(2,2), exponent = mapping.BufferOrigin.Exponent - 1)
+    //        Layer(def, [|s;s;s;s|], newMapping)
 
-        else
+    //    else
 
-            let size = mapping.WindowSize
-            let w = size.X
-            let h = size.Y
-            let w2 = w * 2
+    //        let size = mapping.WindowSize
+    //        let w = size.X
+    //        let h = size.Y
+    //        let w2 = w * 2
 
-            let buffer = Array.zeroCreate (w * h * 4)
-            let newMapping = DataMapping(origin = mapping.Window.Min * 2L, size = size * 2, exponent = mapping.BufferOrigin.Exponent - 1)
+    //        let buffer = Array.zeroCreate (w * h * 4)
+    //        let newMapping = DataMapping(origin = mapping.Window.Min * 2L, size = size * 2, exponent = mapping.BufferOrigin.Exponent - 1)
 
-            let o0 = mapping.Window.Min
-            let o1 = newMapping.Window.Min
-            for x = 0 to w-1 do
-                for y = 0 to h-1 do
-                    let i = mapping.GetBufferIndex(o0.X + int64 x, o0.Y + int64 y)
-                    let s = data.[i]
-                    let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y))
-                    buffer.[j] <- s; buffer.[j+1] <- s
-                    let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y+1))
-                    buffer.[j] <- s; buffer.[j+1] <- s
+    //        let o0 = mapping.Window.Min
+    //        let o1 = newMapping.Window.Min
+    //        for x = 0 to w-1 do
+    //            for y = 0 to h-1 do
+    //                let i = mapping.GetBufferIndex(o0.X + int64 x, o0.Y + int64 y)
+    //                let s = data.[i]
+    //                let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y))
+    //                buffer.[j] <- s; buffer.[j+1] <- s
+    //                let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y+1))
+    //                buffer.[j] <- s; buffer.[j+1] <- s
 
-            Layer(def, buffer, newMapping)
-    
-
-
+    //        Layer(def, buffer, newMapping)
+   
 module Layer =
 
     let private verbose = false
@@ -355,7 +361,7 @@ module Layer =
     let Merge (layers : ILayer seq) : ILayer option =
         let ls = layers |> Array.ofSeq
         match ls.Length with
-        | 0 -> 
+        | 0 ->
             if verbose then printfn "[Layer.Merge] 0 layers -> None"
             None
         | 1 ->
@@ -383,3 +389,62 @@ module Layer =
             | _ -> failwith <| sprintf "Unsupported layer type %A. Invariant bfb8d2ec-666d-4878-b612-f46f59dd5e82." ls.[0]
 
             |> Some
+
+
+type LayerSet(layers : ILayer[]) =
+
+    do
+
+        invariantm (layers.Length > 0) "No layers." "3532f669-8321-4f47-a39d-8c9920cb5f67"
+
+    member this.Layers          with get() = layers
+
+    member this.BoundingBox     with get() = layers.[0].BoundingBox
+    member this.Mapping         with get() = layers.[0].Mapping
+    member this.SampleExponent  with get() = layers.[0].Mapping.BufferOrigin.Exponent
+    member this.SampleWindow    with get() = layers.[0].Mapping.Window
+
+    member this.TryGetLayer (semantic : Durable.Def) : ILayer option =
+        layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id)
+
+    member this.TryGetLayer<'a> (semantic : Durable.Def) : Layer<'a> option =
+        layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id) |> Option.map (fun x -> x :?> Layer<'a>)
+
+    member this.GetLayer(semantic : Durable.Def) : ILayer =
+        layers |> Array.find    (fun x -> x.Def.Id = semantic.Id)
+
+    member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
+        layers |> Array.find    (fun x -> x.Def.Id = semantic.Id) :?> Layer<'a>
+
+    member this.WithWindow (w : Box2l) : LayerSet option =
+        let ols = layers |> Array.map(fun l -> l.WithWindow(w))
+        if ols |> Array.forall(Option.isNone) then
+            None
+        else
+            invariant (ols |> Array.forall(Option.isSome)) "4ea6ff83-03ed-4294-9f37-2833e6f949eb"
+            let ls = ols |> Array.map Option.get
+            Some(LayerSet(ls))
+
+    member this.ContainsLayer (semantic : Durable.Def) : bool =
+        this.TryGetLayer(semantic) |> Option.isSome
+
+    /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
+    /// Returns 'Some <newUpdatedOctree>' if 'oldSemantic' exists and is replaced.
+    /// Returns 'None' if 'oldSemantic' does not exist.
+    /// Throws if quadtree contains both 'oldSemantic' and 'newSemantic'.
+    member this.UpdateLayerSemantic (oldSemantic : Durable.Def, newSemantic : Durable.Def) : LayerSet option =
+        match this.TryGetLayer(oldSemantic) with
+        | None          -> None
+        | Some oldLayer ->
+
+            if this.ContainsLayer(newSemantic) then
+                sprintf "Can't update layer semantic from %A to %A. This node already contains the target semantic." oldSemantic newSemantic
+                |> failwith
+
+            let id = Guid.NewGuid()
+
+            let newLayers =
+                let l = oldLayer.WithSemantic(newSemantic)
+                layers |> Seq.filter (fun x -> x.Def.Id <> oldSemantic.Id) |> Seq.append [l] |> Seq.toArray
+
+            LayerSet(newLayers) |> Some

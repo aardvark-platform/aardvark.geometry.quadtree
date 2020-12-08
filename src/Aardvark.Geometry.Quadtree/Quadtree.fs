@@ -67,11 +67,13 @@ module Quadtree =
 
             let lodLayers = QNode.generateLodLayers subNodes rootCell
 
-            QNode(Guid.NewGuid(), ebb, rootCell, config.SplitLimitPowerOfTwo, lodLayers, Some subNodes)
+            let layerSet = LayerSet(lodLayers)
+            QNode(Guid.NewGuid(), ebb, rootCell, config.SplitLimitPowerOfTwo, Some layerSet, Some subNodes)
         
         else
-        
-            QNode(ebb, rootCell, config.SplitLimitPowerOfTwo, layers)
+            
+            let layerSet = LayerSet(layers)
+            QNode(ebb, rootCell, config.SplitLimitPowerOfTwo, Some layerSet)
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.

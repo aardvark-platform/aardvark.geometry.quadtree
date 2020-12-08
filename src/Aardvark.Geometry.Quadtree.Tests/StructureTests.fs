@@ -54,7 +54,7 @@ let checkQuadtree spec (rootRef : QNodeRef) =
     let root = rootRef.TryGetInMemory().Value
     Assert.True(spec.Cell                   = rootRef.Cell)
     Assert.True(spec.IsLeafNode             = root.IsLeafNode)
-    Assert.True(spec.SampleExponent         = root.SampleExponent)
+    Assert.True(spec.SampleExponent         = root.LayerSet.Value.SampleExponent)
     Assert.True(spec.SplitLimitExponent     = root.SplitLimitExponent)
 
     for s in spec.Samples do
@@ -225,54 +225,54 @@ let ``boundingbox: merged e=0 e=-2 islands`` () =
     SplitCenteredNodeIntoQuadrantNodesAtSameLevel
  ************************************************************************************)
 
-[<Fact>]
-let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel fails for non-centered nodes`` () =
+//[<Fact>]
+//let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel fails for non-centered nodes`` () =
     
-    let aRef = createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Split = 8; Data = [|
-        1.0;  2.0; 
-        3.0;  4.0;
-    |]}
+//    let aRef = createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Split = 8; Data = [|
+//        1.0;  2.0; 
+//        3.0;  4.0;
+//    |]}
     
-    let a = aRef.TryGetInMemory().Value
-    Assert.ThrowsAny<Exception>(fun () ->
-        a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel() |> ignore
-        )
+//    let a = aRef.TryGetInMemory().Value
+//    Assert.ThrowsAny<Exception>(fun () ->
+//        a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel() |> ignore
+//        )
 
-[<Fact>]
-let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel`` () =
+//[<Fact>]
+//let ``SplitCenteredNodeIntoQuadrantNodesAtSameLevel`` () =
 
-    let aRef = createQuadtree { Origin = Cell2d(-1,-1,0); Size = (2,2); Split = 8; Data = [|
-        1.0;  2.0; 
-        3.0;  4.0;
-    |]}
+//    let aRef = createQuadtree { Origin = Cell2d(-1,-1,0); Size = (2,2); Split = 8; Data = [|
+//        1.0;  2.0; 
+//        3.0;  4.0;
+//    |]}
 
-    let a = aRef.TryGetInMemory().Value
-    let ls = a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel()
-    Assert.True(ls.Length = 4)
+//    let a = aRef.TryGetInMemory().Value
+//    let ls = a.SplitCenteredNodeIntoQuadrantNodesAtSameLevel()
+//    Assert.True(ls.Length = 4)
 
-    ls.[0].Value |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(-1,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-        Samples = [ { Level = 0; Data = [ ((-1,-1,0), 1.0) ]} ]
-        } |> ignore
-    Assert.True(ls.[0].Value.SampleWindow = Box2l(V2l(-1,-1), V2l(0,0)))
+//    ls.[0].Value |> InMemoryNode |> checkQuadtree {
+//        Cell = Cell2d(-1,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+//        Samples = [ { Level = 0; Data = [ ((-1,-1,0), 1.0) ]} ]
+//        } |> ignore
+//    Assert.True(ls.[0].Value.SampleWindow = Box2l(V2l(-1,-1), V2l(0,0)))
 
-    ls.[1].Value |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(0,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-        Samples = [ { Level = 0; Data = [ (( 0,-1,0), 2.0) ]} ]
-        } |> ignore
-    Assert.True(ls.[1].Value.SampleWindow = Box2l(V2l( 0,-1), V2l(1,0)))
+//    ls.[1].Value |> InMemoryNode |> checkQuadtree {
+//        Cell = Cell2d(0,-1,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+//        Samples = [ { Level = 0; Data = [ (( 0,-1,0), 2.0) ]} ]
+//        } |> ignore
+//    Assert.True(ls.[1].Value.SampleWindow = Box2l(V2l( 0,-1), V2l(1,0)))
 
-    ls.[2].Value |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(-1,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-        Samples = [ { Level = 0; Data = [ ((-1, 0,0), 3.0) ]} ]
-        } |> ignore
-    Assert.True(ls.[2].Value.SampleWindow = Box2l(V2l(-1, 0), V2l(0,1)))
+//    ls.[2].Value |> InMemoryNode |> checkQuadtree {
+//        Cell = Cell2d(-1,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+//        Samples = [ { Level = 0; Data = [ ((-1, 0,0), 3.0) ]} ]
+//        } |> ignore
+//    Assert.True(ls.[2].Value.SampleWindow = Box2l(V2l(-1, 0), V2l(0,1)))
 
-    ls.[3].Value |> InMemoryNode |> checkQuadtree {
-        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
-        Samples = [ { Level = 0; Data = [ (( 0, 0,0), 4.0) ]} ]
-        } |> ignore
-    Assert.True(ls.[3].Value.SampleWindow = Box2l(V2l( 0, 0), V2l(1,1)))
+//    ls.[3].Value |> InMemoryNode |> checkQuadtree {
+//        Cell = Cell2d(0,0,8); IsLeafNode = true; SampleExponent = 0; SplitLimitExponent = 8
+//        Samples = [ { Level = 0; Data = [ (( 0, 0,0), 4.0) ]} ]
+//        } |> ignore
+//    Assert.True(ls.[3].Value.SampleWindow = Box2l(V2l( 0, 0), V2l(1,1)))
 
 
 (************************************************************************************
