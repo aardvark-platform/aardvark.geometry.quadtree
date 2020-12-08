@@ -324,28 +324,23 @@ module cpunz =
             raster |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<float>(Defs.Heights1d)) |> printfn "%A"
 
         let mainTree = createQuadTreePlanes
-        let mainTree' = mainTree.TryGetInMemory().Value
-        printfn "[mainTree  ] isLeafNode = %A" mainTree'.IsLeafNode
+        //printfn "[mainTree  ] isLeafNode = %A" mainTree'.IsLeafNode
         printRaster mainTree
 
         let subTree = createOneCell
-        let subTree' = subTree.TryGetInMemory().Value
-        printfn "[subTree   ] isLeafNode = %A" subTree'.IsLeafNode
+        //printfn "[subTree   ] isLeafNode = %A" subTree'.IsLeafNode
         printRaster subTree
 
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
-        let newTree' = newTree.TryGetInMemory().Value
-        printfn "[newTree   ] isLeafNode = %A" newTree'.IsLeafNode
+        //printfn "[newTree   ] isLeafNode = %A" newTree'.IsLeafNode
         printRaster newTree
     
         let subSubTree = createOneSubCell
-        let subSubTree' = subSubTree.TryGetInMemory().Value
-        printfn "[subSubTree] isLeafNode = %A" subSubTree'.IsLeafNode
+        //printfn "[subSubTree] isLeafNode = %A" subSubTree'.IsLeafNode
         printRaster subSubTree
 
         let subNewTree = Quadtree.Merge SecondDominates newTree subSubTree
-        let subNewTree' = subNewTree.TryGetInMemory().Value
-        printfn "[subNewTree] isLeafNode = %A" subNewTree'.IsLeafNode
+        //printfn "[subNewTree] isLeafNode = %A" subNewTree'.IsLeafNode
         printRaster subNewTree
 
         //let qtreeCells = queryService.QueryQuadtreeAll subNewTree

@@ -30,7 +30,7 @@ let example () =
 
     // build the quadtree (incl. levels-of-detail)
     let qtree = Quadtree.Build BuildConfig.Default [| heightsLayer; colorLayer |]
-    printfn "%A" (qtree.TryGetInMemory().Value.Cell)
+    printfn "%A" (qtree.Cell)
 
     // query
     let config = Query.Config.Default
@@ -56,55 +56,55 @@ let example () =
 
     ()
 
-let merge () =
+//let merge () =
 
-    // create first quadtree
-    let heights1 = [| 
-        1.0; 1.0; 2.0; 2.0
-        1.5; 1.6; 1.7; 1.8
-        1.6; 1.7; 2.0; 2.2
-        |]
-    let mapping1 = DataMapping(origin = Cell2d(0, 0, 0), size = V2i(4, 3))
-    let heightsLayer1 = Layer(Defs.Heights1d, heights1, mapping1)
-    let firstQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer1 |]
-    printfn "%A" (firstQuadtree.TryGetInMemory().Value.Cell)
+//    // create first quadtree
+//    let heights1 = [| 
+//        1.0; 1.0; 2.0; 2.0
+//        1.5; 1.6; 1.7; 1.8
+//        1.6; 1.7; 2.0; 2.2
+//        |]
+//    let mapping1 = DataMapping(origin = Cell2d(0, 0, 0), size = V2i(4, 3))
+//    let heightsLayer1 = Layer(Defs.Heights1d, heights1, mapping1)
+//    let firstQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer1 |]
+//    printfn "%A" (firstQuadtree.TryGetInMemory().Value.Cell)
 
-    // create second quadtree
-    let heights2 = [| 
-        3.1; 3.2
-        3.3; 3.4
-        |]
-    let mapping2 = DataMapping(origin = Cell2d(4, 2, -1), size = V2i(2, 2))
-    let heightsLayer2 = Layer(Defs.Heights1d, heights2, mapping2)
-    let secondQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer2 |]
-    printfn "%A" (secondQuadtree.TryGetInMemory().Value.Cell)
+//    // create second quadtree
+//    let heights2 = [| 
+//        3.1; 3.2
+//        3.3; 3.4
+//        |]
+//    let mapping2 = DataMapping(origin = Cell2d(4, 2, -1), size = V2i(2, 2))
+//    let heightsLayer2 = Layer(Defs.Heights1d, heights2, mapping2)
+//    let secondQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer2 |]
+//    printfn "%A" (secondQuadtree.TryGetInMemory().Value.Cell)
 
-    // merge both octrees
-    let mergedQtree = Quadtree.Merge MoreDetailedOrSecond firstQuadtree secondQuadtree
-    printfn "%A" (mergedQtree.TryGetInMemory().Value.Cell)
+//    // merge both octrees
+//    let mergedQtree = Quadtree.Merge MoreDetailedOrSecond firstQuadtree secondQuadtree
+//    printfn "%A" (mergedQtree.TryGetInMemory().Value.Cell)
 
-    // enumerate all samples
-    let chunks = mergedQtree |> Query.InsideCell Query.Config.Default (mergedQtree.TryGetInMemory().Value.Cell)
+//    // enumerate all samples
+//    let chunks = mergedQtree |> Query.InsideCell Query.Config.Default (mergedQtree.TryGetInMemory().Value.Cell)
     
-    let allSamples = chunks |> Seq.collect (fun chunk -> chunk.GetSamples<float> Defs.Heights1d)
-    for cell, x in allSamples do printfn "%A -> %f" cell x
+//    let allSamples = chunks |> Seq.collect (fun chunk -> chunk.GetSamples<float> Defs.Heights1d)
+//    for cell, x in allSamples do printfn "%A -> %f" cell x
 
-    // save
-    let options = SerializationOptions.NewInMemoryStore(verbose = true)
-    //let options = SerializationOptions.SimpleDiskStore(@"T:\qstore2")
-    let id = mergedQtree |> Quadtree.Save options
-    printfn "saved quadtree %A" id
+//    // save
+//    let options = SerializationOptions.NewInMemoryStore(verbose = true)
+//    //let options = SerializationOptions.SimpleDiskStore(@"T:\qstore2")
+//    let id = mergedQtree |> Quadtree.Save options
+//    printfn "saved quadtree %A" id
 
-    // load
-    let loadedQtree = Quadtree.Load options id
-    match loadedQtree with
-    | InMemoryNode loadedQtree -> printfn "loaded quadtree %A" loadedQtree.Id
-    | NoNode                   -> printfn "quadtree %A does not exist" id
-    | OutOfCoreNode _          -> printfn "quadtree %A came back is OutOfCoreNode - strange!" id
+//    // load
+//    let loadedQtree = Quadtree.Load options id
+//    match loadedQtree with
+//    | InMemoryNode loadedQtree -> printfn "loaded quadtree %A" loadedQtree.Id
+//    | NoNode                   -> printfn "quadtree %A does not exist" id
+//    | OutOfCoreNode _          -> printfn "quadtree %A came back is OutOfCoreNode - strange!" id
 
-    printfn "count nodes: %d" (Quadtree.CountNodes loadedQtree)
+//    printfn "count nodes: %d" (Quadtree.CountNodes loadedQtree)
 
-    ()
+//    ()
    
 let buildQuadtree () =
 
@@ -259,7 +259,7 @@ let test () =
 
     // build the quadtree (incl. levels-of-detail)
     let qtree = Quadtree.Build BuildConfig.Default [| heightsLayer; normalsLayer |]
-    printfn "qtree root cell: %A" (qtree.TryGetInMemory().Value.Cell)
+    printfn "qtree root cell: %A" (qtree.Cell)
 
     // query
     let config = { Query.Config.Default with Query.SampleMode = Query.Center }
@@ -582,28 +582,23 @@ let cpunz20201116 () =
         raster |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<float>(Defs.Heights1d)) |> printfn "%A"
 
     let mainTree = createQuadTreePlanes
-    let mainTree' = mainTree.TryGetInMemory().Value
-    printfn "[mainTree  ] isLeafNode = %A" mainTree'.IsLeafNode
+    //printfn "[mainTree  ] isLeafNode = %A" mainTree'.IsLeafNode
     printRaster mainTree
 
     let subTree = createOneCell
-    let subTree' = subTree.TryGetInMemory().Value
-    printfn "[subTree   ] isLeafNode = %A" subTree'.IsLeafNode
+    //printfn "[subTree   ] isLeafNode = %A" subTree'.IsLeafNode
     printRaster subTree
 
     let newTree = Quadtree.Merge SecondDominates mainTree subTree
-    let newTree' = newTree.TryGetInMemory().Value
-    printfn "[newTree   ] isLeafNode = %A" newTree'.IsLeafNode
+    //printfn "[newTree   ] isLeafNode = %A" newTree'.IsLeafNode
     printRaster newTree
     
     let subSubTree = createOneSubCell
-    let subSubTree' = subSubTree.TryGetInMemory().Value
-    printfn "[subSubTree] isLeafNode = %A" subSubTree'.IsLeafNode
+    //printfn "[subSubTree] isLeafNode = %A" subSubTree'.IsLeafNode
     printRaster subSubTree
 
     let subNewTree = Quadtree.Merge SecondDominates newTree subSubTree
-    let subNewTree' = subNewTree.TryGetInMemory().Value
-    printfn "[subNewTree] isLeafNode = %A" subNewTree'.IsLeafNode
+    //printfn "[subNewTree] isLeafNode = %A" subNewTree'.IsLeafNode
     printRaster subNewTree
 
     //let qtreeCells = queryService.QueryQuadtreeAll subNewTree

@@ -51,11 +51,13 @@ type QuadtreeCheck = {
 }
 
 let checkQuadtree spec (rootRef : QNodeRef) =
-    let root = rootRef.TryGetInMemory().Value
+
     Assert.True(spec.Cell                   = rootRef.Cell)
-    Assert.True(spec.IsLeafNode             = root.IsLeafNode)
-    Assert.True(spec.SampleExponent         = root.LayerSet.Value.SampleExponent)
-    Assert.True(spec.SplitLimitExponent     = root.SplitLimitExponent)
+    Assert.True(spec.IsLeafNode             = rootRef.IsLeafNode)
+
+    failwith "todo"
+    //Assert.True(spec.SampleExponent         = root.LayerSet.SampleExponent)
+    //Assert.True(spec.SplitLimitExponent     = root.SplitLimitExponent)
 
     for s in spec.Samples do
         let map = s.Data |> Map.ofSeq
@@ -502,21 +504,13 @@ let ``merge: NoNode`` () =
     | NoNode -> Assert.True(true)
     | _      -> Assert.True(false)
 
-    match (Quadtree.Merge FirstDominates aRef NoNode).TryGetInMemory() with
-    | None   -> Assert.True(false)
-    | Some n -> Assert.True(n.Id = aRef.Id)
+    (Quadtree.Merge FirstDominates  aRef NoNode).Id = aRef.Id   |> Assert.True
 
-    match (Quadtree.Merge SecondDominates aRef NoNode).TryGetInMemory() with
-    | None   -> Assert.True(false)
-    | Some n -> Assert.True(n.Id = aRef.Id)
+    (Quadtree.Merge SecondDominates aRef NoNode).Id = aRef.Id   |> Assert.True
 
-    match (Quadtree.Merge FirstDominates NoNode bRef).TryGetInMemory() with
-    | None   -> Assert.True(false)
-    | Some n -> Assert.True(n.Id = bRef.Id)
+    (Quadtree.Merge FirstDominates  NoNode bRef).Id = bRef.Id   |> Assert.True
 
-    match (Quadtree.Merge SecondDominates NoNode bRef).TryGetInMemory() with
-    | None   -> Assert.True(false)
-    | Some n -> Assert.True(n.Id = bRef.Id)
+    (Quadtree.Merge SecondDominates NoNode bRef).Id = bRef.Id   |> Assert.True
 
     ()
 

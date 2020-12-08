@@ -24,6 +24,7 @@ let ``All`` () =
     let rs = Query.All Query.Config.Default q |> Seq.toArray
     let cs = rs |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
     let xs = rs |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f)) |> Seq.toArray
+    Assert.True(cs.Length = 70)
     Assert.True(xs.Length = 70)
 
 
