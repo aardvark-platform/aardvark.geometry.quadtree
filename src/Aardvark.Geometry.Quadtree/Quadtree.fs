@@ -22,19 +22,10 @@ module Quadtree =
     let rec private tryCount a b (root : QNodeRef) =
 
         match root with
-        | NoNode -> 0
-        | InMemoryNode n ->
-            match n.SubNodes with 
-            | None -> a 
-            | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
-        | InMemoryInner n ->
-            match n.SubNodes with 
-            | None -> a 
-            | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
-        | OutOfCoreNode (_, load) ->
-            match load().SubNodes  with 
-            | None -> a 
-            | Some ns -> b + (ns |> Array.sumBy (tryCount a b))
+        | NoNode                -> 0
+        | InMemoryNode _        -> a
+        | OutOfCoreNode (_, _)  -> a
+        | InMemoryInner n       -> b + (n.SubNodes |> Array.sumBy (tryCount a b))
 
     let rec CountNodes root = root |> tryCount 1 1
     let rec CountLeafs root = root |> tryCount 1 0
@@ -76,13 +67,13 @@ module Quadtree =
                 | NoNode            -> ()
                 | _                 -> failwith "Todo 6f5d63bc-ece6-49ef-b634-879f81a4fc36."
 
-            let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExp = config.SplitLimitPowerOfTwo; SubNodes = Some subNodes }
+            let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExp = config.SplitLimitPowerOfTwo; SubNodes = subNodes }
             result |> InMemoryInner
         
         else
             
             let layerSet = LayerSet(layers)
-            QNode(ebb, rootCell, config.SplitLimitPowerOfTwo, Some layerSet) |> InMemoryNode
+            QNode(ebb, rootCell, config.SplitLimitPowerOfTwo, layerSet) |> InMemoryNode
 
     /// At least 1 layer is required, and
     /// all layers must have the same sample exponent and sample window.

@@ -29,13 +29,13 @@ module Merge =
     /// Immutable merge.
     let merge (dom : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef =
 
-        match first.TryGetInMemory(), second.TryGetInMemory() with
-        | None,   None   -> NoNode
-        | Some _, None   -> first
-        | None,   Some _ -> second
-        | Some a, Some b -> 
+        //match first.TryGetInMemory(), second.TryGetInMemory() with
+        //| None,   None   -> NoNode
+        //| Some _, None   -> first
+        //| None,   Some _ -> second
+        //| Some a, Some b -> 
             
-            invariantm (a.SplitLimitExponent = b.SplitLimitExponent)
-                "Cannot merge quadtrees with different split limits."   "6222eb6b-a7aa-43c1-9323-e28d6275696b"
+        //    invariantm (a.SplitLimitExponent = b.SplitLimitExponent)
+        //        "Cannot merge quadtrees with different split limits."   "6222eb6b-a7aa-43c1-9323-e28d6275696b"
 
-            failwith "TODO: implement"
+        failwith "TODO: implement"
