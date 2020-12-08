@@ -47,7 +47,7 @@ module Query =
         | NotSelected
 
     type Result = {
-        Node : IQNode
+        Node : QNode
         Selection : NodeSelection
     }
     with
@@ -74,10 +74,10 @@ module Query =
     /// The generic query function.
     let rec Generic 
             (config : Config) 
-            (isNodeFullyInside : IQNode -> bool) 
-            (isNodeFullyOutside : IQNode -> bool) 
+            (isNodeFullyInside : QNode -> bool) 
+            (isNodeFullyOutside : QNode -> bool) 
             (isSampleInside : Cell2d -> bool)
-            (n : IQNode) 
+            (n : QNode) 
             : Result seq =
 
         if config.Verbose then printfn "\n[Generic ] %A %A" n.Cell n.LayerSet.Value.SampleWindow
@@ -216,8 +216,8 @@ module Query =
     /// Returns all samples inside given cell.
     let InsideCell (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
         let filterBb = filter.BoundingBox
-        let isNodeFullyInside (n : IQNode) = filterBb.Contains n.LayerSet.Value.BoundingBox
-        let isNodeFullyOutside (n : IQNode) = not (filterBb.Intersects n.LayerSet.Value.BoundingBox)
+        let isNodeFullyInside (n : QNode) = filterBb.Contains n.LayerSet.Value.BoundingBox
+        let isNodeFullyOutside (n : QNode) = not (filterBb.Intersects n.LayerSet.Value.BoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n
         match root.TryGetInMemory() with
         | None -> Seq.empty
@@ -226,8 +226,8 @@ module Query =
     /// Returns all samples intersecting given cell.
     let IntersectsCell (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
         let filterBb = filter.BoundingBox
-        let isNodeFullyInside (n : IQNode) = filterBb.Contains n.LayerSet.Value.BoundingBox
-        let isNodeFullyOutside (n : IQNode) = not (filterBb.Intersects n.LayerSet.Value.BoundingBox)
+        let isNodeFullyInside (n : QNode) = filterBb.Contains n.LayerSet.Value.BoundingBox
+        let isNodeFullyOutside (n : QNode) = not (filterBb.Intersects n.LayerSet.Value.BoundingBox)
         let isSampleInside (n : Cell2d) = filterBb.Intersects n.BoundingBox
         match root.TryGetInMemory() with
         | None -> Seq.empty
@@ -235,8 +235,8 @@ module Query =
 
     /// Returns all samples inside given box.
     let InsideBox (config : Config) (filter : Box2d) (root : QNodeRef) : Result seq =
-        let isNodeFullyInside (n : IQNode) = filter.Contains n.LayerSet.Value.BoundingBox
-        let isNodeFullyOutside (n : IQNode) = not (filter.Intersects n.LayerSet.Value.BoundingBox)
+        let isNodeFullyInside (n : QNode) = filter.Contains n.LayerSet.Value.BoundingBox
+        let isNodeFullyOutside (n : QNode) = not (filter.Intersects n.LayerSet.Value.BoundingBox)
         let isSampleInside (n : Cell2d) = filter.Contains n.BoundingBox
         match root.TryGetInMemory() with
         | None -> Seq.empty
@@ -248,9 +248,9 @@ module Query =
             let p = filter.WithoutMultiplePoints()
             if p.IsCcw() then p else p.Reversed
         let rpos = V2d(config.SampleMode.RelativePosition)
-        let isNodeFullyInside (n : IQNode) =
+        let isNodeFullyInside (n : QNode) =
             n.LayerSet.Value.BoundingBox.ToPolygon2dCCW().IsFullyContainedInside(filter)
-        let isNodeFullyOutside (n : IQNode) =
+        let isNodeFullyOutside (n : QNode) =
             not (filter.Intersects(n.LayerSet.Value.BoundingBox.ToPolygon2dCCW()))
         let isSampleInside (n : Cell2d) =
             let bb = n.BoundingBox
@@ -264,12 +264,12 @@ module Query =
     let NearLine (config : Config) (filter : Ray2d) (withinDistance : float) (root : QNodeRef) : Result seq =
         let filter = Ray2d(filter.Origin, filter.Direction.Normalized)
         let rpos = V2d(config.SampleMode.RelativePosition)
-        let isNodeFullyInside (n : IQNode) =
+        let isNodeFullyInside (n : QNode) =
             let wbb = n.LayerSet.Value.BoundingBox
             let halfDiagonal = wbb.Size.Length * 0.5
             let centerDist = filter.GetDistanceToRay(wbb.Center)
             centerDist + halfDiagonal <= withinDistance
-        let isNodeFullyOutside (n : IQNode) =
+        let isNodeFullyOutside (n : QNode) =
             let wbb = n.LayerSet.Value.BoundingBox
             let halfDiagonal = wbb.Size.Length * 0.5
             let centerDist = filter.GetDistanceToRay(wbb.Center)
@@ -291,10 +291,10 @@ module Query =
     /// The generic query function.
     let rec Generic' 
             (config : Config) 
-            (isNodeFullyInside : IQNode -> bool) 
-            (isNodeFullyOutside : IQNode -> bool) 
-            (getSamplesInside : IQNode -> Result option)
-            (n : IQNode) 
+            (isNodeFullyInside : QNode -> bool) 
+            (isNodeFullyOutside : QNode -> bool) 
+            (getSamplesInside : QNode -> Result option)
+            (n : QNode) 
             : Result seq =
 
         if config.Verbose then printfn "\n[Generic'] %A %A" n.Cell n.LayerSet.Value.BoundingBox
@@ -360,9 +360,9 @@ module Query =
     /// Returns all samples intersecting given cell.
     let IntersectsCell' (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
         let filterBb = filter.BoundingBox
-        let isNodeFullyInside (n : IQNode) = filterBb.Contains n.LayerSet.Value.BoundingBox
-        let isNodeFullyOutside (n : IQNode) = not (filterBb.Intersects n.LayerSet.Value.BoundingBox)
-        let getSamplesInside (n : IQNode) =
+        let isNodeFullyInside (n : QNode) = filterBb.Contains n.LayerSet.Value.BoundingBox
+        let isNodeFullyOutside (n : QNode) = not (filterBb.Intersects n.LayerSet.Value.BoundingBox)
+        let getSamplesInside (n : QNode) =
             let overlap = filter.GetBoundsForExponent(n.LayerSet.Value.SampleExponent).Intersection(n.LayerSet.Value.SampleWindow)
             if overlap.SizeX > 0L && overlap.SizeY > 0L then
                 Some { Node = n; Selection = WindowSelected overlap }
@@ -387,7 +387,7 @@ module Query =
 module Sample =
     
     type SampleResult = {
-        Node : IQNode
+        Node : QNode
         Cells : Cell2d[]
         Positions : V2d[]
     }
@@ -397,7 +397,7 @@ module Sample =
             let layer = this.Node.GetLayer<'a>(def)
             this.Cells |> Array.map2 (fun p c -> (p, c, layer.GetSample(Fail, c))) this.Positions
 
-    let rec private PositionsWithBounds (config : Query.Config) (positions : V2d[]) (positionsBounds : Box2d) (n : IQNode) : SampleResult seq =
+    let rec private PositionsWithBounds (config : Query.Config) (positions : V2d[]) (positionsBounds : Box2d) (n : QNode) : SampleResult seq =
 
         seq {
 
