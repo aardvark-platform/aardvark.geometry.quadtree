@@ -272,7 +272,7 @@ module cpunz =
 
         let mainTree = createQuadTreePlanes
         let subTree = createOneCell
-        let newTree = Quadtree.Merge SecondDominates mainTree subTree
+        //let newTree = Quadtree.Merge SecondDominates mainTree subTree
         //let (_, _, x0) = get pos mainTree
         //let (_, _, x1) = get pos subTree
 
@@ -282,7 +282,20 @@ module cpunz =
             let x = (get pos merged).Value
             printfn "sample %A; target %A; %A" x target (x = target) 
 
+
+        //showHtmlDebugView<V4f> "cpunz_20201105" Defs.HeightsBilinear4f [
+        //    ("mainTree", mainTree)
+        //    ("subTree", subTree)
+        //    ("Quadtree.Merge FirstDominates  mainTree subTree", Quadtree.Merge FirstDominates  mainTree subTree)
+        //    ("Quadtree.Merge SecondDominates mainTree subTree", Quadtree.Merge SecondDominates mainTree subTree)
+        //    ("Quadtree.Merge FirstDominates  subTree mainTree", Quadtree.Merge FirstDominates  subTree mainTree)
+        //    ("Quadtree.Merge SecondDominates subTree mainTree", Quadtree.Merge SecondDominates subTree mainTree)
+        //    ]
     
+        Quadtree.printStructure mainTree
+        mainTree    |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
+        subTree     |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
+
         Quadtree.Merge FirstDominates  mainTree subTree |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
         Quadtree.Merge SecondDominates mainTree subTree |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
         Quadtree.Merge FirstDominates  subTree mainTree |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))

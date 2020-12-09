@@ -3,6 +3,7 @@
 open Aardvark.Base
 open Aardvark.Data
 open System
+open System.Collections.Generic
 
 module Query =
 
@@ -400,68 +401,94 @@ module Sample =
 
         seq {
 
-            //invariantm (n.Cell.Exponent >= config.MinExponent)
-            //    "Query cannot start at node with exponent smaller than configured minExponent."
-            //    "c7c3713d-2c9d-4924-a9dd-a2e15dd0a2a8."
+            let sampleExponent = n.Cell.Exponent - n.SplitLimitExponent
 
-            //invariantm (n.Cell.BoundingBox.Contains(positionsBounds))
-            //    "Positions bounds not contained in node."
-            //    "0f367a54-cafb-405d-aad4-cf5ec36216f6"
+            if sampleExponent >= config.MinExponent then
 
-            let swbb = n.ExactBoundingBox
+                let nodebb = n.ExactBoundingBox
 
-            match n with
-            | InMemoryInner n ->
+                match n with
+                | NoNode -> ()
+                | InMemoryInner n ->
 
-                // split positions in two sets, by whether a position is covered by subnode samples (or not)
-                let subSwbbs = n.SubNodes  |> Array.map (fun x -> x.ExactBoundingBox)
-                let inline coveredByInnerNodeSamples (p : V2d) = swbb.ContainsMaxExclusive p
-                let inline coveredBySubNodeSamples (p : V2d) = subSwbbs |> Array.exists (fun bb -> bb.ContainsMaxExclusive(p))
-                let mutable positionsCoveredBySubNodeSamples = Array.empty
-                let mutable positionsNotCoveredBySubNodeSamples = Array.empty
-                for (isCovered, ps) in positions |> Array.groupBy coveredBySubNodeSamples do
-                    if isCovered then positionsCoveredBySubNodeSamples <- ps else positionsNotCoveredBySubNodeSamples <- ps
-                
-                // recursively return samples from children
-                let center = n.Cell.GetCenter()
-                let inline getQuadrant (p : V2d) = 
-                    match p.X >= center.X, p.Y >= center.Y with | false, false -> 0 | true,  false -> 1 | false, true  -> 2 | true,  true  -> 3
-                let spss = positionsCoveredBySubNodeSamples |> Array.groupBy getQuadrant
-                for (quadrant, ps) in spss do
-                    let subnode = n.SubNodes.[quadrant]
-                    let bb = Box2d(ps)
-                    let r = PositionsWithBounds config ps bb subnode
-                    yield! r
+                    if sampleExponent > config.MinExponent then
 
-            | InMemoryNode n ->
+                        let center = n.Cell.GetCenter()
+                        let inline getQuadrant (p : V2d) =
+                            if p.Y < center.Y then (if p.X < center.X then 0 else 1)
+                            else (if p.X < center.X then 2 else 3)
 
-                if not (swbb.Contains positionsBounds) then
-                    ()
-                else
-                    //if n.IsLeafNode || n.Cell.Exponent = config.MinExponent then
-                    // reached leaf or max depth
-                        if swbb.ContainsMaxExclusive positionsBounds then
-                            // fully inside
-                            let cells = positions |> Array.map n.GetSample
-                            yield { Node = n; Cells = cells; Positions = positions }
-                        else
-                            // partially inside (some positions have no samples)
-                            let ps = positions |> Array.filter swbb.ContainsMaxExclusive
-                            let cells = ps |> Array.map n.GetSample
-                            yield { Node = n; Cells = cells; Positions = ps }
-                    //else
-                    // at inner node with children to recursively traverse
+                        // split positions by quadrants and recursively query subnodes
+                        let gs = positions |> Array.groupBy getQuadrant
+                        for (qi, ps) in gs do
+                            if ps.Length > 0 then
+                                yield! PositionsWithBounds config positions (Box2d(ps)) (n.SubNodes.[qi])
 
-                        
-                        //// (optionally) return samples from inner node, which are not covered by children
-                        //if positionsNotCoveredBySubNodeSamples.Length > 0 then
-                        //    let ps = positionsNotCoveredBySubNodeSamples |> Array.filter coveredByInnerNodeSamples
-                        //    if ps.Length > 0 then
-                        //        let cells = ps |> Array.map n.GetSample
-                        //        yield { Node = n; Cells = cells; Positions = ps }
-                        
+                | InMemoryMerge n ->
 
-            | _ -> failwith "todo: PositionsWithBounds"
+                    if sampleExponent > config.MinExponent then
+                        let xs = PositionsWithBounds config positions positionsBounds n.First
+                        let ys = PositionsWithBounds config positions positionsBounds n.Second
+
+                        let result = Dictionary<V2d, QNode * Cell2d>()
+                        let set (r : SampleResult) = 
+                            for i = 0 to r.Positions.Length - 1 do
+                                result.[r.Positions.[i]] <- (r.Node, r.Cells.[i])
+
+                        let add dominating other =
+                            for r in other      do set r
+                            for r in dominating do set r // overwrite others
+
+                        let addMoreDetailed dominating other =
+                            let replaceWhenMoreDetailed (r : SampleResult) =
+                                for i = 0 to r.Positions.Length - 1 do
+                                    let p = r.Positions.[i]
+                                    let c = r.Cells.[i]
+                                    let (found, (n0, c0)) = result.TryGetValue(p)
+                                    if found then
+                                        if c.Exponent < c0.Exponent then result.[p] <- (r.Node, c)
+                                    else
+                                        result.[p] <- (r.Node, c)
+                            for r in dominating do set r
+                            for r in other      do replaceWhenMoreDetailed r
+
+
+                        match n.Dominance with
+                        | FirstDominates        ->  add xs ys
+                        | SecondDominates       ->  add ys xs
+                        | MoreDetailedOrFirst   ->  addMoreDetailed xs ys
+                        | MoreDetailedOrSecond  ->  addMoreDetailed ys xs
+
+                        let gs = result |> Seq.map(fun kv ->
+                                            let (n, c) = kv.Value
+                                            (n, (kv.Key, c))
+                                            )
+                                        |> Seq.groupBy fst
+                                        |> Seq.map(fun (n, xs) ->
+                                            let ts = xs |> Seq.map snd |> Array.ofSeq
+                                            let ps = ts |> Array.map fst
+                                            let cs = ts |> Array.map snd
+                                            { Node = n; Cells = cs; Positions = ps }
+                                            )
+                        yield! gs
+
+                | InMemoryNode n ->
+
+                    if nodebb.ContainsMaxExclusive positionsBounds then
+                        // fully inside
+                        let cells = positions |> Array.map n.GetSample
+                        yield { Node = n; Cells = cells; Positions = positions }
+                    else
+                        // partially inside (some positions have no samples)
+                        let ps = positions |> Array.filter nodebb.ContainsMaxExclusive
+                        let cells = ps |> Array.map n.GetSample
+                        yield { Node = n; Cells = cells; Positions = ps }
+
+                | OutOfCoreNode (_,load) ->
+                    
+                        yield! PositionsWithBounds config positions positionsBounds (load() |> InMemoryNode)
+
+
                             
         }
 
@@ -470,7 +497,7 @@ module Sample =
     /// This means, the result sequence may be empty.
     let Positions (config : Query.Config) (positions : V2d[]) (root : QNodeRef) : SampleResult seq=
         let bb = Box2d(positions)
-        if root.Cell.BoundingBox.Contains(bb) then
+        if root.ExactBoundingBox.Contains(bb) then
             PositionsWithBounds config positions bb root
         else
             Seq.empty
@@ -479,7 +506,8 @@ module Sample =
 
     /// Returns sample at given position, or None if there is no sample.
     let Position (config : Query.Config) (position : V2d) (root : QNodeRef) : SampleResult option =
-        Positions config [| position |] root |> Seq.tryHead
+        let result = Positions config [| position |] root |> Seq.toArray
+        result |> Seq.tryHead
 
     let PositionTyped<'a>  (config : Query.Config) (position : V2d) (def : Durable.Def) (root : QNodeRef) : 'a option =
         match Position config position root with
