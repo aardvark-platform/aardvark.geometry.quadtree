@@ -411,6 +411,12 @@ module cpunz =
         let subTree = createOneCell
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
 
+        //showHtmlDebugView<V4f> "cpunz_20201130" Defs.VolumesBilinear4f [
+        //    ("mainTree", mainTree)
+        //    ("subTree", subTree)
+        //    ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
+        //    ]
+
         let config = Query.Config.Default  
         let resultCells = newTree |> Query.All config
         let samples = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))

@@ -28,7 +28,7 @@ with
                 | true, true   -> IdenticalCells
                 | true, false  -> FirstCellContainsSecond
                 | false, true  -> SecondCellContainsFirst
-                | false, false -> DisjointCells //PartiallyOverlappingCells
+                | false, false -> PartiallyOverlappingCells
             else
                 DisjointCells
 
@@ -88,8 +88,21 @@ module Merge =
                     invariant (acell <> rc && rc.Contains(acell) && bcell <> rc && rc.Contains(bcell)) "01d13ddf-5763-4fbf-8e34-10e1516d224f"
                     mergeToCommonRoot dom (a |> growParent) (b |> growParent)
 
-                | FirstCellContainsSecond -> mergeToCommonRoot dom a (b |> growParent)
-                | SecondCellContainsFirst -> mergeToCommonRoot dom (a |> growParent) b
+                | FirstCellContainsSecond ->
+                    
+                    if a.Cell.IsCenteredAtOrigin then
+
+                        if b.Cell.Exponent + 1 < a.Cell.Exponent then
+                            mergeToCommonRoot dom a (b |> growParent)
+                        else
+                            // b is a quadrant of centered cell a
+                            invariant (b.Cell.Exponent + 1 = a.Cell.Exponent && b.Cell.TouchesOrigin) "8ac53980-f7c9-4cae-8002-6f98560deb97"
+                            QMergeNode.ofNodes dom a b |> InMemoryMerge
+                            //failwith "todo: mergeToCommonRoot (b is a quadrant of centered cell a)"
+                    else
+                        mergeToCommonRoot dom a (b |> growParent)
+
+                | SecondCellContainsFirst -> mergeToCommonRoot dom.Flipped b a
 
                 | PartiallyOverlappingCells ->
                     invariant (a.Cell.IsCenteredAtOrigin <> b.Cell.IsCenteredAtOrigin) "933e7c94-c6e3-4149-a1aa-b89546ea38a9"

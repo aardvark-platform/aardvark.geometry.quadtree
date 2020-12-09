@@ -448,7 +448,8 @@ module QInnerNode =
 module QMergeNode =
 
     let ofNodes dom (first : QNodeRef) (second : QNodeRef) : QMergeNode =
-        invariant (first.Cell = second.Cell) "42a0c7ba-cf29-4820-b420-a74d668cb159"
+        let bIsQuadrantOfCenteredCellA = first.Cell.IsCenteredAtOrigin && second.Cell.Exponent + 1 = first.Cell.Exponent
+        invariant (first.Cell = second.Cell || bIsQuadrantOfCenteredCellA) "42a0c7ba-cf29-4820-b420-a74d668cb159"
         let ebb = Box2d(first.ExactBoundingBox, second.ExactBoundingBox)
         {
             Id = Guid.NewGuid()

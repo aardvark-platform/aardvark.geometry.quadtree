@@ -171,7 +171,8 @@ module PrettyPrint =
 
 
             
-            let allSamples = qref |> Query.Full |> Seq.toList |> List.collect (fun x -> x.GetSamples<'a> def |> Array.toList)
+            let allResults = qref |> Query.Full |> Seq.toList
+            let allSamples = allResults |> List.collect (fun x -> x.GetSamples<'a> def |> Array.toList)
             let result = foo name pos f allSamples
             result
 
