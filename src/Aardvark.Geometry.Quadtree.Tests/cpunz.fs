@@ -703,7 +703,17 @@ module cpunz =
         let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                      |> Seq.collect (fun arr -> arr)
                                      |> Array.ofSeq
-                   
+
+
+        //showHtmlDebugView<V4f> "punz_merge_withOverlap_within_other_volume" Defs.VolumesBilinear4f [
+        //    ("mainTree", mainTree)
+        //    ("subTree", subTree)
+        //    ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
+        //    ]
+        //Quadtree.printStructure newTree
+        //printfn ""
+        //for (c,x) in qtreeCells do printfn "%A -> %A" c x
+         
         Assert.True((qtreeCells |> Seq.length) = 33 )
 
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,-1))))
@@ -720,7 +730,8 @@ module cpunz =
 
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,-1))))
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,3,-1))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(3,1,-1))))
+        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(3,1,-1)))) // wrong
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(1,3,-1))))
 
 
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
@@ -750,7 +761,8 @@ module cpunz =
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor13) && elemCell.Equals(Cell2d(3,4,-2))))
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(3,5,-2))))
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(2,5,-2))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(5,2,-2))))
+        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(5,2,-2)))) // wrong
+        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(2,4,-2))))
         
         ()
 
@@ -884,6 +896,15 @@ module cpunz =
     
         let mainTree = createQuadTreePlanesWithNaN 0
         let subTree = createOverlap 
+
+        //showHtmlDebugView<V4f> "punz_merge_withOverlap_overboarder_overOrigin_other_volume" Defs.VolumesBilinear4f [
+        //    ("mainTree", mainTree)
+        //    ("subTree", subTree)
+        //    //("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
+        //    ]
+        //Quadtree.printStructure newTree
+        //printfn ""
+        //for (c,x) in qtreeCells do printfn "%A -> %A" c x
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
     
@@ -946,7 +967,7 @@ module cpunz =
             let mapping = DataMapping(origin = Cell2d(east, north, level), size = V2i(2, 2))
 
             // a layer gives meaning to raw data
-            let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+            let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
             
             // build the quadtree (incl. levels-of-detail)
             
