@@ -442,47 +442,39 @@ let ``Merge_LayersWithDifferentResolution_1`` () =
 
     let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 1 0 2 1 -1 0<powerOfTwo> 20.0f
-
-
+    let m = Quadtree.Merge SecondDominates a b
+    
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 2)
-
-    let m = Quadtree.Merge MoreDetailedOrSecond a b
-    Assert.True(Quadtree.CountLeafs m = 2)
+    Assert.True(Quadtree.CountLeafs m = 3)
     Assert.True(m.Cell = Cell2d(0,0,1))
 
-    showHtmlDebugView<float32> "Merge_LayersWithDifferentResolution_1" Defs.Heights1f [
-        ("a", a)
-        ("b", b)
-        ("m = Quadtree.Merge MoreDetailedOrSecond a b",  m)
-        ]
+    let xs = Query.All Query.Config.Default m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
+    let check (x : int) (y : int) (e : int) value =
+        let cell = Cell2d(x, y, e)
+        xs |> Array.filter(fun (c, v) -> c = cell && v = value) |> Array.tryExactlyOne |> Option.isSome |> Assert.True
 
-    let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample(Fail, Cell2d(0,0,1))
-    x = 16.25f   |> Assert.True
-
-    ()
+    check 1 0 -1   20.0f
+    check 2 0 -1   20.0f
+    check 0 0 -1   10.0f
+    check 0 1 -1   10.0f
+    check 1 1 -1   10.0f
+    
 
 [<Fact>]
 let ``Merge_LayersWithDifferentResolution_256`` () =
 
     let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
     let b = createQuadtreeWithValue 1 0 2 1 -1 8<powerOfTwo> 20.0f
+    let m = Quadtree.Merge MoreDetailedOrSecond a b
 
     Assert.True(Quadtree.CountLeafs a = 1)
     Assert.True(Quadtree.CountLeafs b = 1)
-
-    let m = Quadtree.Merge MoreDetailedOrSecond a b
-    Assert.True(Quadtree.CountLeafs m = 1)
+    Assert.True(Quadtree.CountLeafs m = 2)
     Assert.True(m.Cell = Cell2d(0,0,8))
 
-    let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 12.5f))
-
+    let xs = Query.All Query.Config.Default m |> Seq.toArray
     ()
-
-
 
 let ``Merge_Random_SplitLimit1`` dominance =
 

@@ -71,6 +71,62 @@ module Query =
                 )
             result
 
+    /// xs dominate always
+    let private mergeDominating   (xs : Result seq) (ys : Result seq) : Result seq =
+
+        let xs = xs |> Seq.toArray
+        let getInterferingXs (y : Result) = 
+            xs |> Array.filter(fun x -> x.Node.ExactBoundingBox.Intersects(y.Node.ExactBoundingBox))
+
+        seq {
+            // return ALL dominating samples ...
+            yield! xs
+
+            // resolve dominated results ...
+            for y in ys do
+                let yebb = y.Node.ExactBoundingBox
+                let zs = getInterferingXs y
+                if zs.Length > 0 then
+
+                    // dominated result IS interfered with -> resolve remaining (virtual) sample cells
+                    let mutable result = List.empty
+
+                    // all dominating sample cells intersecting dominated result
+                    let zcs = zs |> Array.collect(fun z -> z.GetSampleCells()) |> Array.filter(fun zc -> zc.BoundingBox.Intersects(yebb))
+
+                    // all sample cells of dominated result
+                    let ycs = y.GetSampleCells ()
+                    for yc in ycs do
+                        let isDominatedCellYcFullyCovered   (s : Cell2d) = zcs |> Array.exists(fun zc -> zc.BoundingBox.Contains(s.BoundingBox))
+                        let isDominatedCellYcInterferedWith (s : Cell2d) = zcs |> Array.exists(fun zc -> s.BoundingBox.Intersects(zc.BoundingBox))
+
+                        // -> resolve by recursively splitting sample into fragments
+                        let rec resolve (s : Cell2d) =
+                            if isDominatedCellYcInterferedWith s then
+                                if isDominatedCellYcFullyCovered s then
+                                    () // discard sample, it is completely covered by dominating sample
+                                else
+                                    // partially covered, aaargh
+                                    for q in s.Children do resolve q
+                            else
+                                result <- s :: result
+
+                        resolve yc
+
+                        if result.Length > 0 then
+                            yield { Node = y.Node; Selection = result |> Array.ofList |> SubCellsSelected }
+
+                            
+                else
+                    // dominated sample IS NOT interfered with -> return
+                    yield y
+        }
+
+    /// xs dominate if same detail, otherwise more detailed dominates
+    let private mergeMoreDetailed (xs : Result seq) (ys : Result seq) : Result seq =
+        failwith "todo: mergeMoreDetailed"
+
+
     /// The generic query function.
     let rec Generic 
             (config : Config) 
@@ -82,13 +138,31 @@ module Query =
 
         let recurse = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside
 
+        let merge (dom : Dominance) (xs : Result seq) (ys : Result seq) : Result seq =
+            
+            match dom with
+            | FirstDominates       -> mergeDominating   xs ys
+            | SecondDominates      -> mergeDominating   ys xs
+            | MoreDetailedOrFirst  -> mergeMoreDetailed xs ys
+            | MoreDetailedOrSecond -> mergeMoreDetailed ys xs
+
         seq {
 
             match root with
             | NoNode                    -> ()
+            
             | OutOfCoreNode (_, load)   -> yield! load() |> InMemoryNode |> recurse
+            
             | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
-            | InMemoryMerge n           -> failwith "Query.Generic(InMemoryMerge). Todo a0b50026-0a5f-4df0-b7c4-b0814a5dfe0f."
+            
+            | InMemoryMerge n           ->
+                if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
+                    yield! merge n.Dominance (n.First |> recurse) (n.Second |> recurse)
+                else
+                    // first and second do not interfere, so simply return all samples of both
+                    yield! n.First  |> recurse
+                    yield! n.Second |> recurse
+
             | InMemoryNode n            ->
 
                 invariantm (root.Cell.Exponent >= config.MinExponent)
