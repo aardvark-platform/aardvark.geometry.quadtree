@@ -507,14 +507,14 @@ module cpunz =
                                        |> Seq.collect (fun arr -> arr) |> Seq.toArray
         
 
-        for (c,x) in qtreeCells4 do printfn "%A -> %A" c x
-        showHtmlDebugView<V4f> "punz_double_merge_volume" Defs.VolumesBilinear4f [
-            ("mainTree", mainTree)
-            ("subTree", subTree)
-            ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
-            ("subTree4", subTree4)
-            ("newTree4 = Quadtree.Merge SecondDominates newTree subTree4", newTree4)
-            ]
+        //for (c,x) in qtreeCells4 do printfn "%A -> %A" c x
+        //showHtmlDebugView<V4f> "punz_double_merge_volume" Defs.VolumesBilinear4f [
+        //    ("mainTree", mainTree)
+        //    ("subTree", subTree)
+        //    ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
+        //    ("subTree4", subTree4)
+        //    ("newTree4 = Quadtree.Merge SecondDominates newTree subTree4", newTree4)
+        //    ]
 
         
         //Assert.True((qtreeCells4 |> Seq.length) = 18 )
@@ -596,15 +596,17 @@ module cpunz =
         let subTree = createOneCell 
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
+        //Quadtree.printStructure newTree
 
         let config = Query.Config.Default  
-        let resultCells = newTree |> Query.All config |> Seq.toArray
-        let foo = resultCells |> Seq.map (fun x -> x.GetSampleCells ()) |> Seq.toArray
-        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+        let results = newTree |> Query.All { config with Verbose = false } |> Seq.toArray
+        let foo = results |> Seq.map (fun x -> x.GetSampleCells ()) |> Seq.toArray
+        let qtreeCells = results |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                      |> Seq.collect (fun arr -> arr) |> Seq.toArray
                    
     
         for (c,x) in qtreeCells do printfn "%A -> %A" c x
+
         //showHtmlDebugView<V4f> "punz_merge_verySmall_into_coarse_volume" Defs.VolumesBilinear4f [
         //    ("mainTree", mainTree)
         //    ("subTree", subTree)
@@ -612,7 +614,7 @@ module cpunz =
         //    ]
     
 
-        //Assert.True(qtreeCells.Length = 8)
+        Assert.True(qtreeCells.Length = 15)
 
         let check cell value = Assert.True(qtreeCells |> Seq.exists(fun (c,x) -> x = value && c = cell))
         let checkNan cell    = qtreeCells |> Seq.exists (fun (c,x) -> c = cell && x.X.IsNaN()) |> Assert.True
@@ -633,16 +635,16 @@ module cpunz =
 
         let avg = (hor3 + oblique1_main + oblique1_main + oblique1_main) / 4.0f
 
-        check (Cell2d(3,2,-1)) avg //oblique1_main
-        check (Cell2d(3,3,-1)) avg //oblique1_main
-        check (Cell2d(2,3,-1)) avg //oblique1_main
+        check (Cell2d(3,2,-1)) oblique1_main
+        check (Cell2d(3,3,-1)) oblique1_main
+        check (Cell2d(2,3,-1)) oblique1_main
 
         check (Cell2d(4,4,-2)) hor3
         
-        check (Cell2d(4,5,-2)) avg //oblique1_main
-        check (Cell2d(5,5,-2)) avg //oblique1_main
-        check (Cell2d(5,4,-2)) avg //oblique1_main
-       
+        check (Cell2d(4,5,-2)) oblique1_main
+        check (Cell2d(5,5,-2)) oblique1_main
+        check (Cell2d(5,4,-2)) oblique1_main
+      
         ()
 
     [<Fact>]

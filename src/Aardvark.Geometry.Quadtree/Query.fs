@@ -72,7 +72,7 @@ module Query =
             result
 
     /// xs dominate always
-    let private mergeDominating   (xs : Result seq) (ys : Result seq) : Result seq =
+    let private mergeDominating (config : Config) (xs : Result seq) (ys : Result seq) : Result seq =
 
         let xs = xs |> Seq.toArray
         let getInterferingXs (y : Result) = 
@@ -80,6 +80,7 @@ module Query =
 
         seq {
             // return ALL dominating samples ...
+            if config.Verbose then printfn "[mergeDominating] YIELD all dominating samples: %A" (xs |> Array.collect(fun z -> z.GetSampleCells()))
             yield! xs
 
             // resolve dominated results ...
@@ -113,17 +114,19 @@ module Query =
 
                         resolve yc
 
-                        if result.Length > 0 then
-                            yield { Node = y.Node; Selection = result |> Array.ofList |> SubCellsSelected }
+                    if result.Length > 0 then
+                        if config.Verbose then printfn "[mergeDominating] YIELD resolved samples: %A" result
+                        yield { Node = y.Node; Selection = result |> Array.ofList |> SubCellsSelected }
 
                             
                 else
                     // dominated sample IS NOT interfered with -> return
+                    if config.Verbose then printfn "[mergeDominating] YIELD non-dominating sample: %A" (y.GetSampleCells())
                     yield y
         }
 
     /// xs dominate if same detail, otherwise more detailed dominates
-    let private mergeMoreDetailed (xs : Result seq) (ys : Result seq) : Result seq =
+    let private mergeMoreDetailed (config : Config)  (xs : Result seq) (ys : Result seq) : Result seq =
         failwith "todo: mergeMoreDetailed"
 
 
@@ -141,29 +144,45 @@ module Query =
         let merge (dom : Dominance) (xs : Result seq) (ys : Result seq) : Result seq =
             
             match dom with
-            | FirstDominates       -> mergeDominating   xs ys
-            | SecondDominates      -> mergeDominating   ys xs
-            | MoreDetailedOrFirst  -> mergeMoreDetailed xs ys
-            | MoreDetailedOrSecond -> mergeMoreDetailed ys xs
+            | FirstDominates       -> mergeDominating   config xs ys
+            | SecondDominates      -> mergeDominating   config ys xs
+            | MoreDetailedOrFirst  -> mergeMoreDetailed config xs ys
+            | MoreDetailedOrSecond -> mergeMoreDetailed config ys xs
 
         seq {
 
             match root with
-            | NoNode                    -> ()
+            | NoNode                    -> 
+                if config.Verbose then printfn "[Generic ] NoNode"
+                ()
             
-            | OutOfCoreNode (_, load)   -> yield! load() |> InMemoryNode |> recurse
+            | OutOfCoreNode (id, load)   ->
+                if config.Verbose then printfn "[Generic ] OutOfCoreNode %A" id
+                yield! load() |> InMemoryNode |> recurse
             
-            | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
+            | InMemoryInner n           ->
+                if config.Verbose then printfn "[Generic ] InMemoryInner %A %A" n.Cell n.Id
+                for subnode in n.SubNodes do
+                    if config.Verbose then printfn "[Generic ]     subnode %A ->" n.Id
+                    yield! subnode |> recurse
             
             | InMemoryMerge n           ->
+                if config.Verbose then printfn "[Generic ] InMemoryMerge %A" n.Cell
                 if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
-                    yield! merge n.Dominance (n.First |> recurse) (n.Second |> recurse)
+                    let xs = (n.First |> recurse)
+                    let ys = (n.Second |> recurse)
+                    if config.Verbose then printfn "[Generic ]     merge first + second  %A" n.Cell
+                    yield! merge n.Dominance xs ys
                 else
                     // first and second do not interfere, so simply return all samples of both
+                    if config.Verbose then printfn "[Generic ]     yield first  %A" n.Cell
                     yield! n.First  |> recurse
+                    if config.Verbose then printfn "[Generic ]     yield second %A" n.Cell
                     yield! n.Second |> recurse
 
             | InMemoryNode n            ->
+
+                if config.Verbose then printfn "[Generic ] InMemoryNode %A" n.Cell
 
                 invariantm (root.Cell.Exponent >= config.MinExponent)
                     "Query cannot start at node with exponent smaller than configured minExponent."
@@ -173,119 +192,23 @@ module Query =
                     if config.Verbose then printfn "[Generic ] isFullyOutside"
                     ()
                 else
-                    //if root.IsLeafNode || n.LayerSet.SampleExponent = config.MinExponent then
-                        // reached leaf or max depth
-                        if config.Verbose then printfn "[Generic ] reached leaf or max depth"
-                        if isNodeFullyInside root then
-                            // fully inside
-                            let result = { Node = n; Selection = FullySelected }
-                            if config.Verbose then
-                                printfn "[Generic ] fully inside"
-                                printfn "[Generic ] YIELD %A" result
+                    if config.Verbose then printfn "[Generic ] reached leaf or max depth"
+                    if isNodeFullyInside root then
+                        // fully inside
+                        let result = { Node = n; Selection = FullySelected }
+                        if config.Verbose then
+                            printfn "[Generic ] fully inside"
+                            printfn "[Generic ] YIELD %A" result
+                        yield result
+                    else
+                        // partially inside
+                        if config.Verbose then printfn "[Generic ] partially inside"
+                        let xs = n.GetAllSamples() |> Array.filter isSampleInside
+                        if xs.Length > 0 then
+                            let result = { Node = n; Selection = CellsSelected xs }
+                            if config.Verbose then printfn "[Generic ] YIELD %A" result
                             yield result
-                        else
-                            // partially inside
-                            if config.Verbose then printfn "[Generic ] partially inside"
-                            let xs = n.GetAllSamples() |> Array.filter isSampleInside
-                            if xs.Length > 0 then
-                                let result = { Node = n; Selection = CellsSelected xs }
-                                if config.Verbose then printfn "[Generic ] YIELD %A" result
-                                yield result
-                    //else
-                    //    // at inner node with children to recursively traverse
-                    //    if config.Verbose then printfn "[Generic ] at inner node with children to recursively traverse"
-
-                    //    invariant n.SubNodes.IsSome "0baa1ede-dde1-489b-ba3c-28a7e7a5bd3a"
-
-                    //    // return samples from inner node, which are not covered by children
-                    //    let subWindows = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.ExactBoundingBox))
-                    //    let inline subWindowContainsSample (sample : Cell2d) (subWindow : Box2d) =
-                    //        let sampleWindow = sample.BoundingBox
-                    //        subWindow.Intersects sampleWindow
-                    //    let inline notContainedBySubWindows (s : Cell2d) = subWindows |> Array.exists (subWindowContainsSample s) |> not
-                    
-                    //    // get all samples _inside_ the query
-                    //    let allSamples = n.GetAllSamples() |> Array.filter isSampleInside
-
-                    //    // partition by whether samples are
-                    //    // - intersecting subnode-samples (-> unsafe), or 
-                    //    // - not intersecting subnode-samples (safe)
-                    //    let (safeSamples, unsafeSamples) = allSamples |> Array.partition notContainedBySubWindows
-
-                    //    // safe samples can simply be returned ...
-                    //    if safeSamples.Length > 0 then
-                    //        let result = { Node = n; Selection = CellsSelected safeSamples }
-                    //        if config.Verbose then printfn "[Generic ] YIELD %A" result
-                    //        yield result
-
-                    //    // an unsafe sample may only be partially covered by subnode samples
-                    //    // -> in this case we cannot simply return the subnode samples, because
-                    //    //    the not-covered part of the sample would appear as a HOLE, i.e.
-                    //    //    not be covered by any samples at all (although the discarded sample
-                    //    //    would actually cover the
-                    //    if unsafeSamples.Length > 0 then
-                        
-                    //        let exactSubBounds = n.SubNodes.Value  |> Array.map QNode.tryGetInMemory |> Array.choose (Option.map (fun x -> x.ExactBoundingBox))
-
-                    //        let notCoveredBySubSamples (s : Cell2d) =
-                    //            let sb = s.BoundingBox
-                    //            let isNotCovered = exactSubBounds |> Array.exists (fun sw -> sw.Contains(sb)) |> not
-                    //            isNotCovered
-
-                    //        // fill holes ...
-                    //        let holeFillingSamples = 
-                    //            unsafeSamples
-                    //        // ... by splitting each unsafe sample into 4 subsamples, ...
-                    //            |> Seq.collect (fun x -> x.Children)
-                    //        // ... and keeping those not already covered by subnode samples
-                    //            |> Seq.filter notCoveredBySubSamples
-                    //        // .. and fully inside the whole tree's footprint (to avoid "border" cases ;-))
-                    //            |> Seq.filter (fun x -> n.ExactBoundingBox.Contains(x.BoundingBox))
-                    //            |> Seq.toArray
-
-                    //        let result = { Node = n; Selection = SubCellsSelected holeFillingSamples }
-                    //        if config.Verbose then printfn "[Generic ] YIELD %A" result
-                    //        yield result
-
-
-
-                    //        let onlyPartiallyCoveredBySubSamples (s : Cell2d) =
-                    //            let sb = s.BoundingBox
-                    //            let isPartiallyCovered = exactSubBounds |> Array.forall (fun sw -> not(sw.Contains(sb)) && sw.Intersects(sb))
-                    //            isPartiallyCovered
-
-                    //        let partiallyCoveredSamples =
-                    //            unsafeSamples
-                    //            // ... by splitting each unsafe sample into 4 subsamples, ...
-                    //                |> Seq.collect (fun x -> x.Children)
-                    //            // ... and keeping those only partially covered by subnode samples
-                    //                |> Seq.filter onlyPartiallyCoveredBySubSamples
-                    //            // .. and fully inside the whole tree's footprint (to avoid "border" cases ;-))
-                    //                |> Seq.filter (fun x -> n.ExactBoundingBox.Contains(x.BoundingBox))
-                    //                |> Seq.toArray
-
-                    //        let holeFillingFragments =
-                    //            partiallyCoveredSamples
-                    //            |> Seq.collect (fun x -> x.Children)
-                    //            // ... only keep those not fully covered by existing subnode samples
-                    //            |> Seq.filter notCoveredBySubSamples
-                    //            |> Seq.toArray
-                            
-                    //        if holeFillingFragments.Length > 0 then
-                    //            let result = { Node = n; Selection = SubSubCellsSelected holeFillingFragments }
-                    //            yield result
-
-
-
-
-
-                    //    // recursively return samples from children (a.k.a. subnode samples)
-                    //    match n.SubNodes with
-                    //    | None -> failwith "Invariant 4f33151d-e387-40a1-a1b7-c04e2335bd91."
-                    //    | Some subnodes ->
-                    //        for subnode in subnodes |> Seq.choose QNode.tryGetInMemory do
-                    //            let r = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside subnode
-                    //            yield! r
+                   
         }
     
     /// Returns all samples inside given tree.
@@ -452,8 +375,11 @@ module Query =
     /// Enumerates all samples in quadtree, including samples from inner cells.
     let rec Full (root : QNodeRef) : Result seq = seq {
         match root with
+        | NoNode -> ()
         | InMemoryInner n -> for subnode in n.SubNodes do yield! Full subnode
         | InMemoryNode  n -> yield { Node = n; Selection = FullySelected }
+        | InMemoryMerge n -> yield! Full n.First
+                             yield! Full n.Second
         | _ -> failwith "todo"
     }
 
