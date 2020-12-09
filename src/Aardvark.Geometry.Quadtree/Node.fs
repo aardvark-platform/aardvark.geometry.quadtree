@@ -448,101 +448,14 @@ module QInnerNode =
 module QMergeNode =
 
     let ofNodes dom (first : QNodeRef) (second : QNodeRef) : QMergeNode =
-        let bIsQuadrantOfCenteredCellA = first.Cell.IsCenteredAtOrigin && second.Cell.Exponent + 1 = first.Cell.Exponent
-        invariant (first.Cell = second.Cell || bIsQuadrantOfCenteredCellA) "42a0c7ba-cf29-4820-b420-a74d668cb159"
+        let isSpecialOverlappingCase = first.Cell.IsCenteredAtOrigin && second.Cell.TouchesOrigin ||
+                                       second.Cell.IsCenteredAtOrigin && first.Cell.TouchesOrigin
+        invariant (first.Cell = second.Cell || isSpecialOverlappingCase) "42a0c7ba-cf29-4820-b420-a74d668cb159"
         let ebb = Box2d(first.ExactBoundingBox, second.ExactBoundingBox)
         {
             Id = Guid.NewGuid()
             ExactBoundingBox = ebb; Cell = first.Cell; SplitLimitExponent = first.SplitLimitExponent
             Dominance = dom; First = first; Second = second
         }
-
-    //let tryGetInMemory (n : QNodeRef) = n.TryGetInMemory()
-
-    ///// Takes all layers of up to 4 quadrants of given root cell (subNodeRefs)
-    ///// and generates layers for root cell (with half the resolution). 
-    //let generateLodLayers (subNodeRefs : QNodeRef[]) (rootCell : Cell2d) : ILayer[] =
-    
-    //    if subNodeRefs.Length = 0 then
-
-    //        // No data -> done.
-    //        Array.empty
-
-    //    else
-
-    //        (*
-    //            Get all nodes into memory (except NoNode).
-    //            All nodes should be unique quadrants of root cell.
-    //        *)
-    //        let subnodes = subNodeRefs |> Array.choose (fun x -> x.TryGetInMemory())
-
-    //        let noNodeCount = subNodeRefs |> Array.sumBy (fun x -> match x with | NoNode -> 1 | _ -> 0)
-    //        invariantm (subnodes.Length = subNodeRefs.Length - noNodeCount)
-    //            "Failed to load all nodes into memory."
-    //            "0607fed7-91cc-4a68-ba01-2512288c607a"
-
-    //        invariantm (subnodes |> Array.forall (fun n -> rootCell.Contains(n.Cell)))
-    //            (sprintf "All subnodes must be contained in root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
-    //            "8c78a230-e467-4f97-b2e0-0db79e003a46"
-
-    //        invariantm (subnodes |> Array.forall (fun n -> rootCell.Exponent = n.Cell.Exponent + 1))
-    //            (sprintf "All subnodes must be quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
-    //            "16a32b30-51a6-43fe-ab67-9fc854b1dde2"
-
-    //        invariantm (subnodes |> Array.distinctBy (fun n -> n.Cell) |> Array.length = subnodes.Length)
-    //            (sprintf "All subnodes must be unique quadrants of root cell %A. Subnodes are %A." rootCell (subnodes |> Array.map(fun n -> n.Cell)))
-    //            "3688841c-fe01-4d0d-b7e3-21e0c20a9c6c"
-
-
-    //        (*
-    //            What is the target sample size?
-    //        *)
-            
-    //        // ... first, check if all subnodes have the same split limit exponent,
-    //        //     which specifies the tile size as width = height = 2^SplitLimitExponent
-    //        let xs = subnodes |> Array.map (fun n -> n.SplitLimitExponent) |> Array.distinct
-            
-    //        invariantm (xs.Length = 1) 
-    //            (sprintf "Can't combine nodes with different split limit exponents (%A)." xs)
-    //            "a9bf0243-e481-49a5-908e-d5af94cec2af"
-
-    //        let splitLimitExponent = xs |> Array.exactlyOne
-
-    //        // ... we want to fit a tile of width = height = 2^splitLimitExponent
-    //        //     into a root cell of size rootCell.Exponent
-    //        let targetSampleSize = rootCell.Exponent - splitLimitExponent
-
-            
-    //        (*
-    //            collect all layers from all nodes
-    //        *)
-    //        let allLayers = subnodes |> Array.collect (fun x -> match x.LayerSet with | None -> Array.empty | Some x -> x.Layers) 
-
-    //        invariantm (allLayers |> Array.forall (fun layer -> layer.SampleExponent + 1 = targetSampleSize))
-    //            (sprintf "All layers must have a sample size of 1 less than the target sample size (%d). Layers are (%A)." targetSampleSize allLayers)
-    //            "8d206e1c-d54a-4841-829d-2e783bde0815"
-
-    //        (*
-    //            resample all layers to half the resolution
-    //        *)
-    //        let allLayersResampled = allLayers |> Array.map (fun layer -> layer.ResampleUntyped rootCell)
-
-    //        invariantm (allLayersResampled |> Array.forall (fun layer -> layer.SampleExponent = targetSampleSize))
-    //            (sprintf "All resampled layers must have target sample size (%d). Resampled layers are (%A)." targetSampleSize allLayersResampled)
-    //            "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
-
-
-    //        (*
-    //            finally, merge resampled layers with same definition
-    //        *)
-    //        let resampledByDef = allLayersResampled |> Array.groupBy (fun layer -> layer.Def)
-    //        let merged = resampledByDef |> Array.map (fun (_, xs) -> Layer.Merge xs)
-
-    //        invariantm (merged |> Array.forall (fun x -> x.IsSome))
-    //            (sprintf "There should be a merge result for each definition. Merged layers are %A." merged)
-    //            "1fc40968-1224-4eaa-b1c1-a0ccc28092af"
-
-    //        let result = merged |> Array.map (fun x -> x.Value)
-    //        result
 
     
