@@ -147,6 +147,8 @@ module PrettyPrint =
                             )
 
                 let rootSamples = xs |> List.filter (fun (c,_) -> c.Exponent = maxSampleExp)
+                let topLevelCells = xs |> List.map (fun (c,_) -> getParentForLevel maxSampleExp c) |> List.distinct
+
                 let groups =
                     xs
                     |> List.filter (fun (c,_) -> c.Exponent <> maxSampleExp)
@@ -166,9 +168,32 @@ module PrettyPrint =
                         | Some g ->
                             foo text pos f g
                     )
-                
+
+                let content = topLevelCells |> List.map (fun topLevelCell ->
+                        let rootSample = rootSamples |> List.tryFind(fun (c,_) -> c = topLevelCell)
+                        match rootSample with
+                        | Some (c,s) ->
+                            let pos = { X = int(c.X-o.X); Y = int(c.Y-o.Y)}
+                            let text = sprintf "(%d, %d, %d)<br/>%A" c.X c.Y c.Exponent s
+                            match groups |> Map.tryFind pos with
+                            | None   -> 
+                                Text(pos, f, text)
+                            | Some g ->
+                                foo text pos f g
+                        
+                        | None ->
+                            let pos = { X = int(topLevelCell.X-o.X); Y = int(topLevelCell.Y-o.Y)}
+                            let text = ""// sprintf "<small>(%d, %d, %d)</small>" topLevelCell.X topLevelCell.Y topLevelCell.Exponent
+                            match groups |> Map.tryFind pos with
+                            | None   -> 
+                                Text(pos, f, text)
+                            | Some g ->
+                                foo text pos f g
+                    )
+                            
                 Group(pos, f, name, content)
 
+                
 
             
             let allResults = qref |> Query.Full |> Seq.toList
