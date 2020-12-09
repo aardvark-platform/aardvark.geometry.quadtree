@@ -431,7 +431,7 @@ module cpunz =
     let oblique1_main = V4f(1.5, 1.0,0.0,0.0)
     let nanVal = V4f(nan, nan, nan, nan)  
 
-    let createQuadTreePlanesWithNaN =
+    let createQuadTreePlanesWithNaN (exponent:int) =
         
             // define mapping of raw data to raster space
             
@@ -440,7 +440,7 @@ module cpunz =
                                hor1_main; oblique1_main; nanVal;
                                |]
         
-            let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 3))
+            let mapping = DataMapping(origin = Cell2d(0L, 0L, exponent), size = V2i(3, 3))
         
             // a layer gives meaning to raw data
             let bilinParameters = Layer(Defs.VolumesBilinear4f, parameters, mapping)
@@ -495,7 +495,7 @@ module cpunz =
             qtree
     
             
-        let mainTree = createQuadTreePlanesWithNaN
+        let mainTree = createQuadTreePlanesWithNaN 0
         let subTree = createOneCell 
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
@@ -611,7 +611,7 @@ module cpunz =
             qtree
     
     
-        let mainTree = createQuadTreePlanesWithNaN
+        let mainTree = createQuadTreePlanesWithNaN 0
         let subTree = createOneCell 
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
@@ -693,7 +693,7 @@ module cpunz =
             qtree
     
     
-        let mainTree = createQuadTreePlanesWithNaN
+        let mainTree = createQuadTreePlanesWithNaN 0
         let subTree = createOverlap 
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
@@ -780,7 +780,7 @@ module cpunz =
             qtree
     
     
-        let mainTree = createQuadTreePlanesWithNaN
+        let mainTree = createQuadTreePlanesWithNaN 0
         let subTree = createOverlap 
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
@@ -882,7 +882,7 @@ module cpunz =
             qtree
     
     
-        let mainTree = createQuadTreePlanesWithNaN
+        let mainTree = createQuadTreePlanesWithNaN 0
         let subTree = createOverlap 
             
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
@@ -933,7 +933,59 @@ module cpunz =
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-2,-1))))
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-1,-1))))
         ()
+    [<Fact>]
+    let ``punz_merge_2_levels``()=
+        let createOneSubCell (level : int) (east:int64) (north:int64)= 
+            // define mapping of raw data to raster space
+            let elevation = -1.0*((float)level)
+            let hor1 = V4f(elevation, 0.0,0.0,0.0)
+            let nanVal = V4f(nan, nan, nan, nan)
+            
+            let parameters = [|hor1;hor1;hor1;hor1|]
 
+            let mapping = DataMapping(origin = Cell2d(east, north, level), size = V2i(2, 2))
+
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+            
+            // build the quadtree (incl. levels-of-detail)
+            
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo = 10 } [| bilinParameters |]
+
+            qtree
+
+        let mainTree = createQuadTreePlanesWithNaN -1
+
+        let config = Query.Config.Default  
+        let resultCells = mainTree |> Query.All config
+        let qtreeCells = resultCells |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                     |> Seq.collect (fun arr -> arr)
+                   
+        
+        Assert.True((qtreeCells |> Seq.length) = 9 )
+
+        let subTree = createOneSubCell -2 0L 2L
+        let mutable newTree = Quadtree.Merge SecondDominates mainTree subTree
+        
+        let resultCells1 = newTree |> Query.All config
+        let qtreeCells1 = resultCells1 |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                       |> Seq.collect (fun arr -> arr)
+                   
+        
+        Assert.True((qtreeCells1 |> Seq.length) = 12 )
+        let subTree1 = createOneSubCell -3 0L 4L
+        //let subNewTree = Quadtree.Merge SecondDominates newTree subSubTree
+        newTree <- Quadtree.Merge SecondDominates newTree subTree1
+        
+        
+        let resultCells2 = newTree |> Query.All config
+        let qtreeCells2 = resultCells2 |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
+                                       |> Seq.collect (fun arr -> arr)
+                   
+        
+        Assert.True((qtreeCells2 |> Seq.length) = 15 )
+        //
+        ()
     
 
     [<Fact>]
@@ -998,7 +1050,7 @@ module cpunz =
             qtree
 
     
-        let mainTree = createQuadTreePlanesWithNaN
+        let mainTree = createQuadTreePlanesWithNaN 0
         let subTree = createOverlap 
             
         let mutable newTree = Quadtree.Merge SecondDominates mainTree subTree
