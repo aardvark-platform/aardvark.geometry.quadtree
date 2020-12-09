@@ -260,8 +260,11 @@ let ``NearLine2d_Partial`` () =
 [<Fact>]
 let ``Positions`` () =
     let q = createQuadtree ()
+
+    Quadtree.printStructure q
+
     let ps = [| V2d(0.0, 0.0); V2d(0.4, 0.6); V2d(1.0, 2.0); V2d(3.5, 2.1); V2d(9.9, 6.9) |]
-    let r = Sample.Positions Query.Config.Default ps q |> Seq.toArray
+    let r = Sample.Positions { Query.Config.Default with Verbose = true } ps q |> Seq.toArray
 
     let count = r |> Array.sumBy (fun x -> x.Cells.Length)
     count = 5       |> Assert.True

@@ -15,8 +15,10 @@ module Program =
         
         //Tests.cpunz.``punz_merge_2_levels`` ()
 
-        Tests.cpunz.``punz_merge_withOverlap_overboarder_overOrigin_other_volume`` ()
+        //Tests.cpunz.``punz_merge_withOverlap_overboarder_overOrigin_other_volume`` ()
         
         //StructureTests.``sm 2020-12-07`` ()
+
+        QueryTests.Positions ()
 
         0

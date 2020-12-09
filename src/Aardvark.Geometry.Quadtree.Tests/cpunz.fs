@@ -922,43 +922,30 @@ module cpunz =
         
         // [2020-12-09 sm] no additional/new cells are generated outside the area covered by original data
 
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,0,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,1,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,2,0))))
+        let check cell value = Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(value) && elemCell.Equals(cell)))
+        let checkmany xs = for ((x,y,e), v) in xs do check (Cell2d(int64 x, int64 y, e)) v
 
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,1,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor1_main) && elemCell.Equals(Cell2d(0,2,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,1,0))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(oblique1_main) && elemCell.Equals(Cell2d(1,2,0))))
+        checkmany [
+            ((1,0,0), nanVal) 
+            ((2,0,0), nanVal) 
+            ((2,1,0), nanVal) 
+            ((2,2,0), nanVal) 
+                    
+            ((0,1,0), hor1_main)         
+            ((0,2,0), hor1_main)        
+            ((1,1,0), oblique1_main)  
+            ((1,2,0), oblique1_main)   
 
-        // new cells
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,1,0))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,2,0))))
+            ((0,0,-1), hor14)  
+            ((1,0,-1), nanVal) 
+            ((1,1,-1), nanVal) 
+            ((0,1,-1), nanVal) 
 
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-1,0))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(2,-1,0))))
+            ((-1,0,-1), hor13)
+            ((-1,-1,-1), hor11) 
+            ((0,-1,-1), hor12)
+        ]
 
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor14) && elemCell.Equals(Cell2d(0,0,-1))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,0,-1))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,1,-1))))
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,1,-1))))
-
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor13) && elemCell.Equals(Cell2d(-1,0,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,0,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,1,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,1,-1))))
-
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor11) && elemCell.Equals(Cell2d(-1,-1,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-1,-2,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,-2,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(-2,-1,-1))))
-
-        Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.ApproximateEquals(hor12) && elemCell.Equals(Cell2d(0,-1,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,-2,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-2,-1))))
-        //Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(1,-1,-1))))
-        ()
     [<Fact>]
     let ``punz_merge_2_levels``()=
         let createOneSubCell (level : int) (east:int64) (north:int64)= 

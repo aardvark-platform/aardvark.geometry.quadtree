@@ -328,31 +328,6 @@ module Query =
                             | Some result -> 
                                 if config.Verbose then printfn "[Generic'] YIELD %A" result
                                 yield result
-                    //else
-                    //    // at inner node with children to recursively traverse
-                    //    if config.Verbose then printfn "[Generic'] at inner node with children to recursively traverse"
-
-                    //    // return samples from inner node, which are not covered by children
-                    
-                    //    let nodeSampleWindow = n.LayerSet.SampleWindow
-                    //    for sn in n.SubNodes do
-                    //        match QNode.tryGetInMemory sn with
-                    //        | None -> () // no subnode
-                    //        | Some sn ->
-                    //            let quadrantBounds = sn.Cell.GetBoundsForExponent(n.LayerSet.SampleExponent)
-                    //            match nodeSampleWindow.TryIntersect(quadrantBounds) with
-                    //            | None -> () // subnode quadrant contains no samples
-                    //            | Some nodeSampleWindowQuadrant ->
-                    //                let subWindow = Box2l(sn.LayerSet.SampleWindow.Min / 2L, sn.LayerSet.SampleWindow.Max / 2L)
-                    //                if subWindow.ContainsMaxExclusive(nodeSampleWindowQuadrant) then
-                    //                    // subnode quadrant samples are FULLY covered by child samples
-                    //                    // -> return nothing
-                    //                    () 
-                    //                else
-                    //                    // subnode quadrant samples are PARTIALLY covered by child samples
-                    //                    // -> return subtraction
-                    //                    let rs = Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside sn
-                    //                    yield! rs
         }
 
     
@@ -422,7 +397,7 @@ module Sample =
                         let gs = positions |> Array.groupBy getQuadrant
                         for (qi, ps) in gs do
                             if ps.Length > 0 then
-                                yield! PositionsWithBounds config positions (Box2d(ps)) (n.SubNodes.[qi])
+                                yield! PositionsWithBounds config ps (Box2d(ps)) (n.SubNodes.[qi])
 
                 | InMemoryMerge n ->
 

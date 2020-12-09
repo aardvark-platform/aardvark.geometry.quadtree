@@ -166,9 +166,8 @@ let ``Merge_Overlapping_1x1_DifferentDepth_FirstMoreDetailed`` () =
     let leafcount = Quadtree.CountLeafs m
     Assert.True((leafcount = 4))
 
-    let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 10.0f))
+    let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
+    Assert.True((x.Value = 10.0f))
 
     ()
 
@@ -185,9 +184,8 @@ let ``Merge_Overlapping_1x1_DifferentDepth_SecondMoreDetailed`` () =
     let mLeafCount = Quadtree.CountLeafs m
     Assert.True((mLeafCount = 4))
     
-    let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 20.0f))
+    let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
+    Assert.True((x.Value = 20.0f))
 
     ()
 
@@ -379,9 +377,9 @@ let ``Merge_Overlapping_BothCentered_SameDetail_NoneDominates`` () =
     let b = createQuadtreeWithValue -1 -1 2 2  0 0<powerOfTwo> 20.0f
 
     let m = Quadtree.Merge MoreDetailedOrSecond a b
-    let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample(Fail, Cell2d(1))
-    Assert.True((x = 20.0f))
+    
+    let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.0,0.0)) Defs.Heights1f m
+    Assert.True((x.Value = 20.0f))
 
     ()
 
@@ -397,9 +395,8 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_1`` () =
     let m = Quadtree.Merge SecondDominates a b
     Assert.True(Quadtree.CountLeafs m = 1)
 
-    let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 20.0f))
+    let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
+    Assert.True((x.Value = 20.0f))
 
     ()
 
@@ -415,9 +412,8 @@ let ``Merge_Overlapping_1x1_SameDetail_LastWins_2`` () =
     let m = Quadtree.Merge SecondDominates b a
     Assert.True(Quadtree.CountLeafs m = 1)
 
-    let l = m.GetLayer<float32> Defs.Heights1f
-    let x = l.GetSample(Fail, Cell2d(0,0,0))
-    Assert.True((x = 10.0f))
+    let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
+    Assert.True((x.Value = 10.0f))
 
     ()
 

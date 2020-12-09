@@ -54,7 +54,7 @@ let checkQuadtree spec (rootRef : QNodeRef) =
 
     Assert.True(spec.Cell                   = rootRef.Cell)
     Assert.True(spec.IsLeafNode             = rootRef.IsLeafNode)
-    Assert.True(spec.SampleExponent         = rootRef.LayerSet.Value.SampleExponent)
+    Assert.True(spec.SampleExponent         = rootRef.Cell.Exponent - rootRef.SplitLimitExponent)
     Assert.True(spec.SplitLimitExponent     = rootRef.SplitLimitExponent)
 
     for s in spec.Samples do
@@ -1027,13 +1027,13 @@ let ``sm 2020-12-07`` () =
     let m1 = Quadtree.Merge SecondDominates a b
     let m2 = Quadtree.Merge SecondDominates m1 c
 
-    //showHtmlDebugView<float> "merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 levels" Defs.Heights1d [
-    //    ("a", a)
-    //    ("b", b)
-    //    ("c", c)
-    //    ("m1 = Quadtree.Merge SecondDominates a b",  m1)
-    //    ("m2 = Quadtree.Merge SecondDominates m1 c", m2)
-    //    ]
+    showHtmlDebugView<float> "merge: leaf 2x2 L1 / leaf 2x2 L0 / leaf 2x2 L-1, replace quadrant, 2 levels" Defs.Heights1d [
+        ("a", a)
+        ("b", b)
+        ("c", c)
+        ("m1 = Quadtree.Merge SecondDominates a b",  m1)
+        ("m2 = Quadtree.Merge SecondDominates m1 c", m2)
+        ]
 
     m2
     |> checkQuadtree {
