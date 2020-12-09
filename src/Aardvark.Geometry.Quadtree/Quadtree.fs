@@ -26,6 +26,7 @@ module Quadtree =
         | InMemoryNode _        -> a
         | OutOfCoreNode (_, _)  -> a
         | InMemoryInner n       -> b + (n.SubNodes |> Array.sumBy (tryCount a b))
+        | InMemoryMerge n       -> b + (n.First |> tryCount a b) + (n.Second |> tryCount a b)
 
     let rec CountNodes root = root |> tryCount 1 1
     let rec CountLeafs root = root |> tryCount 1 0
@@ -108,7 +109,8 @@ module Quadtree =
         | InMemoryNode n -> n.Save options
         | OutOfCoreNode (id, _) -> id
         | NoNode -> Guid.Empty
-        | InMemoryInner n -> failwith "Implement InnerNode.Save. Todo d608feca-e330-491a-aa5d-98ab24158e27."
+        | InMemoryInner n -> failwith "Implement InMemoryInner.Save. Todo d608feca-e330-491a-aa5d-98ab24158e27."
+        | InMemoryMerge n -> failwith "Implement InMemoryMerge.Save. Todo 98385a97-b662-4feb-8be2-17376aae3274."
 
     /// Load quadtree with given id.
     /// Returns the tree's root node, with children being loaded lazily.

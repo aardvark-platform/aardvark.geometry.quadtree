@@ -9,59 +9,100 @@ open System.Collections.Immutable
     Merge.
 *)
 
-/// Which data dominates in merge operations.
-type Dominance = 
-    | FirstDominates 
-    | SecondDominates 
-    | MoreDetailedOrFirst
-    | MoreDetailedOrSecond
+     
+type CellRelation =
+    | DisjointCells
+    | PartiallyOverlappingCells
+    | IdenticalCells
+    | FirstCellContainsSecond
+    | SecondCellContainsFirst
 with
-    member this.Flipped with get() =
-        match this with 
-        | FirstDominates       -> SecondDominates
-        | SecondDominates      -> FirstDominates
-        | MoreDetailedOrFirst  -> MoreDetailedOrSecond
-        | MoreDetailedOrSecond -> MoreDetailedOrFirst
-        
+    static member create (first : Cell2d) (second : Cell2d) =
+        if first.IsCenteredAtOrigin && second.TouchesOrigin && second.Exponent >= first.Exponent then
+            PartiallyOverlappingCells
+        elif first.TouchesOrigin && second.IsCenteredAtOrigin && first.Exponent >= second.Exponent then
+            PartiallyOverlappingCells
+        else
+            if first.Intersects(second) then
+                match first.Contains(second), second.Contains(first) with
+                | true, true   -> IdenticalCells
+                | true, false  -> FirstCellContainsSecond
+                | false, true  -> SecondCellContainsFirst
+                | false, false -> DisjointCells //PartiallyOverlappingCells
+            else
+                DisjointCells
+
+type DirectChild     = { Child : QNodeRef; Index : int }
+type IndirectChild   = { Child : QNodeRef; Index : int }
+type DirectNested    = { Child : QNodeRef }
+type IndirectNested  = { Child : QNodeRef }
+
+type SubtreeRelation =
+    /// non-centered child (e-1)
+    | RelChildDirect    of DirectChild
+    /// non-centered child (e-n where n>1)
+    | RelChildIndirect  of IndirectChild
+    /// centered parent Cell2d(e) -> centered child Cell2d(e-1)
+    | RelNestedDirect   of DirectNested
+    /// centered parent Cell2d(e) -> centered child Cell2d(e-n where n>1)
+    | RelNestedIndirect of IndirectNested
+with
+    static member ofQNodeRef (root : Cell2d) (child : QNodeRef) : SubtreeRelation option =
+        let c = child.Cell
+        if root.Exponent > c.Exponent then
+            let isDirect = c.Exponent + 1 = root.Exponent
+            let qi = Option.ofNullable(root.GetQuadrant(c))
+            match root.IsCenteredAtOrigin, qi, c.IsCenteredAtOrigin with
+            | _,     Some qi,  false -> (if isDirect then RelChildDirect  { Child = child; Index = qi } else RelChildIndirect  { Child = child; Index = qi }) |> Some
+            | true,  None,     true  -> (if isDirect then RelNestedDirect { Child = child }             else RelNestedIndirect { Child = child })             |> Some
+            | _ -> None
+        else
+            None
 
 module Merge =
 
-    let mergeInnerInner (dom : Dominance) (a : QInnerNode) (b : QInnerNode) : QNodeRef =
+    let winner dom (first : QNodeRef) (second : QNodeRef) : QNodeRef option =
+        match dom, first.ExactBoundingBox, second.ExactBoundingBox with
+        | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
+        | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
+        | _ -> None
 
-        failwith "todo: mergeInnerInner"
-
-    let mergeInnerLeaf  (dom : Dominance) (a : QInnerNode) (b : QNode)      : QNodeRef =
-        failwith "todo: mergeInnerLeaf"
-
-    let mergeLeafLeaf   (dom : Dominance) (a : QNode)      (b : QNode)      : QNodeRef =
-        failwith "todo: mergeInnerLeaf"
+    let growParent (n : QNodeRef) : QNodeRef = QInnerNode.ofSubNode(n) |> InMemoryInner
 
     /// Immutable merge.
     let rec merge (dom : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef =
 
-        let winner = 
-            match first, second with
-            | NoNode, _  | _, NoNode -> None
-            | _ ->  
-                invariantm (first.SplitLimitExponent = second.SplitLimitExponent)
-                    "Cannot merge quadtrees with different split limits." "6222eb6b-a7aa-43c1-9323-e28d6275696b"
+        let rec mergeToCommonRoot (dom : Dominance) (a : QNodeRef) (b : QNodeRef) : QNodeRef =
 
-                match dom, first.ExactBoundingBox, second.ExactBoundingBox with
-                | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
-                | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
-                | _ -> None
+            match winner dom a b with
+            | Some w -> w
+            | None   ->
+                let acell = a.Cell
+                let bcell = b.Cell
+                match CellRelation.create acell bcell with
 
-        match winner with
+                | IdenticalCells -> QMergeNode.ofNodes dom a b |> InMemoryMerge
+
+                | DisjointCells ->
+                    let rc = acell.Union(bcell)
+                    invariant (acell <> rc && rc.Contains(acell) && bcell <> rc && rc.Contains(bcell)) "01d13ddf-5763-4fbf-8e34-10e1516d224f"
+                    mergeToCommonRoot dom (a |> growParent) (b |> growParent)
+
+                | FirstCellContainsSecond -> mergeToCommonRoot dom a (b |> growParent)
+                | SecondCellContainsFirst -> mergeToCommonRoot dom (a |> growParent) b
+
+                | PartiallyOverlappingCells ->
+                    invariant (a.Cell.IsCenteredAtOrigin <> b.Cell.IsCenteredAtOrigin) "933e7c94-c6e3-4149-a1aa-b89546ea38a9"
+                    QMergeNode.ofNodes dom a b |> InMemoryMerge
+
+        match winner dom first second with
         | Some w -> w
         | None   -> match first, second with
-                    | NoNode,               b                       -> b
-                    | a,                    NoNode                  -> a
+                    | NoNode,               b                   -> b
+                    | a,                    NoNode              -> a
+                    
+                    | OutOfCoreNode (_,a),  OutOfCoreNode (_,b) -> merge dom (a() |> InMemoryNode) (b() |> InMemoryNode)
+                    | OutOfCoreNode (_,a),  b                   -> merge dom (a() |> InMemoryNode) (b                  )
+                    | a,                    OutOfCoreNode (_,b) -> merge dom (a                  ) (b() |> InMemoryNode)
 
-                    | InMemoryInner a,      InMemoryInner b         -> mergeInnerInner dom a b
-                    | InMemoryInner a,      InMemoryNode  b         -> mergeInnerLeaf  dom a b
-                    | InMemoryNode a ,      InMemoryInner b         -> mergeInnerLeaf  dom.Flipped b a
-                    | InMemoryNode a ,      InMemoryNode  b         -> mergeLeafLeaf   dom a b
-
-                    | OutOfCoreNode (_,a),  OutOfCoreNode (_,b)     -> merge dom (a() |> InMemoryNode) (b() |> InMemoryNode)
-                    | OutOfCoreNode (_,a),  b                       -> merge dom (a() |> InMemoryNode) (b                  )
-                    | a,                    OutOfCoreNode (_,b)     -> merge dom (a                  ) (b() |> InMemoryNode)
+                    | _ -> mergeToCommonRoot dom first second

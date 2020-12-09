@@ -88,6 +88,7 @@ module Query =
             | NoNode                    -> ()
             | OutOfCoreNode (_, load)   -> yield! load() |> InMemoryNode |> recurse
             | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
+            | InMemoryMerge n           -> failwith "Query.Generic(InMemoryMerge). Todo a0b50026-0a5f-4df0-b7c4-b0814a5dfe0f."
             | InMemoryNode n            ->
 
                 invariantm (root.Cell.Exponent >= config.MinExponent)
@@ -299,6 +300,7 @@ module Query =
             | NoNode                    -> ()
             | OutOfCoreNode (_, load)   -> yield! load() |> InMemoryNode |> recurse
             | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
+            | InMemoryMerge n           -> failwith "Query.Generic'(InMemoryMerge). Todo 38a8467c-0b69-4809-809e-caa3b5a582e4."
             | InMemoryNode n            ->
 
                 invariantm (n.Cell.Exponent >= config.MinExponent)
@@ -459,7 +461,7 @@ module Sample =
                         //        yield { Node = n; Cells = cells; Positions = ps }
                         
 
-            | _ -> failwith "todo"
+            | _ -> failwith "todo: PositionsWithBounds"
                             
         }
 

@@ -11,6 +11,20 @@ open System.Collections.Immutable
     Node.
 *)
 
+/// Which data dominates in merge operations.
+type Dominance = 
+    | FirstDominates 
+    | SecondDominates 
+    | MoreDetailedOrFirst
+    | MoreDetailedOrSecond
+with
+    member this.Flipped with get() =
+        match this with 
+        | FirstDominates       -> SecondDominates
+        | SecondDominates      -> FirstDominates
+        | MoreDetailedOrFirst  -> MoreDetailedOrSecond
+        | MoreDetailedOrSecond -> MoreDetailedOrFirst
+
 type SerializationOptions = {
     Save : Guid -> byte[] -> unit
     TryLoad : Guid -> byte[] option
@@ -262,7 +276,16 @@ and
         SubNodes : QNodeRef[]
         }
 
-
+and
+    QMergeNode = {
+        Id : Guid
+        ExactBoundingBox : Box2d
+        Cell : Cell2d
+        SplitLimitExponent : int
+        Dominance : Dominance
+        First : QNodeRef
+        Second : QNodeRef
+        }
 
 and
 
@@ -271,6 +294,7 @@ and
     | InMemoryNode  of QNode
     | OutOfCoreNode of Guid * (unit -> QNode)
     | InMemoryInner of QInnerNode
+    | InMemoryMerge of QMergeNode
     with
 
         /// Forces property Id. Throws exception if NoNode.
@@ -279,6 +303,7 @@ and
             | NoNode -> failwith "Id does not exist for NoNode. Error c48422a9-4df6-4d15-9dad-af075a1d52ac."
             | InMemoryNode n -> n.Id
             | InMemoryInner n -> n.Id
+            | InMemoryMerge n -> n.Id
             | OutOfCoreNode (_, load) -> load().Id
 
         /// Forces property Cell. Throws exception if NoNode.
@@ -287,6 +312,7 @@ and
             | NoNode -> failwith "Cell does not exist for NoNode. Error c48422a9-4df6-4d15-9dad-af075a1d52ac."
             | InMemoryNode n -> n.Cell
             | InMemoryInner n -> n.Cell
+            | InMemoryMerge n -> n.Cell
             | OutOfCoreNode (_, load) -> load().Cell
 
          /// Returns node's exact bounding box, or invalid box for NoNode.
@@ -295,6 +321,7 @@ and
             | NoNode -> Box2d.Invalid
             | InMemoryNode n -> n.ExactBoundingBox
             | InMemoryInner n -> n.ExactBoundingBox
+            | InMemoryMerge n -> n.ExactBoundingBox
             | OutOfCoreNode (_, load) -> load().ExactBoundingBox
 
         /// Forces property SplitLimitExp. Throws exception if NoNode.
@@ -303,12 +330,14 @@ and
             | NoNode -> failwith "SplitLimitExp does not exist for NoNode. Error 4424a37e-dcd8-4ae0-975c-7ae6d926aaa8."
             | InMemoryNode n -> n.SplitLimitExponent
             | InMemoryInner n -> n.SplitLimitExponent
+            | InMemoryMerge n -> n.SplitLimitExponent
             | OutOfCoreNode (_, load) -> load().SplitLimitExponent
 
         member this.ContainsLayer (semantic : Durable.Def) =
             match this with
             | NoNode -> false
             | InMemoryInner _ -> false
+            | InMemoryMerge _ -> false
             | InMemoryNode n -> n.ContainsLayer semantic
             | OutOfCoreNode (_, load) -> load().ContainsLayer semantic
 
@@ -316,6 +345,7 @@ and
             match this with
             | NoNode -> None
             | InMemoryInner _ -> None
+            | InMemoryMerge _ -> None
             | InMemoryNode n -> Some(n.LayerSet)
             | OutOfCoreNode (_, load) -> Some(load().LayerSet)
 
@@ -323,6 +353,7 @@ and
             match this with
             | NoNode                -> false
             | InMemoryInner _       -> false
+            | InMemoryMerge _       -> false
             | InMemoryNode _        -> true
             | OutOfCoreNode (_, _)  -> true
 
@@ -339,38 +370,43 @@ and
                 | Some x -> (true,  InMemoryNode x)
 
             match this with
-            | NoNode                    -> unchanged
-            | InMemoryInner n           -> unchanged
+            | NoNode
+            | InMemoryInner _
+            | InMemoryMerge _           -> unchanged
             | InMemoryNode n            -> n |> qnode
             | OutOfCoreNode (_, load)   -> load() |> qnode
 
         /// Throws if no such layer.
         member this.GetLayer def : ILayer =
             match this with
-            | NoNode                    -> sprintf "Layer not found. %A. Error d9a6ab0b-6198-449a-9104-ef93f2e09e52." def |> failwith
-            | InMemoryInner _           -> sprintf "Layer not found. %A. Error 663fcbf0-c245-4684-a15e-2327a3f3887b." def |> failwith
+            | NoNode
+            | InMemoryInner _
+            | InMemoryMerge _           -> sprintf "Layer not found. %A. Error 2c634f5f-d359-4523-b87a-a96d2522c018." def |> failwith
             | InMemoryNode n            -> n.LayerSet.GetLayer def
             | OutOfCoreNode (_, load)   -> load().LayerSet.GetLayer def
 
         /// Throws if no such layer.
         member this.GetLayer<'a> def = 
             match this with
-            | NoNode                    -> sprintf "Layer not found. %A. Error 07b65215-7b80-4c04-afd8-474325bd2cba." def |> failwith
-            | InMemoryInner _           -> sprintf "Layer not found. %A. Error 3a7b2931-6fc5-4090-a262-ee5fcc5284ea." def |> failwith
+            | NoNode
+            | InMemoryInner _
+            | InMemoryMerge _           -> sprintf "Layer not found. %A. Error f33f39a9-2394-473f-8dae-76bd8baaaafb." def |> failwith
             | InMemoryNode n            -> n.LayerSet.GetLayer<'a> def
             | OutOfCoreNode (_, load)   -> load().LayerSet.GetLayer<'a> def
     
         member this.TryGetLayer def =
             match this with
-            | NoNode                    -> None
-            | InMemoryInner _           -> None
+            | NoNode
+            | InMemoryInner _ 
+            | InMemoryMerge _           -> None
             | InMemoryNode n            -> n.LayerSet.TryGetLayer def
             | OutOfCoreNode (_, load)   -> load().LayerSet.TryGetLayer def
 
         member this.TryGetLayer<'a> def =
             match this with
-            | NoNode                    -> None
-            | InMemoryInner _           -> None
+            | NoNode
+            | InMemoryInner _
+            | InMemoryMerge _           -> None
             | InMemoryNode n            -> n.LayerSet.TryGetLayer<'a> def
             | OutOfCoreNode (_, load)   -> load().LayerSet.TryGetLayer<'a> def
 
@@ -380,6 +416,45 @@ module QNode =
         match n with
         | Some n -> InMemoryNode n
         | None -> NoNode
+
+module QInnerNode =
+
+    let ofSubNode (n : QNodeRef) : QInnerNode =
+        let rc = n.Cell.Parent
+        match Option.ofNullable(rc.GetQuadrant(n.Cell)) with
+        | None -> failwith "Invariant 3ada0081-039d-42c6-baad-94fbf26bf3ce."
+        | Some qi ->
+            let ns = Array.create 4 NoNode
+            ns.[qi] <- n
+            { Id = Guid.NewGuid(); ExactBoundingBox = n.ExactBoundingBox; Cell = rc; SplitLimitExponent = n.SplitLimitExponent; SubNodes = ns }
+
+    let ofSubNodes (ns : QNodeRef[]) : QInnerNode =
+        invariant (ns.Length = 4) "acf0afb0-5d73-4827-acca-e1707ec6db5a"
+        // non-empty subnodes
+        let ns' = ns |> Array.choose(fun n -> match n with | NoNode -> None | n -> Some n)
+        // no duplicate subnodes allowed
+        invariant ((ns' |> Seq.map(fun n -> n.Cell) |>  Seq.distinct |> Seq.length) = ns'.Length) "3242ee2c-c4bb-47aa-91ac-9627eaa98754"
+
+        let isCenterChildren = ns' |> Array.forall(fun n -> n.Cell.TouchesOrigin)
+        let rc = if isCenterChildren then Cell2d(ns'.[0].Cell.Exponent + 1)
+                 else // all subnodes must be direct children of same root cell (rc)
+                      ns' |> Seq.map(fun n -> n.Cell.Parent) |> Seq.distinct |> Seq.exactlyOne
+
+        let ebb = ns' |> Seq.map(fun n -> n.ExactBoundingBox) |> Box2d
+
+        { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rc; SplitLimitExponent = ns'.[0].SplitLimitExponent; SubNodes = ns }
+            
+
+module QMergeNode =
+
+    let ofNodes dom (first : QNodeRef) (second : QNodeRef) : QMergeNode =
+        invariant (first.Cell = second.Cell) "42a0c7ba-cf29-4820-b420-a74d668cb159"
+        let ebb = Box2d(first.ExactBoundingBox, second.ExactBoundingBox)
+        {
+            Id = Guid.NewGuid()
+            ExactBoundingBox = ebb; Cell = first.Cell; SplitLimitExponent = first.SplitLimitExponent
+            Dominance = dom; First = first; Second = second
+        }
 
     //let tryGetInMemory (n : QNodeRef) = n.TryGetInMemory()
 
