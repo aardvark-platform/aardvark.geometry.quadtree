@@ -786,11 +786,7 @@ module cpunz =
         let newTree = Quadtree.Merge SecondDominates mainTree subTree
     
 
-        //showHtmlDebugView<V4f> "punz_merge_withOverlap_overboarder_other_volume" Defs.VolumesBilinear4f [
-        //    ("mainTree", mainTree)
-        //    ("subTree", subTree)
-        //    ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
-        //    ]
+        
 
 
         let config = Query.Config.Default  
@@ -799,10 +795,14 @@ module cpunz =
                                      |> Seq.collect (fun arr -> arr)
                                      |> Seq.toArray
 
-        
-        Quadtree.printStructure newTree
-        printfn ""
-        for (c,x) in qtreeCells do printfn "%A -> %A" c x
+        //showHtmlDebugView<V4f> "punz_merge_withOverlap_overboarder_other_volume" Defs.VolumesBilinear4f [
+        //    ("mainTree", mainTree)
+        //    ("subTree", subTree)
+        //    ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
+        //    ]
+        //Quadtree.printStructure newTree
+        //printfn ""
+        //for (c,x) in qtreeCells do printfn "%A -> %A" c x
                    
         
         
