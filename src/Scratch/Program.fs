@@ -437,7 +437,7 @@ let cpunz20200925 () =
             count <- count + 1
             //if count % 1000 = 0 then printfn "[progress] %d" count
             let config = Query.Config.Default
-            qtree |> Query.IntersectsCell config cellForQuery |> makeReturnValOfQueryResults
+            qtree |> Query.IntersectsCell' config cellForQuery |> makeReturnValOfQueryResults
 
         let dtmCellsZeroBased = 
             Query.InsidePolygon Query.Config.Default polygon q0
@@ -634,7 +634,7 @@ let prettyPrintTest () =
 [<EntryPoint>]
 let main argv =
 
-    prettyPrintTest ()
+    //prettyPrintTest ()
 
     //let xs = [| 1; 2; 3; |]
     //let ys = [| 4; 5; |]
@@ -653,7 +653,7 @@ let main argv =
 
     //subtractionEnumerationTest ()
    
-    //cpunz20200925 ()
+    cpunz20200925 ()
 
     //cpunz20200923 ()
 
