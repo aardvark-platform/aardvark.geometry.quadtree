@@ -1,9 +1,10 @@
 namespace Aardvark.Geometry.Quadtree.Tests
 
-open Xunit
-open Aardvark.Geometry.Quadtree
 open Aardvark.Base
 open Aardvark.Data
+open Aardvark.Geometry.Quadtree
+open Aardvark.Geometry.Quadtree.Serialization
+open Xunit
 
 #nowarn "44"
 
@@ -21,7 +22,6 @@ module QuadtreeTests =
 
         let config = { BuildConfig.Default with SplitLimitPowerOfTwo = splitLimit }
         Quadtree.Build config [| a |]
-
 
     let private createQuadtree' (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (layerDef : Durable.Def) (createSample : int -> int -> 'a) =
         let size = V2i(w, h)

@@ -19,7 +19,11 @@ module Defs =
         let BufferSize         = def "6aa5d96c-4f89-4b01-bd16-f39239d8be4e" "Aardvark.Geometry.Quadtree.DataMapping.BufferSize" "V2i." Durable.Aardvark.V2i
         let Window             = def "381a6f5d-30cc-489e-8bf7-2ebb13d47bb7" "Aardvark.Geometry.Quadtree.DataMapping.Window" "Box2l." Durable.Aardvark.Box2l
                                
-    let Node                   = def "e497f9c1-c903-41c4-91de-32bf76e009da" "Quadtree.Node" "A quadtree node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    let Node                   = def "e497f9c1-c903-41c4-91de-32bf76e009da" "Quadtree.Node" "Obsolete. A quadtree node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    let NodeLeaf               = def "c74fad23-1211-4073-94e5-54b778e0d295" "Quadtree.NodeLeaf" "A quadtree leaf node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    let NodeInner              = def "1f7baa27-5bcc-420f-89a3-714b65d93a2d" "Quadtree.NodeInner" "A quadtree inner node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    let NodeMerge              = def "2d80c73e-ed3e-442a-a631-4f570ff838fd" "Quadtree.NodeMerge" "A quadtree merge node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    
     let NodeId                 = def "e46c4163-dd28-43a4-8254-bc21dc3f766b" "Quadtree.NodeId" "Quadtree. Unique id of a node. Guid." Durable.Primitives.GuidDef
     let CellBounds             = def "59258849-5765-4d11-b760-538282063a55" "Quadtree.CellBounds" "Quadtree. Node bounds in cell space. Cell2d." Durable.Aardvark.Cell2d
     let SplitLimitExponent     = def "472cf20a-e917-4aed-8379-7661cd880511" "Quadtree.SplitLimitExponent" "Quadtree. Power-of-two split limit exponent. Int32." Durable.Primitives.Int32
@@ -27,7 +31,13 @@ module Defs =
     let Layers                 = def "c39a978b-00f5-485f-b0b3-d2cf9599016b" "Quadtree.Layers" "A quadtree node's layers. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let ExactBoundingBox       = def "abd1f1e6-7165-44d2-8019-fde4f59c9c9f" "Quadtree.ExactBoundingBox" "Quadtree. Exact bounds of original (most detailed) data. Box2d." Durable.Aardvark.Box2d
     let SubnodeIds             = def "a2841629-e4e2-4b90-bdd1-7a1a5a41bded" "Quadtree.SubnodeIds" "Quadtree. Subnodes as array of guids. Array length is 4 for inner nodes (where Guid.Empty means no subnode) and no array for leaf nodes. Guid[]." Durable.Primitives.GuidArray
-                               
+          
+    let Dominance              = def "e782ace4-f2dd-4bc1-b8ad-5abad87f4ff1" "Quadtree.Dominance" "Quadtree. Dominance mode for quadtree merges. Guid." Durable.Primitives.GuidDef
+    let DominanceFirst                = def "0d245911-3c3e-4bd4-b5c2-8de51267936e" "Quadtree.Dominance.First" "Quadtree. Quadtree.Dominance mode. Guid." Durable.Primitives.GuidDef  
+    let DominanceSecond               = def "20f0b738-3f67-46d2-bc75-9f802bc714f3" "Quadtree.Dominance.Second" "Quadtree. Quadtree.Dominance mode. Guid." Durable.Primitives.GuidDef  
+    let DominanceMoreDetailedOrFirst  = def "7aade0f1-9a10-48f1-8a07-e1e30fb2816d" "Quadtree.Dominance.MoreDetailedOrFirst" "Quadtree. Quadtree.Dominance mode. Guid." Durable.Primitives.GuidDef  
+    let DominanceMoreDetailedOrSecond = def "046bc427-bde6-4270-b39c-a25290eede5f" "Quadtree.Dominance.MoreDetailedOrSecond" "Quadtree. Quadtree.Dominance mode. Guid." Durable.Primitives.GuidDef  
+
     let Heights1f              = def "4cb689c5-b627-4bcd-9db7-5dbd24d7545a" "Quadtree.Heights1f" "Quadtree. Height value per sample. Float32[]." Durable.Primitives.Float32Array
     let Heights1fLayer         = def "fcf042b4-fe33-4e28-9aea-f5526600f8a4" "Quadtree.Heights1f.Layer" "Quadtree. Heights1f layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     

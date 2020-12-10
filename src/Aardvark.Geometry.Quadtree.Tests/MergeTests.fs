@@ -561,6 +561,10 @@ module MergeTests =
             let merged = Quadtree.Merge dominance quadtree other
             quadtree <- merged
 
+        //showHtmlDebugView<float32> "Merge_Random_Centered_SplitLimit64" Defs.Heights1f [
+        //    ("quadtree", quadtree)
+        //    ]
+
         ()
 
     [<Fact>]

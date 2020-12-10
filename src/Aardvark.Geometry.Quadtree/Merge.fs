@@ -151,8 +151,8 @@ module Merge =
                     | NoNode,               b                   -> b
                     | a,                    NoNode              -> a
                     
-                    | OutOfCoreNode (_,a),  OutOfCoreNode (_,b) -> merge dom (a() |> InMemoryNode) (b() |> InMemoryNode)
-                    | OutOfCoreNode (_,a),  b                   -> merge dom (a() |> InMemoryNode) (b                  )
-                    | a,                    OutOfCoreNode (_,b) -> merge dom (a                  ) (b() |> InMemoryNode)
+                    | OutOfCoreNode (_,a),  OutOfCoreNode (_,b) -> merge dom (a()) (b())
+                    | OutOfCoreNode (_,a),  b                   -> merge dom (a()) (b  )
+                    | a,                    OutOfCoreNode (_,b) -> merge dom (a  ) (b())
 
                     | _ -> mergeToCommonRoot dom first second

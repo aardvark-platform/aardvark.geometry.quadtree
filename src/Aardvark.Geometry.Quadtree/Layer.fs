@@ -411,7 +411,10 @@ type LayerSet(layers : ILayer[]) =
         this.TryGetLayer(semantic) |> Option.map (fun x -> x :?> Layer<'a>)
 
     member this.GetLayer(semantic : Durable.Def) : ILayer =
-        layers |> Array.find    (fun x -> x.Def.Id = semantic.Id)
+        try
+            layers |> Array.find    (fun x -> x.Def.Id = semantic.Id)
+        with
+        | _ -> sprintf "Failed to retrieve layer %A. Available layers are %A. Error 091474a1-d06b-408a-8609-85e0b272e645." semantic.Name (layers |> Array.map(fun x->x.Def.Name)) |> failwith
 
     member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
         this.GetLayer(semantic) :?> Layer<'a>

@@ -705,15 +705,6 @@ module cpunz =
                                      |> Array.ofSeq
 
 
-        //showHtmlDebugView<V4f> "punz_merge_withOverlap_within_other_volume" Defs.VolumesBilinear4f [
-        //    ("mainTree", mainTree)
-        //    ("subTree", subTree)
-        //    ("newTree = Quadtree.Merge SecondDominates mainTree subTree", newTree)
-        //    ]
-        //Quadtree.printStructure newTree
-        //printfn ""
-        //for (c,x) in qtreeCells do printfn "%A -> %A" c x
-         
         Assert.True((qtreeCells |> Seq.length) = 33 )
 
         Assert.True(qtreeCells |> Seq.exists(fun (elemCell,elemV4f) -> elemV4f.Equals(nanVal) && elemCell.Equals(Cell2d(0,0,-1))))

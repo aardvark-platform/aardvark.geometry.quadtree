@@ -2,6 +2,7 @@
 
 open Aardvark.Base
 open Aardvark.Data
+open Aardvark.Geometry.Quadtree.Serialization
 open System
 
 #nowarn "1337"
@@ -120,19 +121,14 @@ module Quadtree =
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =
         Defs.init ()
-        match qtree with
-        | InMemoryNode n -> n.Save options
-        | OutOfCoreNode (id, _) -> id
-        | NoNode -> Guid.Empty
-        | InMemoryInner n -> failwith "Implement InMemoryInner.Save. Todo d608feca-e330-491a-aa5d-98ab24158e27."
-        | InMemoryMerge n -> failwith "Implement InMemoryMerge.Save. Todo 98385a97-b662-4feb-8be2-17376aae3274."
+        Serialization.Save options qtree
 
     /// Load quadtree with given id.
     /// Returns the tree's root node, with children being loaded lazily.
     /// If id does not exist, then `NoNode` is returned.
     let Load (options : SerializationOptions) (id : Guid) : QNodeRef =
         Defs.init ()
-        QNode.Load options id
+        Serialization.Load options id
 
     /// Returns true if quadtree contains a layer with given semantic.
     let ContainsLayer (semantic : Durable.Def) (qtree : QNodeRef) : bool =

@@ -159,7 +159,7 @@ module Query =
             
             | OutOfCoreNode (id, load)   ->
                 if config.Verbose then printfn "[Generic ] OutOfCoreNode %A" id
-                yield! load() |> InMemoryNode |> recurse
+                yield! load() |> recurse
             
             | InMemoryInner n           ->
                 if config.Verbose then printfn "[Generic ] InMemoryInner %A %A" n.Cell n.Id
@@ -296,7 +296,7 @@ module Query =
 
             match root with
             | NoNode                    -> ()
-            | OutOfCoreNode (_, load)   -> yield! load() |> InMemoryNode |> recurse
+            | OutOfCoreNode (_, load)   -> yield! load() |> recurse
             | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
             | InMemoryMerge n           -> failwith "Query.Generic'(InMemoryMerge). Todo 38a8467c-0b69-4809-809e-caa3b5a582e4."
             | InMemoryNode n            ->
@@ -461,7 +461,8 @@ module Sample =
 
                 | OutOfCoreNode (_,load) ->
                     
-                        yield! PositionsWithBounds config positions positionsBounds (load() |> InMemoryNode)
+                        let n = load()
+                        yield! PositionsWithBounds config positions positionsBounds n
 
 
                             

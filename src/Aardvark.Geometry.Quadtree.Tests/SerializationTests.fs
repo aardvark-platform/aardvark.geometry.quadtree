@@ -1,16 +1,15 @@
 namespace Aardvark.Geometry.Quadtree.Tests
 
-open Aardvark.Geometry.Quadtree
 open Aardvark.Base
 open Aardvark.Data
-open System
-open System.Collections.Generic
+open Aardvark.Geometry.Quadtree
+open Aardvark.Geometry.Quadtree.Serialization
 open Xunit
 
 module SerializationTests =
 
     [<Fact>]
-    let ``C3b array serialization`` () =
+    let ``C3b array roundtrip`` () =
 
         let colors = [| 
             C3b(255,0,0); C3b(255,1,0); C3b(255,2,0); C3b(255,3,0)
@@ -29,7 +28,7 @@ module SerializationTests =
         ()
 
     [<Fact>]
-    let ``Quadtree serialization single node`` () =
+    let ``Quadtree save single node`` () =
 
         // raw height data (4x3 samples stored in a flat array)
         let heights = [| 
@@ -65,7 +64,7 @@ module SerializationTests =
         ()
 
     [<Fact>]
-    let ``Quadtree serialization multiple nodes`` () =
+    let ``Quadtree save multiple nodes`` () =
 
         let size = V2i(1500,1000)
         let data = Array.zeroCreate<float32> (size.X * size.Y)
@@ -80,7 +79,7 @@ module SerializationTests =
         ()
 
     [<Fact>]
-    let ``Quadtree serialization merged nodes`` () =
+    let ``Quadtree save merged nodes`` () =
 
         let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
         let b = createQuadtreeWithValue 1 0 2 1 -1 8<powerOfTwo> 20.0f
@@ -107,7 +106,7 @@ module SerializationTests =
         buffer1.Value.Length = buffer2.Value.Length     |> Assert.True
 
     [<Fact>]
-    let ``Quadtree serialization single node roundtrip`` () =
+    let ``Quadtree roundtrip single node`` () =
 
         // raw height data (4x3 samples stored in a flat array)
         let heights = [| 
@@ -138,7 +137,7 @@ module SerializationTests =
 
 
     [<Fact>]
-    let ``Quadtree serialization multiple nodes roundtrip`` () =
+    let ``Quadtree roundtrip multiple nodes`` () =
 
         let size = V2i(1500,1000)
         let data = Array.zeroCreate<float32> (size.X * size.Y)
@@ -150,7 +149,7 @@ module SerializationTests =
         roundTrip qtree
 
     [<Fact>]
-    let ``Quadtree serialization merged nodes roundtrip`` () =
+    let ``Quadtree roundtrip merged nodes`` () =
 
         let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
         let b = createQuadtreeWithValue 1 0 2 1 -1 8<powerOfTwo> 20.0f
