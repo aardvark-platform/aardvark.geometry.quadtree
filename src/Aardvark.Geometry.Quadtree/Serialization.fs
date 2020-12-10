@@ -266,18 +266,25 @@ module Serialization =
         save/encode
     *)
 
-    let Save (options: SerializationOptions) (root : QNodeRef) : Guid =
+    let rec Save (options: SerializationOptions) (root : QNodeRef) : Guid =
 
-        let inline saveBuffer id buffer =
-            options.Save id buffer
-            id
+        let inline saveBuffer id getbuffer children =
+            invariant (id <> Guid.Empty) "d8040e37-03b4-4ec5-ba4b-cbb6f91042f1"
+            if options.Exists id then
+                id
+            else
+                let buffer = getbuffer()
+                options.Save id buffer
+                for child in children do Save options child |> ignore
+                id
 
         match root with
         | NoNode                -> Guid.Empty
         | OutOfCoreNode (id, _) -> id
-        | InMemoryNode n        -> encodeQNode      options n   |> saveBuffer n.Id
-        | InMemoryInner n       -> encodeQInnerNode options n   |> saveBuffer n.Id
-        | InMemoryMerge n       -> encodeQMergeNode options n   |> saveBuffer n.Id
+        | InMemoryNode n        -> saveBuffer n.Id (fun () -> encodeQNode options n) Array.empty
+        | InMemoryInner n       -> saveBuffer n.Id (fun () -> encodeQInnerNode options n) n.SubNodes
+        | InMemoryMerge n       -> saveBuffer n.Id (fun () -> encodeQMergeNode options n) [| n.First; n.Second |]
+                                    
 
     
     (*
@@ -302,7 +309,5 @@ module Serialization =
         | None -> NoNode
         | Some buffer ->
             let struct (def, o) = DurableCodec.Deserialize(buffer)
-            match decoders |> Map.tryFind def.Id with
-            | Some decoder -> decoder options def o
-            | None -> sprintf "Unknown node type %A. Error af2665dc-f137-4eaf-a3df-11fb7afd17cf." def |> failwith
+            decode options def o
 
