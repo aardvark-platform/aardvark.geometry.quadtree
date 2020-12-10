@@ -103,7 +103,22 @@ module Serialization =
 
 
     let private decodeQInnerNode (options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
-        failwith "todo: decodeQInnerNode"
+        let map  = o :?> ImmutableDictionary<Durable.Def, obj>
+        let id   = map.Get(Defs.NodeId)              :?> Guid
+        let cell = map.Get(Defs.CellBounds)          :?> Cell2d
+        let sle  = map.Get(Defs.SplitLimitExponent)  :?> int
+        let ebb  = match map.TryGetValue(Defs.ExactBoundingBox) with
+                   | true,  x -> x :?> Box2d
+                   | false, _ -> Box2d.Invalid
+
+        let nsIds = map.Get(Defs.SubnodeIds) :?> Guid[]
+        let ns = nsIds |> Array.map (fun k -> if k = Guid.Empty then NoNode else  OutOfCoreNode (k, (fun () -> options.LoadNode k)))
+                
+        
+        InMemoryInner {
+            Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle;
+            SubNodes = ns
+            }
 
 
 
@@ -153,7 +168,7 @@ module Serialization =
         let dom = Map.find domDef def2dominance
 
         let nsIds = map.Get(Defs.SubnodeIds) :?> Guid[]
-        let ns = nsIds |> Array.map (fun k -> OutOfCoreNode (k, (fun () -> options.LoadNode k)))
+        let ns = nsIds |> Array.map (fun k -> if k = Guid.Empty then NoNode else OutOfCoreNode (k, (fun () -> options.LoadNode k)))
                 
         
         InMemoryMerge {
