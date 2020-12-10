@@ -1,4 +1,6 @@
 open Aardvark.Base
+open Aardvark.Geometry.Quadtree
+open Aardvark.Geometry.Quadtree.Tests
 
 
 module Program =
@@ -19,6 +21,22 @@ module Program =
         
         //StructureTests.``sm 2020-12-07`` ()
 
-        QueryTests.Positions ()
+        //QueryTests.Positions ()
+
+
+        let safeContains (a : Cell2d) (b : Cell2d) =
+            match a.IsCenteredAtOrigin, b.IsCenteredAtOrigin with
+            | false, false -> if b.Exponent > a.Exponent then false else getParentForLevel a.Exponent b = a
+            | true,  false -> if b.Exponent > a.Exponent - 1 then false else (getParentForLevel (a.Exponent-1) b).TouchesOrigin
+            | false, true  -> false
+            | true,  true  -> b.Exponent <= a.Exponent
+
+        let a = Cell2d(0,0,6)
+        let b = Cell2d(16)
+
+        let x = safeContains a b
+        let y = safeContains b a
+
+        printfn "%A %A" x y
 
         0

@@ -147,8 +147,8 @@ module Query =
             match dom with
             | FirstDominates       -> mergeDominating   config xs ys
             | SecondDominates      -> mergeDominating   config ys xs
-            | MoreDetailedOrFirst  -> mergeMoreDetailed config xs ys
-            | MoreDetailedOrSecond -> mergeMoreDetailed config ys xs
+            | MoreDetailedOrFirst  -> mergeDominating   config xs ys //mergeMoreDetailed config xs ys
+            | MoreDetailedOrSecond -> mergeDominating   config ys xs //mergeMoreDetailed config ys xs
 
         seq {
 

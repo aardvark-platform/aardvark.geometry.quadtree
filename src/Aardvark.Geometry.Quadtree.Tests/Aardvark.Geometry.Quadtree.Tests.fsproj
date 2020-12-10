@@ -6,6 +6,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Prelude.fs" />
     <None Include="paket.references" />
     <Compile Include="cpunz.fs" />
     <Compile Include="PreludeTests.fs" />

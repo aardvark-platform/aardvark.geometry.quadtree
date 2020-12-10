@@ -1,4 +1,4 @@
-module QuadtreeTestsObsolete
+namespace Aardvark.Geometry.Quadtree.Tests
 
 open Xunit
 open Aardvark.Geometry.Quadtree
@@ -7,29 +7,31 @@ open Aardvark.Data
 
 #nowarn "44"
 
-let private createQuadtree' (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (layerDef : Durable.Def) (createSample : int -> int -> 'a) =
-    let size = V2i(w, h)
-    let xs = Array.zeroCreate<'a> (w * h)
-    for y = 0 to size.Y - 1 do
-        for x = 0 to size.X - 1 do
-            let i = y * size.X + x
-            xs.[i] <- createSample x y
+module QuadtreeTestsObsolete =
 
-    let a = Layer(layerDef, xs, DataMapping(V2l(ox, oy), size, exponent = e))
+    let private createQuadtree' (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (layerDef : Durable.Def) (createSample : int -> int -> 'a) =
+        let size = V2i(w, h)
+        let xs = Array.zeroCreate<'a> (w * h)
+        for y = 0 to size.Y - 1 do
+            for x = 0 to size.X - 1 do
+                let i = y * size.X + x
+                xs.[i] <- createSample x y
 
-    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = splitLimit }
-    Quadtree.Build config [| a |]
+        let a = Layer(layerDef, xs, DataMapping(V2l(ox, oy), size, exponent = e))
 
-[<Fact>]
-let ``Build_BilinearParams4f`` () =
+        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = splitLimit }
+        Quadtree.Build config [| a |]
 
-    let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4f (fun x y -> V4f.Zero)
-    Assert.True(Quadtree.CountLeafs q = 6)
-    Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+    [<Fact>]
+    let ``Build_BilinearParams4f`` () =
 
-[<Fact>]
-let ``Build_BilinearParams4d`` () =
+        let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4f (fun x y -> V4f.Zero)
+        Assert.True(Quadtree.CountLeafs q = 6)
+        Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
 
-    let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4d (fun x y -> V4d.Zero)
-    Assert.True(Quadtree.CountLeafs q = 6)
-    Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+    [<Fact>]
+    let ``Build_BilinearParams4d`` () =
+
+        let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4d (fun x y -> V4d.Zero)
+        Assert.True(Quadtree.CountLeafs q = 6)
+        Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)

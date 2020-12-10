@@ -1,15 +1,11 @@
 ﻿namespace Aardvark.Geometry.Quadtree
 
 open Aardvark.Base
-open Aardvark.Data
-open System.Collections.Generic
-open System.Collections.Immutable
 
 (*
     Merge.
 *)
 
-     
 type CellRelation =
     | DisjointCells
     | PartiallyOverlappingCells
@@ -23,12 +19,32 @@ with
         elif first.TouchesOrigin && second.IsCenteredAtOrigin && first.Exponent >= second.Exponent then
             PartiallyOverlappingCells
         else
-            if first.Intersects(second) then
-                match first.Contains(second), second.Contains(first) with
-                | true, true   -> IdenticalCells
+
+            let safeIntersect (a : Cell2d) (b : Cell2d) =
+                match a.IsCenteredAtOrigin, b.IsCenteredAtOrigin with
+                | false, false -> if a.Exponent >= b.Exponent then (getParentForLevel a.Exponent b) = a
+                                  else (getParentForLevel b.Exponent a) = b
+                | true,  false -> if b.Exponent < a.Exponent then (getParentForLevel (a.Exponent-1) b).TouchesOrigin else b.TouchesOrigin
+                | false, true  -> if a.Exponent < b.Exponent then (getParentForLevel (b.Exponent-1) a).TouchesOrigin else a.TouchesOrigin
+                | true,  true  -> true
+
+            let safeContains (a : Cell2d) (b : Cell2d) =
+                match a.IsCenteredAtOrigin, b.IsCenteredAtOrigin with
+                | false, false -> if b.Exponent > a.Exponent then false else getParentForLevel a.Exponent b = a
+                | true,  false -> if b.Exponent > a.Exponent - 1 then false else (getParentForLevel (a.Exponent-1) b).TouchesOrigin
+                | false, true  -> false
+                | true,  true  -> b.Exponent <= a.Exponent
+
+            if safeIntersect first second then
+                match safeContains first second, safeContains second first with
+                | true, true   ->
+                    invariant (first = second) "06d30a66-8ee3-43d3-9922-f4ac440039c4"
+                    IdenticalCells
                 | true, false  -> FirstCellContainsSecond
                 | false, true  -> SecondCellContainsFirst
-                | false, false -> PartiallyOverlappingCells
+                | false, false -> 
+                    invariant (first.IsCenteredAtOrigin <> second.IsCenteredAtOrigin) "1c2034af-0b3e-4672-9e0b-61e414858c10"
+                    PartiallyOverlappingCells
             else
                 DisjointCells
 
@@ -86,19 +102,40 @@ module Merge =
                 | DisjointCells ->
                     let rc = acell.Union(bcell)
                     invariant (acell <> rc && rc.Contains(acell) && bcell <> rc && rc.Contains(bcell)) "01d13ddf-5763-4fbf-8e34-10e1516d224f"
-                    mergeToCommonRoot dom (a |> growParent) (b |> growParent)
+
+                    if rc.IsCenteredAtOrigin then
+                        if inDifferentQuadrants acell bcell then
+                            match acell.TouchesOrigin, bcell.TouchesOrigin with
+                            | false, false -> mergeToCommonRoot dom (a |> growParent) (b |> growParent)
+                            | true,  false -> mergeToCommonRoot dom (a              ) (b |> growParent)
+                            | false, true  -> mergeToCommonRoot dom (a |> growParent) (b              )
+                            | true,  true  -> QMergeNode.ofNodes dom a b |> InMemoryMerge
+                        else
+                            match acell.IsCenteredAtOrigin, bcell.IsCenteredAtOrigin with
+                            | false, false -> // in same quadrant, but rc is centered -> impossible
+                                              failwith "Invariant 18e8cd18-53f3-47d1-b3c6-79628d49a5f8."
+                            | false, true  -> if acell.TouchesOrigin then QMergeNode.ofNodes dom a b |> InMemoryMerge
+                                              else mergeToCommonRoot dom (a |> growParent) b // grow a to touch origin
+                            | true,  false -> if bcell.TouchesOrigin then QMergeNode.ofNodes dom a b |> InMemoryMerge
+                                              else mergeToCommonRoot dom a (b |> growParent) // grow b to touch origin
+                            | true,  true  -> QMergeNode.ofNodes dom a b |> InMemoryMerge
+                            
+                    else
+                        mergeToCommonRoot dom (a |> growParent) (b |> growParent)
 
                 | FirstCellContainsSecond ->
                     
-                    if a.Cell.IsCenteredAtOrigin then
+                    if acell.IsCenteredAtOrigin then
 
-                        if b.Cell.Exponent + 1 < a.Cell.Exponent then
-                            mergeToCommonRoot dom a (b |> growParent)
-                        else
-                            // b is a quadrant of centered cell a
-                            invariant (b.Cell.Exponent + 1 = a.Cell.Exponent && b.Cell.TouchesOrigin) "8ac53980-f7c9-4cae-8002-6f98560deb97"
+                        if bcell.IsCenteredAtOrigin then
                             QMergeNode.ofNodes dom a b |> InMemoryMerge
-                            //failwith "todo: mergeToCommonRoot (b is a quadrant of centered cell a)"
+                        else
+                            if bcell.Exponent + 1 < acell.Exponent then
+                                mergeToCommonRoot dom a (b |> growParent)
+                            else
+                                // b is a quadrant of centered cell a
+                                invariant (bcell.Exponent + 1 = acell.Exponent && bcell.TouchesOrigin) "8ac53980-f7c9-4cae-8002-6f98560deb97"
+                                QMergeNode.ofNodes dom a b |> InMemoryMerge
                     else
                         mergeToCommonRoot dom a (b |> growParent)
 

@@ -27,8 +27,13 @@ module Prelude =
         (parent, qi)
 
     let rec getParentForLevel level (c : Cell2d) =
-        if c.Exponent > level then failwith "Cell exponent must be less or equal than requiested level. Invariant e51c067e-bfb9-4548-a685-322dfad65da2."
+        if c.Exponent > level then failwith "Cell exponent must be less or equal than requested level. Invariant e51c067e-bfb9-4548-a685-322dfad65da2."
         if c.Exponent = level then c else getParentForLevel level c.Parent
+
+    /// If any of the cells is centered, then this returns false.
+    let inline inDifferentQuadrants (a : Cell2d) (b : Cell2d) =
+        if a.IsCenteredAtOrigin || b.IsCenteredAtOrigin then false
+        else ((a.X >= 0L) <> (b.X >= 0L)) || ((a.Y >= 0L) <> (b.Y >= 0L))
             
 
 module Option =
@@ -58,7 +63,41 @@ type Cell2dExtensions =
 
     [<Extension>]
     static member Union (a : Cell2d, b : Cell2d) : Cell2d =
-        Cell2d(Box2d(a.BoundingBox, b.BoundingBox))
+        
+        let inline growUntilTouchesOrigin (c : Cell2d) =
+            if c.IsCenteredAtOrigin then failwith "Cell must not be centered. Error d46dccaa-ddba-4da1-84dc-db805ef9890e."
+            let mutable c = c
+            while not c.TouchesOrigin do c <- c.Parent
+            c
+
+        let inline firstIsCentered (other : Cell2d) =
+            let mutable c = other
+            while not c.TouchesOrigin do c <- c.Parent
+            Cell2d(c.Exponent + 1)
+        
+        let bothAreNotCentered (a : Cell2d) (b : Cell2d) =
+            
+            if inDifferentQuadrants a b then
+                let a = growUntilTouchesOrigin a
+                let b = growUntilTouchesOrigin b
+                if a.Exponent >= b.Exponent then Cell2d(a.Exponent + 1) else Cell2d(b.Exponent + 1)
+            else
+                let mutable a = a
+                let mutable b = b
+                let mutable i = 0
+                while a <> b do
+                    i <- i + 1
+                    if i = 1000 then failwith "khjlkhkjh"
+                    if a.Exponent = b.Exponent then a <- a.Parent; b <- b.Parent
+                    elif a.Exponent > b.Exponent then b <- b.Parent
+                    else a <- a.Parent
+                a
+                
+        match a.IsCenteredAtOrigin, b.IsCenteredAtOrigin with
+        | false, false -> bothAreNotCentered a b
+        | true,  false -> firstIsCentered b
+        | false, true  -> firstIsCentered a
+        | true,  true  -> if a.Exponent > b.Exponent then a else b
 
     [<Extension>]
     static member GetBoundsForExponent (self : Cell2d, e : int) : Box2l =
