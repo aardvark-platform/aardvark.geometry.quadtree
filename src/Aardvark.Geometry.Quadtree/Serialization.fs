@@ -198,7 +198,7 @@ module Serialization =
             let dm = layer.Materialize().ToDurableMap ()
             map.Add(kvp layerDef dm)
         
-        DurableCodec.Serialize(Defs.Node, map)
+        DurableCodec.Serialize(Defs.NodeLeaf, map)
 
     let private decodeQNode (options: SerializationOptions) (def : Durable.Def) (o : obj) =
         
@@ -240,11 +240,8 @@ module Serialization =
         let id   = map.Get(Defs.NodeId)              :?> Guid
         let cell = map.Get(Defs.CellBounds)          :?> Cell2d
         let sle  = map.Get(Defs.SplitLimitExponent)  :?> int
-        let ebb  = match map.TryGetValue(Defs.ExactBoundingBox) with
-                   | true,  x -> x :?> Box2d
-                   | false, _ -> Box2d.Invalid
         
-        let layers : ILayer[] =  
+        let layerSet =  
             map 
             |> Seq.choose (fun kv ->
                 match Defs.TryGetDefFromLayer kv.Key with
@@ -254,11 +251,19 @@ module Serialization =
                 | None -> None
                 )
             |> Seq.toArray
+            |> LayerSet
+        invariant (layerSet.Layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
+        
+        // generating ebb from layer data is fast (no loading of out-of-core subnodes)
+        // but overstates the actual ebb
+        let ebbFromLayerSet =
+            match map.TryGetValue(Defs.ExactBoundingBox) with
+            | true,  x -> failwith "Old node data should not have ebb. Error bd29a126-2cdb-47ee-a8c6-342c9f4aec6c."  //x :?> Box2d
+            | false, _ -> layerSet.BoundingBox //Box2d.Invalid
 
-        let layerSet = LayerSet(layers)
-
-        invariant (layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
-
+        // this is the exact ebb
+        // (computed from the original data)
+        let mutable ebbFromOutOfCore = Box2d.Invalid
         let subNodes =
             match map.TryGetValue(Defs.SubnodeIds) with
             | (false, _)   -> None
@@ -268,9 +273,13 @@ module Serialization =
                     if k = Guid.Empty then
                         NoNode
                     else
+                        let tmp = options.LoadNode k
+                        ebbFromOutOfCore <- Box2d(ebbFromOutOfCore, tmp.ExactBoundingBox)
                         OutOfCoreNode (k, (fun () -> options.LoadNode k))
                     )
                 Some xs
+
+        let ebb = if ebbFromOutOfCore.IsValid then ebbFromOutOfCore else ebbFromLayerSet
 
         match subNodes with
         | Some ns -> InMemoryInner { Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle; SubNodes = ns }

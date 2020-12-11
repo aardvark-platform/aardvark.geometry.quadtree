@@ -292,7 +292,7 @@ module cpunz =
         //    ("Quadtree.Merge SecondDominates subTree mainTree", Quadtree.Merge SecondDominates subTree mainTree)
         //    ]
     
-        Quadtree.printStructure mainTree
+        Quadtree.printStructure true mainTree
         mainTree    |> test (V4f(1.0f, 0.0f, 0.0f, 0.0f))
         subTree     |> test (V4f(1.5f, 1.0f, 0.0f, 0.0f))
 

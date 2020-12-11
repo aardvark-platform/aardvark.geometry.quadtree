@@ -610,6 +610,8 @@ let cpunz20201116 () =
     ()
 
 open PrettyPrint
+open Aardvark.Geometry.Quadtree.Serialization
+
 let prettyPrintTest () =
 
     let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
@@ -631,8 +633,26 @@ let prettyPrintTest () =
     ()
 
 
+let loadObsoleteFormatTest () =
+
+    let options = SerializationOptions.SimpleDiskStore(@"T:\Vgm\Data\Raster\20201210_obsolete_quadtree_store")
+    
+    let key1 = Guid("ae0aeb3e-3444-44bd-9aaf-c005d4e39f89")
+    let key2 = Guid("b2706ae3-36b1-4545-8742-eb706957a915")
+    let q1 = Quadtree.Load options key2
+    
+    let xs1 = Query.All Query.Config.Default q1 |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
+    printfn "%d" xs1.Length
+
+    //Quadtree.printStructure true q1
+
+    ()
+
+
 [<EntryPoint>]
 let main argv =
+
+    loadObsoleteFormatTest()
 
     //prettyPrintTest ()
 
@@ -653,7 +673,7 @@ let main argv =
 
     //subtractionEnumerationTest ()
    
-    cpunz20200925 ()
+    //cpunz20200925 ()
 
     //cpunz20200923 ()
 

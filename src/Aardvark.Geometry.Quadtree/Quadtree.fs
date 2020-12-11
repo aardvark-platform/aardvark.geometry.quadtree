@@ -34,13 +34,16 @@ module Quadtree =
     let rec CountInner root = root |> tryCount 0 1
 
 
-    let printStructure (n : QNodeRef) =
+    let printStructure (outOfCore : bool) (n : QNodeRef) =
 
         let rec print indent (n : QNodeRef) =
             match n with
-            | NoNode                -> printfn "%sNoNode" indent
-            | InMemoryNode n        -> printfn "%sInMemoryNode %A" indent n.Cell
-            | OutOfCoreNode (id,_)  -> printfn "%sOutOfCoreNode %A" indent id
+            | NoNode                  -> printfn "%sNoNode" indent
+            | InMemoryNode n          -> printfn "%sInMemoryNode %A" indent n.Cell
+            | OutOfCoreNode (id,load) -> if outOfCore then
+                                            print indent (load())
+                                         else
+                                            printfn "%sOutOfCoreNode %A" indent id
             | InMemoryInner n       -> printfn "%sInMemoryInner %A" indent n.Cell
                                        for n in n.SubNodes do print (indent + "  ") n
             | InMemoryMerge n       -> printfn "%sInMemoryMerge %A" indent n.Cell
