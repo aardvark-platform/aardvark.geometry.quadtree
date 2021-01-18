@@ -648,11 +648,28 @@ let loadObsoleteFormatTest () =
 
     ()
 
+let loadObsoleteFormatTest_20201223 () =
+
+    let options = SerializationOptions.SimpleDiskStore(@"T:\Vgm\Data\Raster\20201223_testdtm_store\testdtm_store")
+    
+    let key1 = Guid("a1329b63-5763-4687-b4f1-e5948e30870b")
+    let key2 = Guid("69d15895-5fbc-4a22-8bf2-a7c788a2df0c")
+
+    let q1 = Quadtree.Load options key1
+    Quadtree.printStructure true q1
+
+    let q2 = Quadtree.Load options key2
+    Quadtree.printStructure true q2
+
+    ()
+
 
 [<EntryPoint>]
 let main argv =
 
-    loadObsoleteFormatTest()
+    loadObsoleteFormatTest_20201223()
+
+    //loadObsoleteFormatTest()
 
     //prettyPrintTest ()
 
