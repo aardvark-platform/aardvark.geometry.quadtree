@@ -42,7 +42,6 @@ module Query =
         | FullySelected
         | CellsSelected of Cell2d[]
         | SubCellsSelected of Cell2d[]
-        | SubSubCellsSelected of Cell2d[]
         | WindowSelected of Box2l
         | SubtractionSelected of Box2l // full node except given box
         | NotSelected
@@ -57,7 +56,6 @@ module Query =
             | NotSelected -> Array.empty
             | CellsSelected cells -> cells
             | SubCellsSelected cells -> cells
-            | SubSubCellsSelected cells -> cells
             | WindowSelected window -> this.Node.GetAllSamplesInsideWindow(window)
             | SubtractionSelected second -> this.Node.LayerSet.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.LayerSet.SampleExponent)
             | FullySelected -> this.Node.GetAllSamples()
@@ -126,9 +124,13 @@ module Query =
                     yield y
         }
 
-    /// xs dominate if same detail, otherwise more detailed dominates
-    let private mergeMoreDetailed (config : Config)  (xs : Result seq) (ys : Result seq) : Result seq =
-        failwith "todo: mergeMoreDetailed"
+    let private merge (config : Config) (dom : Dominance) (xs : Result seq) (ys : Result seq) : Result seq =
+        
+        match dom with
+        | FirstDominates
+        | MoreDetailedOrFirst  -> mergeDominating config xs ys
+        | SecondDominates
+        | MoreDetailedOrSecond -> mergeDominating config ys xs
 
 
     /// The generic query function.
@@ -141,14 +143,6 @@ module Query =
             : Result seq =
 
         let recurse = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside
-
-        let merge (dom : Dominance) (xs : Result seq) (ys : Result seq) : Result seq =
-            
-            match dom with
-            | FirstDominates       -> mergeDominating   config xs ys
-            | SecondDominates      -> mergeDominating   config ys xs
-            | MoreDetailedOrFirst  -> mergeDominating   config xs ys //mergeMoreDetailed config xs ys
-            | MoreDetailedOrSecond -> mergeDominating   config ys xs //mergeMoreDetailed config ys xs
 
         seq {
 
@@ -173,7 +167,7 @@ module Query =
                     let xs = (n.First |> recurse)
                     let ys = (n.Second |> recurse)
                     if config.Verbose then printfn "[Generic ]     merge first + second  %A" n.Cell
-                    yield! merge n.Dominance xs ys
+                    yield! merge config n.Dominance xs ys
                 else
                     // first and second do not interfere, so simply return all samples of both
                     if config.Verbose then printfn "[Generic ]     yield first  %A" n.Cell
@@ -298,7 +292,21 @@ module Query =
             | NoNode                    -> ()
             | OutOfCoreNode (_, load)   -> yield! load() |> recurse
             | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
-            | InMemoryMerge n           -> failwith "Query.Generic'(InMemoryMerge). Todo 38a8467c-0b69-4809-809e-caa3b5a582e4."
+            | InMemoryMerge n           ->
+
+                if config.Verbose then printfn "[Generic'] InMemoryMerge %A" n.Cell
+                if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
+                    let xs = (n.First |> recurse)
+                    let ys = (n.Second |> recurse)
+                    if config.Verbose then printfn "[Generic']     merge first + second  %A" n.Cell
+                    yield! merge config n.Dominance xs ys
+                else
+                    // first and second do not interfere, so simply return all samples of both
+                    if config.Verbose then printfn "[Generic']     yield first  %A" n.Cell
+                    yield! n.First  |> recurse
+                    if config.Verbose then printfn "[Generic']     yield second %A" n.Cell
+                    yield! n.Second |> recurse
+
             | InMemoryNode n            ->
 
                 invariantm (n.Cell.Exponent >= config.MinExponent)

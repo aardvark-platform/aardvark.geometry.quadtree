@@ -437,7 +437,8 @@ let cpunz20200925 () =
             count <- count + 1
             //if count % 1000 = 0 then printfn "[progress] %d" count
             let config = Query.Config.Default
-            qtree |> Query.IntersectsCell' config cellForQuery |> makeReturnValOfQueryResults
+            let result = qtree |> Query.IntersectsCell config cellForQuery |> makeReturnValOfQueryResults
+            result
 
         let dtmCellsZeroBased = 
             Query.InsidePolygon Query.Config.Default polygon q0
@@ -663,11 +664,47 @@ let loadObsoleteFormatTest_20201223 () =
 
     ()
 
+let intersectsCellTest_20210122 () =
+
+    let createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (value : float32) =
+        let size = V2i(w, h)
+        let xs = Array.zeroCreate<float32> (w * h)
+        for y = 0 to size.Y - 1 do
+            for x = 0 to size.X - 1 do
+                let i = y * size.X + x
+                xs.[i] <- value
+
+        let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
+
+        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
+        Quadtree.Build config [| a |]
+
+    let a = createQuadtreeWithValue 0 0 5 3  0 0 10.0f
+    let b = createQuadtreeWithValue 5 3 1 1 -1 0 20.0f
+    let m = Quadtree.Merge SecondDominates a b
+    
+    let filter = Cell2d(0,0,2)
+    let xs = Query.IntersectsCell  Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
+    let ys = Query.IntersectsCell' Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
+    
+    printfn "%d" xs.Length
+    printfn "%d" ys.Length
+
+    if xs.Length <> ys.Length then failwith "different result"
+
+    for i = 0 to xs.Length-1 do
+        let (xcell, xsample) = xs.[i]
+        let (ycell, ysample) = ys.[i]
+        let ok = if xcell = ycell && xsample = ysample then " " else "X"
+        printfn "%A = %A    %s" xcell ycell ok
+
 
 [<EntryPoint>]
 let main argv =
 
-    loadObsoleteFormatTest_20201223()
+    intersectsCellTest_20210122 ()
+
+    //loadObsoleteFormatTest_20201223()
 
     //loadObsoleteFormatTest()
 

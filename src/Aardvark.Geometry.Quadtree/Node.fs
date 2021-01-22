@@ -3,9 +3,6 @@
 open Aardvark.Base
 open Aardvark.Data
 open System
-open System.Collections.Generic
-open System.Threading
-open System.Collections.Immutable
 
 (*
     Node.
@@ -66,48 +63,6 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
         | None -> None
         | Some newLayers -> QNode(exactBoundingBox, cell, splitLimitExp, newLayers) |> Some
         
-    //member this.Save options : Guid =
-    //    let map = List<KeyValuePair<Durable.Def, obj>>()
-
-    //    // node properties
-    //    map.Add(kvp Defs.NodeId uid)
-    //    map.Add(kvp Defs.CellBounds cell)
-    //    map.Add(kvp Defs.SplitLimitExponent splitLimitExp)
-    //    map.Add(kvp Defs.ExactBoundingBox this.ExactBoundingBox)
-                
-    //    // layers
-    //    for layer in layers.Layers do
-    //        let layerDef = Defs.GetLayerFromDef layer.Def
-    //        let dm = layer.Materialize().ToDurableMap ()
-    //        map.Add(kvp layerDef dm)
-
-    //    // children
-    //    //match subNodes with
-    //    //| Some xs ->
-
-    //    //    // recursively store subnodes (where necessary)
-    //    //    for x in xs do 
-    //    //        match x with 
-    //    //        | InMemoryNode n    -> if not (options.Exists n.Id) then n.Save options |> ignore
-    //    //        | NoNode            -> () // nothing to store
-    //    //        | OutOfCoreNode _   -> () // already stored
-    //    //        | InMemoryInner n       -> failwith "Implement InnerNode.Save. Todo 2f9dc484-2c48-4b8e-9b4f-a23d108f7279."
-
-    //    //    // collect subnode IDs 
-    //    //    let ids = xs |> Array.map (fun x -> 
-    //    //        match x with 
-    //    //        | NoNode -> Guid.Empty
-    //    //        | InMemoryNode n -> n.Id
-    //    //        | OutOfCoreNode (id, _) -> id
-    //    //        | InMemoryInner n -> n.Id
-    //    //        )
-    //    //    map.Add(kvp Defs.SubnodeIds ids)
-    //    //| None -> ()
-
-    //    let buffer = DurableCodec.Serialize(Defs.Node, map)
-    //    options.Save uid buffer
-    //    uid
-
     member _.LayerSet with get() = layers
 
     member this.ContainsLayer (semantic : Durable.Def) : bool =
@@ -148,65 +103,6 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
 
     member this.GetSample (p : V2d) : Cell2d =
         layers.Mapping.GetSampleCell(p)
-
-   
-    
-
-    //static member Load (options: SerializationOptions) (id : Guid) : QNodeRef =
-    //    if id = Guid.Empty then
-    //        NoNode
-    //    else
-    //        match options.TryLoad id with
-    //        | None -> NoNode
-    //        | Some buffer ->
-    //            let struct (def, o) = DurableCodec.Deserialize(buffer)
-    //            if def = Defs.Node then
-    //                let map = o :?> ImmutableDictionary<Durable.Def, obj>
-    //                let id                  = map.Get(Defs.NodeId)                  :?> Guid
-    //                let cell                = map.Get(Defs.CellBounds)              :?> Cell2d
-    //                let splitLimitExp       = map.Get(Defs.SplitLimitExponent)      :?> int
-    //                let exactBoundingBox    = match map.TryGetValue(Defs.ExactBoundingBox) with
-    //                                          | true,  x -> x :?> Box2d
-    //                                          | false, _ -> Box2d.Invalid
-                
-    //                let layers : ILayer[] =  
-    //                    map 
-    //                    |> Seq.choose (fun kv ->
-    //                        match Defs.TryGetDefFromLayer kv.Key with
-    //                        | Some def -> 
-    //                            let m = kv.Value :?> ImmutableDictionary<Durable.Def, obj>
-    //                            Layer.FromDurableMap def m |> Some
-    //                        | None -> None
-    //                        )
-    //                    |> Seq.toArray
-
-    //                let layerSet = LayerSet(layers)
-
-    //                invariant (layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
-
-    //                //let subNodes =
-    //                //    match map.TryGetValue(Defs.SubnodeIds) with
-    //                //    | (false, _)   -> None
-    //                //    | (true, o) ->
-    //                //        let keys = o :?> Guid[]
-    //                //        let xs = keys |> Array.map (fun k ->
-    //                //            if k = Guid.Empty then
-    //                //                NoNode
-    //                //            else
-    //                //                OutOfCoreNode (k, (fun () ->
-    //                //                    match QNode.Load options k with
-    //                //                    | InMemoryNode n        -> n
-    //                //                    | NoNode                -> failwith "Invariant de92e0d9-0dd2-4fc1-b4c7-0ace2910ce24."
-    //                //                    | OutOfCoreNode (_, _)  -> failwith "Invariant 59c84c71-9043-41d4-abc0-4e1f49b8e2ba."
-    //                //                    | InMemoryInner _           -> failwith "Invariant 91691cf0-d728-4814-994a-96707d95be1f."
-    //                //                    ))
-    //                //            )
-    //                //        Some xs
-
-    //                let n = QNode(id, exactBoundingBox, cell, splitLimitExp, layerSet)
-    //                InMemoryNode n
-    //            else
-    //                failwith "Loading quadtree failed. Invalid data. f1c2fcc6-68d2-47f3-80ff-f62b691a7b2e."
 
 and
     QInnerNode = {
