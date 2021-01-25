@@ -4,6 +4,7 @@ open Aardvark.Base
 open Aardvark.Data
 open System
 open System.Collections.Generic
+open System.Threading
 
 module Query =
 
@@ -218,14 +219,6 @@ module Query =
         let isSampleInside (n : Cell2d) = filter.Contains n
         Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
-    /// Returns all samples intersecting given cell.
-    let IntersectsCell (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
-        let filterBb = filter.BoundingBox
-        let isNodeFullyInside (n : QNodeRef) = filterBb.Contains n.ExactBoundingBox
-        let isNodeFullyOutside (n : QNodeRef) = not (filterBb.Intersects n.ExactBoundingBox)
-        let isSampleInside (n : Cell2d) = filterBb.Intersects n.BoundingBox
-        Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
-
     /// Returns all samples inside given box.
     let InsideBox (config : Config) (filter : Box2d) (root : QNodeRef) : Result seq =
         let isNodeFullyInside (n : QNodeRef) = filter.Contains n.ExactBoundingBox
@@ -269,7 +262,6 @@ module Query =
             let dist = filter.GetDistanceToRay(p)
             dist <= withinDistance
         Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
-
 
     (* 
         Faster implementation than "Generic". 
@@ -338,9 +330,8 @@ module Query =
                                 yield result
         }
 
-    
     /// Returns all samples intersecting given cell.
-    let IntersectsCell' (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
+    let IntersectsCell (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =
         let filterBb = filter.BoundingBox
         let isNodeFullyInside  (n : QNodeRef) = filterBb.Contains n.ExactBoundingBox
         let isNodeFullyOutside (n : QNodeRef) = not (filterBb.Intersects n.ExactBoundingBox)
@@ -355,6 +346,10 @@ module Query =
             | _ -> failwith "todo"
 
         Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside root
+
+    [<Obsolete("Use IntersectsCell instead.")>]
+    let IntersectsCell' = IntersectsCell
+
 
     /// Enumerates all samples in quadtree, including samples from inner cells.
     let rec Full (root : QNodeRef) : Result seq = seq {

@@ -417,23 +417,6 @@ module MergeTests =
         check 1 1 -1   10.0f
     
     [<Fact>]
-    let ``Query_IntersectsCell_LayersWithDifferentResolution`` () =
-
-        // Query.IntersectsCell'
-        let a = createQuadtreeWithValue 0 0 5 3  0 0<powerOfTwo> 10.0f
-        let b = createQuadtreeWithValue 5 3 1 1 -1 0<powerOfTwo> 20.0f
-        let m = Quadtree.Merge SecondDominates a b
-    
-        let filter = Cell2d(0,0,2)
-        let xs = Query.IntersectsCell  Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
-        let ys = Query.IntersectsCell' Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
-        
-        xs.Length > 0           |> Assert.True
-        ys.Length > 0           |> Assert.True
-        xs.Length = ys.Length   |> Assert.True
-        Array.forall2 (=) xs ys |> Assert.True
-
-    [<Fact>]
     let ``Merge_LayersWithDifferentResolution_256`` () =
 
         let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
