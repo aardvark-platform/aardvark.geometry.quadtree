@@ -14,6 +14,7 @@ module Serialization =
         TryLoad : Guid -> byte[] option
         Exists : Guid -> bool
         Decoder : Decoder
+        Cache : Dictionary<Guid, QNodeRef>
         }
     with
     
@@ -22,6 +23,7 @@ module Serialization =
             TryLoad = fun _     -> failwith "No store defined. Invariant fd1748c0-6eff-4e08-822a-3d708e54e393."
             Exists  = fun _     -> failwith "No store defined. Invariant 0f9c8cfd-21dd-4973-b88d-97629a5d2804."
             Decoder = fun _ _ _ -> failwith "No decoder defined. Invariant 49284081-8eac-42b1-8ecc-3ffb71551393."
+            Cache   = Dictionary<Guid, QNodeRef>()
             }
     
         static member private inMemoryStoreCount : int = 0
@@ -58,6 +60,14 @@ module Serialization =
                     TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
+
+        static member SimpleDiskStore (store : Uncodium.SimpleStore.ISimpleStore) =
+            {
+                SerializationOptions.Default with
+                    Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
+                    TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
+                    Exists  = fun id        -> store.Contains(id.ToString())
+            }
     
         static member SimpleFolderStore (path : string) =
             let store = new Uncodium.SimpleStore.SimpleFolderStore(path)
@@ -69,11 +79,16 @@ module Serialization =
             }
 
         member this.LoadNode (id : Guid) : QNodeRef =
-            match this.TryLoad id with
-            | None -> NoNode
-            | Some buffer ->
-                let struct (def, o) = DurableCodec.Deserialize(buffer)
-                this.Decoder this def o
+            match this.Cache.TryGetValue(id) with
+            | true,  n -> n
+            | false, _ ->
+                match this.TryLoad id with
+                | None -> NoNode
+                | Some buffer ->
+                    let struct (def, o) = DurableCodec.Deserialize(buffer)
+                    let n = this.Decoder this def o
+                    this.Cache.Add(id, n)
+                    n
     
     and
 
