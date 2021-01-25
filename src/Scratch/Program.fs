@@ -633,7 +633,6 @@ let prettyPrintTest () =
 
     ()
 
-
 let loadObsoleteFormatTest () =
 
     let options = SerializationOptions.SimpleDiskStore(@"T:\Vgm\Data\Raster\20201210_obsolete_quadtree_store")
@@ -685,24 +684,97 @@ let intersectsCellTest_20210122 () =
     
     let filter = Cell2d(0,0,2)
     let xs = Query.IntersectsCell  Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
-    let ys = Query.IntersectsCell' Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
+    //let ys = Query.IntersectsCell' Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
     
     printfn "%d" xs.Length
-    printfn "%d" ys.Length
+    //printfn "%d" ys.Length
 
-    if xs.Length <> ys.Length then failwith "different result"
+    //if xs.Length <> ys.Length then failwith "different result"
 
-    for i = 0 to xs.Length-1 do
-        let (xcell, xsample) = xs.[i]
-        let (ycell, ysample) = ys.[i]
-        let ok = if xcell = ycell && xsample = ysample then " " else "X"
-        printfn "%A = %A    %s" xcell ycell ok
+    //for i = 0 to xs.Length-1 do
+    //    let (xcell, xsample) = xs.[i]
+    //    let (ycell, ysample) = ys.[i]
+    //    let ok = if xcell = ycell && xsample = ysample then " " else "X"
+    //    printfn "%A = %A    %s" xcell ycell ok
+
+/// fast when in memory, slow when from disk
+let intersectsCellTest_20210125 () =
+
+    let storeFolder = @"T:\tmp\intersectsCellTest_20210125"
+
+    let createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (value : float32) =
+        let size = V2i(w, h)
+        let xs = Array.zeroCreate<float32> (w * h)
+        for y = 0 to size.Y - 1 do
+            for x = 0 to size.X - 1 do
+                let i = y * size.X + x
+                xs.[i] <- value
+
+        let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
+
+        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
+        Quadtree.Build config [| a |]
+
+    let sw = Stopwatch()
+
+    sw.Restart()
+    printfn "creating quadtree a"
+    let a = createQuadtreeWithValue    0    0 5000 3000  0 8 10.0f
+    printfn "%A" sw.Elapsed
+
+    sw.Restart()
+    printfn "creating quadtree b"
+    let b = createQuadtreeWithValue 5000 3000 1000 1000 -1 8 20.0f
+    printfn "%A" sw.Elapsed
+
+    sw.Restart()
+    printfn "merging"
+    let m = Quadtree.Merge SecondDominates a b
+    printfn "%A" sw.Elapsed
+
+    sw.Restart()
+    printfn "save"
+    let store = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder)
+    let so = SerializationOptions.SimpleDiskStore store
+    let id = Quadtree.Save so m
+    store.Dispose()
+    printfn "%A" id
+    printfn "%A" sw.Elapsed
+
+    sw.Restart()
+    printfn "load"
+    let store = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder)
+    let so = SerializationOptions.SimpleDiskStore store
+    let mReloaded = Quadtree.Load so id
+    printfn "%A" id
+    printfn "%A" sw.Elapsed
+
+    sw.Restart()
+    printfn "query (in-memory)"
+    for x=0 to 100 do
+        for y=0 to 100 do
+            let filter = Cell2d(0,0,2)
+            let ys = Query.IntersectsCell Query.Config.Default filter m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
+            ()
+    printfn "%A" sw.Elapsed
+
+    sw.Restart()
+    printfn "query (out-of-core)"
+    for x=0 to 100 do
+        for y=0 to 100 do
+            let filter = Cell2d(0,0,2)
+            let ys = Query.IntersectsCell Query.Config.Default filter mReloaded |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
+            ()
+    printfn "%A" sw.Elapsed
+    
 
 
 [<EntryPoint>]
 let main argv =
 
-    intersectsCellTest_20210122 ()
+    intersectsCellTest_20210125 ()
+
+    //intersectsCellTest_20210122 ()
 
     //loadObsoleteFormatTest_20201223()
 
