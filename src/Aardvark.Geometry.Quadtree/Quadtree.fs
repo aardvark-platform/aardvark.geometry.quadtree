@@ -20,19 +20,27 @@ with
 
 module Quadtree =
 
-    let rec private tryCount a b (root : QNodeRef) =
-
+    /// Count in-memory nodes. Out-of-core nodes are handled like leaf nodes.
+    let rec private tryCount (outOfCore : bool) (a : int) (b : int) (root : QNodeRef) =
+        let recurse = tryCount outOfCore a b
         match root with
-        | NoNode                -> 0
-        | InMemoryNode _        -> a
-        | OutOfCoreNode (_, _)  -> a
-        | InMemoryInner n       -> b + (n.SubNodes |> Array.sumBy (tryCount a b))
-        | InMemoryMerge n       -> b + (n.First |> tryCount a b) + (n.Second |> tryCount a b)
+        | NoNode                    -> 0
+        | InMemoryNode _            -> a
+        | OutOfCoreNode (_, load)   -> if outOfCore then load() |> recurse else a
+        | InMemoryInner n           -> b + (n.SubNodes |> Array.sumBy recurse)
+        | InMemoryMerge n           -> b + (n.First |> recurse) + (n.Second |> recurse)
 
-    let rec CountNodes root = root |> tryCount 1 1
-    let rec CountLeafs root = root |> tryCount 1 0
-    let rec CountInner root = root |> tryCount 0 1
+    /// Count number of nodes in quadtree.
+    /// If outOfCore is false, then out-of-core nodes are handled like leafs.
+    let rec CountNodes outOfCore root = root |> tryCount outOfCore 1 1
 
+    /// Count number of leaf nodes in quadtree.
+    /// If outOfCore is false, then out-of-core nodes are handled like leafs.
+    let rec CountLeafs outOfCore root = root |> tryCount outOfCore 1 0
+
+    /// Count number of inner nodes in quadtree.
+    /// If outOfCore is false, then out-of-core nodes are handled like leafs.
+    let rec CountInner outOfCore root = root |> tryCount outOfCore 0 1
 
     let printStructure (outOfCore : bool) (n : QNodeRef) =
 
@@ -159,3 +167,11 @@ module Quadtree =
     /// Throws if quadtree contains both 'oldSemantic' and 'newSemantic'.
     let UpdateLayerSemantic (oldSemantic : Durable.Def, newSemantic : Durable.Def) (qtree : QNodeRef) : bool * QNodeRef =
         qtree.UpdateLayerSemantic(oldSemantic, newSemantic)
+
+    /// Enumerates node ids of given quadtree.
+    let EnumerateKeys (outOfCore : bool) (qtree : QNodeRef) : Guid seq =
+        Serialization.EnumerateKeys outOfCore qtree
+
+    /// Export quadtree with given id from source to target.
+    let Export (source : SerializationOptions) (target : SerializationOptions) (progress : Option<int * int -> unit>) (id : Guid) : unit =
+        Serialization.Export source target progress id

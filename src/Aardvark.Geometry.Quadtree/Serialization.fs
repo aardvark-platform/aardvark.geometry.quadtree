@@ -9,12 +9,25 @@ open System.Threading
 
 module Serialization =
 
+    type Cache = {
+        TryGet : Guid -> QNodeRef option
+        Add    : Guid -> QNodeRef -> unit
+        }
+    with
+        static member Default =
+            let d = Dictionary<Guid, QNodeRef>()
+            let tryGet id = match d.TryGetValue(id) with | true, n -> Some n | false, _ -> None
+            let add id n = d.Add(id, n)
+            { TryGet = tryGet; Add = add }
+        static member None =
+            { TryGet = (fun _ -> None); Add = (fun _ _ -> ()) }
+
     type SerializationOptions = {
         Save : Guid -> byte[] -> unit
         TryLoad : Guid -> byte[] option
         Exists : Guid -> bool
         Decoder : Decoder
-        Cache : Dictionary<Guid, QNodeRef>
+        Cache : Cache
         }
     with
     
@@ -23,7 +36,7 @@ module Serialization =
             TryLoad = fun _     -> failwith "No store defined. Invariant fd1748c0-6eff-4e08-822a-3d708e54e393."
             Exists  = fun _     -> failwith "No store defined. Invariant 0f9c8cfd-21dd-4973-b88d-97629a5d2804."
             Decoder = fun _ _ _ -> failwith "No decoder defined. Invariant 49284081-8eac-42b1-8ecc-3ffb71551393."
-            Cache   = Dictionary<Guid, QNodeRef>()
+            Cache   = Cache.Default
             }
     
         static member private inMemoryStoreCount : int = 0
@@ -79,15 +92,15 @@ module Serialization =
             }
 
         member this.LoadNode (id : Guid) : QNodeRef =
-            match this.Cache.TryGetValue(id) with
-            | true,  n -> n
-            | false, _ ->
+            match this.Cache.TryGet(id) with
+            | Some n -> n
+            | None   ->
                 match this.TryLoad id with
                 | None -> NoNode
                 | Some buffer ->
                     let struct (def, o) = DurableCodec.Deserialize(buffer)
                     let n = this.Decoder this def o
-                    this.Cache.Add(id, n)
+                    this.Cache.Add id n
                     n
     
     and
@@ -350,3 +363,32 @@ module Serialization =
             let struct (def, o) = DurableCodec.Deserialize(buffer)
             decode options def o
 
+    /// Enumerates node ids of given quadtree.
+    let rec EnumerateKeys (outOfCore : bool) (qtree : QNodeRef) : Guid seq = seq {
+        let recurse = EnumerateKeys outOfCore
+        match qtree with
+        | NoNode -> ()
+        | InMemoryNode n          -> yield n.Id
+        | InMemoryInner n         -> yield n.Id; for x in n.SubNodes do yield! recurse  x
+        | InMemoryMerge n         -> yield n.Id; yield! recurse n.First; yield! recurse n.Second
+        | OutOfCoreNode (_, load) -> yield! load() |> recurse
+
+        }
+
+    /// Export quadtree with given id from source to target.
+    let Export (source : SerializationOptions) (target : SerializationOptions) (progress : Option<int * int -> unit>) (id : Guid) : unit =
+        let source = { source with Cache = Cache.None }
+        let target = { target with Cache = Cache.None }
+
+        let keys = id |> Load source |> EnumerateKeys true
+
+        let total = if progress.IsSome then keys |> Seq.length else 0
+
+        keys |> Seq.iteri (fun i key ->
+            match source.TryLoad key with
+            | Some buffer ->
+                target.Save key buffer
+                if progress.IsSome then progress.Value (i + 1, total) else ()
+            | None ->
+                sprintf "Failed to load key %A from source." key |> failwith
+            )

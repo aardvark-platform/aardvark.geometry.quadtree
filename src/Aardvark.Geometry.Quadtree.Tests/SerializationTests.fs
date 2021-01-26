@@ -184,3 +184,38 @@ module SerializationTests =
         Assert.True(xs2.Length > 0)
 
         ()
+
+    [<Fact>]
+    let ``Quadtree export`` () =
+        let createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (value : float32) =
+            let size = V2i(w, h)
+            let xs = Array.zeroCreate<float32> (w * h)
+            for y = 0 to size.Y - 1 do
+                for x = 0 to size.X - 1 do
+                    let i = y * size.X + x
+                    xs.[i] <- value
+
+            let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
+
+            let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
+            Quadtree.Build config [| a |]
+
+        let a = createQuadtreeWithValue    0    0 5000 3000  0 8 10.0f
+        let b = createQuadtreeWithValue 5000 3000 1000 1000 -1 8 20.0f
+        let m = Quadtree.Merge SecondDominates a b
+
+        let nodeCount = m |> Quadtree.CountNodes true
+
+        let store = new Uncodium.SimpleStore.SimpleMemoryStore()
+        let so = SerializationOptions.SimpleDiskStore store
+        let id = Quadtree.Save so m
+
+        do
+            let source = so
+            let target = SerializationOptions.NewInMemoryStore()
+            let progress (x, total) = printf "\r[progress] %d/%d" x total
+            id |> Quadtree.Export source target (Some progress)
+            printfn ""
+
+            let exportNodeCount = id |> Quadtree.Load target |> Quadtree.EnumerateKeys true |> Seq.length
+            exportNodeCount = nodeCount |> Assert.True

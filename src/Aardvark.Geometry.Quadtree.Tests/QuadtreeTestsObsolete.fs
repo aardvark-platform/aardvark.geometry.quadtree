@@ -26,12 +26,12 @@ module QuadtreeTestsObsolete =
     let ``Build_BilinearParams4f`` () =
 
         let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4f (fun x y -> V4f.Zero)
-        Assert.True(Quadtree.CountLeafs q = 6)
-        Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+        Assert.True(Quadtree.CountLeafs true q = 6)
+        Assert.True(Quadtree.CountNodes true q = Quadtree.CountInner true q + Quadtree.CountLeafs true q)
 
     [<Fact>]
     let ``Build_BilinearParams4d`` () =
 
         let q = createQuadtree' 0 0 10 7 0 2 Defs.BilinearParams4d (fun x y -> V4d.Zero)
-        Assert.True(Quadtree.CountLeafs q = 6)
-        Assert.True(Quadtree.CountNodes q = Quadtree.CountInner q + Quadtree.CountLeafs q)
+        Assert.True(Quadtree.CountLeafs true q = 6)
+        Assert.True(Quadtree.CountNodes true q = Quadtree.CountInner true q + Quadtree.CountLeafs true q)

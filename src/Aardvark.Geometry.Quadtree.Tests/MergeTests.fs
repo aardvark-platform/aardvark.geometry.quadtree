@@ -22,16 +22,16 @@ module MergeTests =
         Assert.True(q11.Cell = Cell2d(1L, 1L, 3))
 
         let m1 = Quadtree.Merge SecondDominates q00 q10
-        Assert.True(Quadtree.CountLeafs m1 = 8)
-        Assert.True(Quadtree.CountNodes m1 = Quadtree.CountInner m1 + Quadtree.CountLeafs m1)
+        Assert.True(Quadtree.CountLeafs true m1 = 8)
+        Assert.True(Quadtree.CountNodes true m1 = Quadtree.CountInner true m1 + Quadtree.CountLeafs true m1)
 
         let m2 = Quadtree.Merge SecondDominates m1 q01
-        Assert.True(Quadtree.CountLeafs m2 = 12)
-        Assert.True(Quadtree.CountNodes m2 = Quadtree.CountInner m2 + Quadtree.CountLeafs m2)
+        Assert.True(Quadtree.CountLeafs true m2 = 12)
+        Assert.True(Quadtree.CountNodes true m2 = Quadtree.CountInner true m2 + Quadtree.CountLeafs true m2)
 
         let m = Quadtree.Merge SecondDominates m2 q11
-        Assert.True(Quadtree.CountLeafs m = 16)
-        Assert.True(Quadtree.CountNodes m = Quadtree.CountInner m + Quadtree.CountLeafs m)
+        Assert.True(Quadtree.CountLeafs true m = 16)
+        Assert.True(Quadtree.CountNodes true m = Quadtree.CountInner true m + Quadtree.CountLeafs true m)
         Assert.True(m.Cell = Cell2d(0L,0L,4))
 
         ()
@@ -50,16 +50,16 @@ module MergeTests =
         Assert.True(q11.Cell = Cell2d(1L, 1L, 2))
 
         let m1 = Quadtree.Merge SecondDominates q00 q10
-        Assert.True(Quadtree.CountLeafs m1 = 2)
-        Assert.True(Quadtree.CountNodes m1 = Quadtree.CountInner m1 + Quadtree.CountLeafs m1)
+        Assert.True(Quadtree.CountLeafs true m1 = 2)
+        Assert.True(Quadtree.CountNodes true m1 = Quadtree.CountInner true m1 + Quadtree.CountLeafs true m1)
 
         let m2 = Quadtree.Merge SecondDominates m1 q01
-        Assert.True(Quadtree.CountLeafs m2 = 3)
-        Assert.True(Quadtree.CountNodes m2 = Quadtree.CountInner m2 + Quadtree.CountLeafs m2)
+        Assert.True(Quadtree.CountLeafs true m2 = 3)
+        Assert.True(Quadtree.CountNodes true m2 = Quadtree.CountInner true m2 + Quadtree.CountLeafs true m2)
 
         let m = Quadtree.Merge SecondDominates m2 q11
-        Assert.True(Quadtree.CountLeafs m = 4)
-        Assert.True(Quadtree.CountNodes m = Quadtree.CountInner m + Quadtree.CountLeafs m)
+        Assert.True(Quadtree.CountLeafs true m = 4)
+        Assert.True(Quadtree.CountNodes true m = Quadtree.CountInner true m + Quadtree.CountLeafs true m)
         Assert.True(m.Cell = Cell2d(0L,0L,3))
 
         ()
@@ -77,21 +77,21 @@ module MergeTests =
         //let bb01 = q01.SampleWindowBoundingBox
         //let bb11 = q11.SampleWindowBoundingBox
 
-        Assert.True(Quadtree.CountLeafs q00 = 1)
-        Assert.True(Quadtree.CountLeafs q10 = 4)
-        Assert.True(Quadtree.CountLeafs q01 = 16)
-        Assert.True(Quadtree.CountLeafs q11 = 64)
+        Assert.True(Quadtree.CountLeafs true q00 = 1)
+        Assert.True(Quadtree.CountLeafs true q10 = 4)
+        Assert.True(Quadtree.CountLeafs true q01 = 16)
+        Assert.True(Quadtree.CountLeafs true q11 = 64)
 
         let m1 = Quadtree.Merge SecondDominates q00 q10
-        let m1LeafCount = Quadtree.CountLeafs m1
+        let m1LeafCount = Quadtree.CountLeafs true m1
         m1LeafCount = 5 |> Assert.True
 
         let m2 = Quadtree.Merge SecondDominates m1 q01
-        let m2LeafCount = Quadtree.CountLeafs m2
+        let m2LeafCount = Quadtree.CountLeafs true m2
         m2LeafCount = 21 |> Assert.True
 
         let m = Quadtree.Merge SecondDominates m2 q11
-        let mLeafCount = Quadtree.CountLeafs m
+        let mLeafCount = Quadtree.CountLeafs true m
         mLeafCount = 85 |> Assert.True
         Assert.True(m.Cell = Cell2d(0L,0L,4))
 
@@ -103,11 +103,11 @@ module MergeTests =
         let a = createQuadtree 0 0 1 1 0 0<powerOfTwo>
         let b = createQuadtree 0 0 1 1 0 0<powerOfTwo>
 
-        Assert.True(Quadtree.CountLeafs a = 1)
-        Assert.True(Quadtree.CountLeafs b = 1)
+        Assert.True(Quadtree.CountLeafs true a = 1)
+        Assert.True(Quadtree.CountLeafs true b = 1)
 
         let m = Quadtree.Merge SecondDominates a b
-        Assert.True(Quadtree.CountLeafs m = 1)
+        Assert.True(Quadtree.CountLeafs true m = 1)
 
         ()
 
@@ -118,11 +118,11 @@ module MergeTests =
         let a = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 10.0f
         let b = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 20.0f
 
-        Assert.True(Quadtree.CountLeafs a = 4)
-        Assert.True(Quadtree.CountLeafs b = 1)
+        Assert.True(Quadtree.CountLeafs true a = 4)
+        Assert.True(Quadtree.CountLeafs true b = 1)
 
         let m = Quadtree.Merge FirstDominates a b
-        let leafcount = Quadtree.CountLeafs m
+        let leafcount = Quadtree.CountLeafs true m
         Assert.True((leafcount = 4))
 
         let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
@@ -136,11 +136,11 @@ module MergeTests =
         let a = createQuadtreeWithValue 0 0 1 1  0 0<powerOfTwo> 10.0f
         let b = createQuadtreeWithValue 0 0 2 2 -1 0<powerOfTwo> 20.0f
 
-        Assert.True(Quadtree.CountLeafs a = 1)
-        Assert.True(Quadtree.CountLeafs b = 4)
+        Assert.True(Quadtree.CountLeafs true a = 1)
+        Assert.True(Quadtree.CountLeafs true b = 4)
 
         let m = Quadtree.Merge SecondDominates a b
-        let mLeafCount = Quadtree.CountLeafs m
+        let mLeafCount = Quadtree.CountLeafs true m
         Assert.True((mLeafCount = 4))
     
         let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
@@ -348,11 +348,11 @@ module MergeTests =
         let a = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 10.0f
         let b = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 20.0f
 
-        Assert.True(Quadtree.CountLeafs a = 1)
-        Assert.True(Quadtree.CountLeafs b = 1)
+        Assert.True(Quadtree.CountLeafs true a = 1)
+        Assert.True(Quadtree.CountLeafs true b = 1)
 
         let m = Quadtree.Merge SecondDominates a b
-        Assert.True(Quadtree.CountLeafs m = 1)
+        Assert.True(Quadtree.CountLeafs true m = 1)
 
         let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
         Assert.True((x.Value = 20.0f))
@@ -365,11 +365,11 @@ module MergeTests =
         let a = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 10.0f
         let b = createQuadtreeWithValue 0 0 1 1 0 0<powerOfTwo> 20.0f
 
-        Assert.True(Quadtree.CountLeafs a = 1)
-        Assert.True(Quadtree.CountLeafs b = 1)
+        Assert.True(Quadtree.CountLeafs true a = 1)
+        Assert.True(Quadtree.CountLeafs true b = 1)
 
         let m = Quadtree.Merge SecondDominates b a
-        Assert.True(Quadtree.CountLeafs m = 1)
+        Assert.True(Quadtree.CountLeafs true m = 1)
 
         let x = Sample.PositionTyped<float32> Query.Config.Default (V2d(0.5,0.5)) Defs.Heights1f m
         Assert.True((x.Value = 10.0f))
@@ -400,9 +400,9 @@ module MergeTests =
         let b = createQuadtreeWithValue 1 0 2 1 -1 0<powerOfTwo> 20.0f
         let m = Quadtree.Merge SecondDominates a b
     
-        Assert.True(Quadtree.CountLeafs a = 1)
-        Assert.True(Quadtree.CountLeafs b = 2)
-        Assert.True(Quadtree.CountLeafs m = 3)
+        Assert.True(Quadtree.CountLeafs true a = 1)
+        Assert.True(Quadtree.CountLeafs true b = 2)
+        Assert.True(Quadtree.CountLeafs true m = 3)
         Assert.True(m.Cell = Cell2d(0,0,1))
 
         let xs = Query.All Query.Config.Default m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
@@ -423,9 +423,9 @@ module MergeTests =
         let b = createQuadtreeWithValue 1 0 2 1 -1 8<powerOfTwo> 20.0f
         let m = Quadtree.Merge MoreDetailedOrSecond a b
 
-        Assert.True(Quadtree.CountLeafs a = 1)
-        Assert.True(Quadtree.CountLeafs b = 1)
-        Assert.True(Quadtree.CountLeafs m = 2)
+        Assert.True(Quadtree.CountLeafs true a = 1)
+        Assert.True(Quadtree.CountLeafs true b = 1)
+        Assert.True(Quadtree.CountLeafs true m = 2)
         Assert.True(m.Cell = Cell2d(0,0,8))
 
         let xs = Query.All Query.Config.Default m |> Seq.toArray
