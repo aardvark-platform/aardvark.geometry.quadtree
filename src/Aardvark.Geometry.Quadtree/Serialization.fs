@@ -376,19 +376,33 @@ module Serialization =
         }
 
     /// Export quadtree with given id from source to target.
-    let Export (source : SerializationOptions) (target : SerializationOptions) (progress : Option<int * int -> unit>) (id : Guid) : unit =
-        let source = { source with Cache = Cache.None }
-        let target = { target with Cache = Cache.None }
+    let Export 
+        (source : SerializationOptions)
+        (target : SerializationOptions)
+        (progress : Option<int * int -> unit>)
+        (ct : CancellationToken)
+        (id : Guid)
+        : unit =
 
-        let keys = id |> Load source |> EnumerateKeys true
+        try
+            let source = { source with Cache = Cache.None }
+            let target = { target with Cache = Cache.None }
 
-        let total = if progress.IsSome then keys |> Seq.length else 0
+            let keys = id |> Load source |> EnumerateKeys true
 
-        keys |> Seq.iteri (fun i key ->
-            match source.TryLoad key with
-            | Some buffer ->
-                target.Save key buffer
-                if progress.IsSome then progress.Value (i + 1, total) else ()
-            | None ->
-                sprintf "Failed to load key %A from source." key |> failwith
-            )
+            ct.ThrowIfCancellationRequested ()
+            let total = if progress.IsSome then keys |> Seq.length else 0
+
+            keys |> Seq.iteri (fun i key ->
+                ct.ThrowIfCancellationRequested ()
+                match source.TryLoad key with
+                | Some buffer ->
+                    target.Save key buffer
+                    if progress.IsSome then progress.Value (i + 1, total) else ()
+                | None ->
+                    sprintf "Failed to load key %A from source." key |> failwith
+                )
+
+        with
+        | :? OperationCanceledException -> ()
+

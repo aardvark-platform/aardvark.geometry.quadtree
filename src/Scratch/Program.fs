@@ -612,6 +612,7 @@ let cpunz20201116 () =
 
 open PrettyPrint
 open Aardvark.Geometry.Quadtree.Serialization
+open System.Threading
 
 let prettyPrintTest () =
 
@@ -821,7 +822,7 @@ let exportTest_20210126 () =
         use targetStore = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder + ".exported")
         let target = targetStore |> SerializationOptions.SimpleStore
         let progress (x, total) = printf "\r[progress] %d/%d" x total
-        id |> Quadtree.Export source target (Some progress)
+        id |> Quadtree.Export source target (Some progress) CancellationToken.None
         printfn ""
     printfn "%A" sw.Elapsed
 

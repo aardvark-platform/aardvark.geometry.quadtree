@@ -6,6 +6,7 @@ open Aardvark.Geometry.Quadtree
 open Aardvark.Geometry.Quadtree.Serialization
 open Xunit
 open System
+open System.Threading
 
 module SerializationTests =
 
@@ -214,7 +215,7 @@ module SerializationTests =
             let source = so
             let target = SerializationOptions.NewInMemoryStore()
             let progress (x, total) = printf "\r[progress] %d/%d" x total
-            id |> Quadtree.Export source target (Some progress)
+            id |> Quadtree.Export source target (Some progress) CancellationToken.None
             printfn ""
 
             let exportNodeCount = id |> Quadtree.Load target |> Quadtree.EnumerateKeys true |> Seq.length
