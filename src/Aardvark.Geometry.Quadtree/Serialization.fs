@@ -74,7 +74,7 @@ module Serialization =
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
 
-        static member SimpleDiskStore (store : Uncodium.SimpleStore.ISimpleStore) =
+        static member SimpleStore (store : Uncodium.SimpleStore.ISimpleStore) =
             {
                 SerializationOptions.Default with
                     Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)

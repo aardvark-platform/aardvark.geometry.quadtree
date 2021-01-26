@@ -207,7 +207,7 @@ module SerializationTests =
         let nodeCount = m |> Quadtree.CountNodes true
 
         let store = new Uncodium.SimpleStore.SimpleMemoryStore()
-        let so = SerializationOptions.SimpleDiskStore store
+        let so = SerializationOptions.SimpleStore store
         let id = Quadtree.Save so m
 
         do

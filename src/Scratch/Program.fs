@@ -735,7 +735,7 @@ let intersectsCellTest_20210125 () =
     sw.Restart()
     printfn "save"
     let store = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder)
-    let so = SerializationOptions.SimpleDiskStore store
+    let so = SerializationOptions.SimpleStore store
     let id = Quadtree.Save so m
     store.Dispose()
     printfn "%A" id
@@ -744,7 +744,7 @@ let intersectsCellTest_20210125 () =
     sw.Restart()
     printfn "load"
     let store = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder)
-    let so = SerializationOptions.SimpleDiskStore store
+    let so = SerializationOptions.SimpleStore store
     let mReloaded = Quadtree.Load so id
     printfn "%A" id
     printfn "%A" sw.Elapsed
@@ -808,7 +808,7 @@ let exportTest_20210126 () =
     sw.Restart()
     printfn "save"
     let store = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder)
-    let so = SerializationOptions.SimpleDiskStore store
+    let so = SerializationOptions.SimpleStore store
     let id = Quadtree.Save so m
     store.Dispose()
     printfn "%A" id
@@ -817,9 +817,9 @@ let exportTest_20210126 () =
     sw.Restart()
     printfn "export"
     do
-        let source = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder) |> SerializationOptions.SimpleDiskStore
+        let source = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder) |> SerializationOptions.SimpleStore
         use targetStore = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder + ".exported")
-        let target = targetStore |> SerializationOptions.SimpleDiskStore
+        let target = targetStore |> SerializationOptions.SimpleStore
         let progress (x, total) = printf "\r[progress] %d/%d" x total
         id |> Quadtree.Export source target (Some progress)
         printfn ""
@@ -828,7 +828,7 @@ let exportTest_20210126 () =
     sw.Restart()
     printfn "check export"
     do
-        let target = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder + ".exported") |> SerializationOptions.SimpleDiskStore
+        let target = new Uncodium.SimpleStore.SimpleDiskStore(storeFolder + ".exported") |> SerializationOptions.SimpleStore
         let exportNodeCount = id |> Quadtree.Load target |> Quadtree.EnumerateKeys true |> Seq.length
         if exportNodeCount <> nodeCount then
             sprintf "Different node count in export. Source has %d nodes, export has %d nodes." nodeCount exportNodeCount |> failwith
