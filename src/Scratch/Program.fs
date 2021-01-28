@@ -841,12 +841,27 @@ let madorjan20210127() =
     let store = @"T:\Vgm\Data\Raster\20210127_auenpark_0116_store" |> SerializationOptions.SimpleDiskStore
     
     let sw = Stopwatch()
-    printfn "loading ..."
+
+    printfn "load %A ..." id
     sw.Restart()
     let q = Quadtree.Load store id
     sw.Stop()
     printfn "%A" sw.Elapsed
     printfn "%A" q
+
+    printfn "save %A ..." q.Id
+    sw.Restart()
+    let idNew = Quadtree.Save store q
+    sw.Stop()
+    printfn "%A" sw.Elapsed
+    printfn "%A" idNew
+
+    printfn "load %A ..." idNew
+    sw.Restart()
+    let qReloaded = Quadtree.Load store idNew
+    sw.Stop()
+    printfn "%A" sw.Elapsed
+    printfn "%A" qReloaded
 
 
 [<EntryPoint>]
