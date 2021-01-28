@@ -262,7 +262,8 @@ module Serialization =
         durable definition e497f9c1-c903-41c4-91de-32bf76e009da
     *)
 
-    let rec private decodeOldQNode (options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
+    type OldQNodeEbbMode = | ComputeExactBbWhichIsSlow | ComputeApprBbWhichIsFast
+    let rec private decodeOldQNode (ebbMode : OldQNodeEbbMode) (options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
         
         let map  = o :?> ImmutableDictionary<Durable.Def, obj>
         let id   = map.Get(Defs.NodeId)              :?> Guid
@@ -297,12 +298,21 @@ module Serialization =
             | (false, _)   -> None
             | (true, o) ->
                 let keys = o :?> Guid[]
+                let loadChildren = match ebbMode with
+                                   | ComputeApprBbWhichIsFast  -> keys |> Array.forall (fun x -> x <> Guid.Empty)
+                                   | ComputeExactBbWhichIsSlow -> true
                 let xs = keys |> Array.map (fun k ->
                     if k = Guid.Empty then
                         NoNode
                     else
-                        let tmp = options.LoadNode k
-                        ebbFromOutOfCore <- Box2d(ebbFromOutOfCore, tmp.ExactBoundingBox)
+                        if loadChildren then 
+                            // https://github.com/aardvark-platform/aardvark.geometry.quadtree/issues/3
+                            // load children for more exact bb as long as node has less than 4 children
+                            // this will traverse further down the tree in border regions to better appr. the real bb
+                            // but is still fast because most of the tree will not be loaded from store
+                            let tmp = options.LoadNode k
+                            ebbFromOutOfCore <- Box2d(ebbFromOutOfCore, tmp.ExactBoundingBox)
+                        
                         OutOfCoreNode (k, (fun () -> options.LoadNode k))
                     )
                 Some xs
@@ -344,7 +354,7 @@ module Serialization =
     *)
 
     let private decoders : Map<Guid, Decoder> = Map.ofList <| [
-        Defs.Node.Id,       decodeOldQNode
+        Defs.Node.Id,       decodeOldQNode ComputeApprBbWhichIsFast
         Defs.NodeInner.Id,  decodeQInnerNode
         Defs.NodeLeaf.Id,   decodeQNode
         Defs.NodeMerge.Id,  decodeQMergeNode

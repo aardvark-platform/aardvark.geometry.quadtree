@@ -835,11 +835,25 @@ let exportTest_20210126 () =
             sprintf "Different node count in export. Source has %d nodes, export has %d nodes." nodeCount exportNodeCount |> failwith
     printfn "%A" sw.Elapsed
 
+let madorjan20210127() =
+
+    let id = "756bb95e-b6ac-4afa-9042-46c1c08ee0b0" |> Guid.Parse
+    let store = @"T:\Vgm\Data\Raster\20210127_auenpark_0116_store" |> SerializationOptions.SimpleDiskStore
+    
+    let sw = Stopwatch()
+    printfn "loading ..."
+    sw.Restart()
+    let q = Quadtree.Load store id
+    sw.Stop()
+    printfn "%A" sw.Elapsed
+    printfn "%A" q
+
 
 [<EntryPoint>]
 let main argv =
 
-    exportTest_20210126 ()
+    madorjan20210127 ()
+    //exportTest_20210126 ()
 
     //intersectsCellTest_20210125 ()
 
