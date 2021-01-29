@@ -6,6 +6,7 @@ open System
 open System.Collections.Generic
 open System.Collections.Immutable
 open System.Threading
+open System.Diagnostics
 
 module Serialization =
 
@@ -70,7 +71,9 @@ module Serialization =
             {
                 SerializationOptions.Default with
                     Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
-                    TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
+                    TryLoad = fun id        ->
+                        Instrumentation.countStoreGet <- Instrumentation.countStoreGet + 1
+                        match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
 
@@ -78,7 +81,9 @@ module Serialization =
             {
                 SerializationOptions.Default with
                     Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
-                    TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
+                    TryLoad = fun id        ->
+                        Instrumentation.countStoreGet <- Instrumentation.countStoreGet + 1
+                        match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
     
@@ -87,7 +92,9 @@ module Serialization =
             { 
                 SerializationOptions.Default with
                     Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
-                    TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
+                    TryLoad = fun id        ->
+                        Instrumentation.countStoreGet <- Instrumentation.countStoreGet + 1
+                        match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
 
@@ -98,9 +105,12 @@ module Serialization =
                 match this.TryLoad id with
                 | None -> NoNode
                 | Some buffer ->
+                    Instrumentation.countSerializationOptionsLoadNode <- Instrumentation.countSerializationOptionsLoadNode + 1
+                    Instrumentation.swSerializationOptionsLoadNode.Start()
                     let struct (def, o) = DurableCodec.Deserialize(buffer)
                     let n = this.Decoder this def o
                     this.Cache.Add id n
+                    Instrumentation.swDurableCodecDeserializeNode.Stop()
                     n
     
     and
@@ -238,38 +248,6 @@ module Serialization =
                    | true,  x -> x :?> Box2d
                    | false, _ -> Box2d.Invalid
         
-        let layers : ILayer[] =  
-            map 
-            |> Seq.choose (fun kv ->
-                match Defs.TryGetDefFromLayer kv.Key with
-                | Some def -> 
-                    let m = kv.Value :?> ImmutableDictionary<Durable.Def, obj>
-                    Layer.FromDurableMap def m |> Some
-                | None -> None
-                )
-            |> Seq.toArray
-
-        let layerSet = LayerSet(layers)
-
-        invariant (layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
-
-        let n = QNode(id, ebb, cell, sle, layerSet)
-        InMemoryNode n
-
-    (*
-        obsolete QNode
-        
-        durable definition e497f9c1-c903-41c4-91de-32bf76e009da
-    *)
-
-    type OldQNodeEbbMode = | ComputeExactBbWhichIsSlow | ComputeApprBbWhichIsFast
-    let rec private decodeOldQNode (ebbMode : OldQNodeEbbMode) (options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
-        
-        let map  = o :?> ImmutableDictionary<Durable.Def, obj>
-        let id   = map.Get(Defs.NodeId)              :?> Guid
-        let cell = map.Get(Defs.CellBounds)          :?> Cell2d
-        let sle  = map.Get(Defs.SplitLimitExponent)  :?> int
-        
         let layerSet =  
             map 
             |> Seq.choose (fun kv ->
@@ -281,47 +259,103 @@ module Serialization =
                 )
             |> Seq.toArray
             |> LayerSet
-        invariant (layerSet.Layers.Length > 0) "68ca6608-921c-4868-b5f2-3c6f6dc7ab57"
+
+        let n = QNode(id, ebb, cell, sle, layerSet)
+        InMemoryNode n
+
+    (*
+        obsolete QNode
         
-        // generating ebb from layer data is fast (no loading of out-of-core subnodes)
-        // but overstates the actual ebb
-        let ebbFromLayerSet =
-            match map.TryGetValue(Defs.ExactBoundingBox) with
-            | true,  x -> failwith "Old node data should not have ebb. Error bd29a126-2cdb-47ee-a8c6-342c9f4aec6c."  //x :?> Box2d
-            | false, _ -> layerSet.BoundingBox //Box2d.Invalid
+        durable definition e497f9c1-c903-41c4-91de-32bf76e009da
+    *)
 
-        // this is the exact ebb
-        // (computed from the original data)
-        let mutable ebbFromOutOfCore = Box2d.Invalid
-        let subNodes =
-            match map.TryGetValue(Defs.SubnodeIds) with
-            | (false, _)   -> None
-            | (true, o) ->
-                let keys = o :?> Guid[]
-                let loadChildren = match ebbMode with
-                                   | ComputeApprBbWhichIsFast  -> keys |> Array.forall (fun x -> x <> Guid.Empty)
-                                   | ComputeExactBbWhichIsSlow -> true
-                let xs = keys |> Array.map (fun k ->
-                    if k = Guid.Empty then
-                        NoNode
-                    else
-                        if loadChildren then 
-                            // https://github.com/aardvark-platform/aardvark.geometry.quadtree/issues/3
-                            // load children for more exact bb as long as node has less than 4 children
-                            // this will traverse further down the tree in border regions to better appr. the real bb
-                            // but is still fast because most of the tree will not be loaded from store
-                            let tmp = options.LoadNode k
-                            ebbFromOutOfCore <- Box2d(ebbFromOutOfCore, tmp.ExactBoundingBox)
-                        
-                        OutOfCoreNode (k, (fun () -> options.LoadNode k))
+
+    type OldQNodeEbbMode = | ComputeExactBbWhichIsSlow | ComputeApprBbWhichIsFast
+    let rec private decodeOldQNode (ebbMode : OldQNodeEbbMode) (options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
+        
+        if def = Defs.Node then
+
+            let map  = o :?> ImmutableDictionary<Durable.Def, obj>
+            let id   = map.Get(Defs.NodeId)              :?> Guid
+            let cell = map.Get(Defs.CellBounds)          :?> Cell2d
+            let sle  = map.Get(Defs.SplitLimitExponent)  :?> int
+
+            let layerSet =  
+                map 
+                |> Seq.choose (fun kv ->
+                    match Defs.TryGetDefFromLayer kv.Key with
+                    | Some def -> 
+                        let m = kv.Value :?> ImmutableDictionary<Durable.Def, obj>
+                        Layer.FromDurableMap def m |> Some
+                    | None -> None
                     )
-                Some xs
+                |> Seq.toArray
+                |> LayerSet
+          
+            // generating ebb from layer data is fast (no loading of out-of-core subnodes)
+            // but overstates the actual ebb
+            let ebbFromLayerSet =
+                match map.TryGetValue(Defs.ExactBoundingBox) with
+                | true,  x -> failwith "Old node data should not have ebb. Error bd29a126-2cdb-47ee-a8c6-342c9f4aec6c."  //x :?> Box2d
+                | false, _ -> layerSet.BoundingBox //Box2d.Invalid
 
-        let ebb = if ebbFromOutOfCore.IsValid then ebbFromOutOfCore else ebbFromLayerSet
+            // this is the exact ebb
+            // (computed from the original data)
+            let mutable ebbFromOutOfCore = Box2d.Invalid
+            let subNodes =
+                match map.TryGetValue(Defs.SubnodeIds) with
+                | (false, _)   -> None
+                | (true, o) ->
+                    let keys = o :?> Guid[]
+                    let loadChildren = match ebbMode with
+                                       | ComputeApprBbWhichIsFast  -> keys |> Array.exists ((=) Guid.Empty)
+                                       | ComputeExactBbWhichIsSlow -> true
+                    let xs = keys |> Array.map (fun k ->
+                        if k = Guid.Empty then
+                            NoNode
+                        else
+                            if loadChildren then 
 
-        match subNodes with
-        | Some ns -> InMemoryInner { Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle; SubNodes = ns }
-        | None    -> InMemoryNode(QNode(id, ebb, cell, sle, layerSet))
+                                let tmp =
+                                    match options.Cache.TryGet(k) with
+                                    | Some n -> n
+                                    | None   ->
+                                        match options.TryLoad k with
+                                        | None -> NoNode
+                                        | Some buffer ->
+                                            Instrumentation.countSerializationOptionsLoadNode <- Instrumentation.countSerializationOptionsLoadNode + 1
+                                            Instrumentation.swSerializationOptionsLoadNode.Start()
+                                            let struct (def, o) = DurableCodec.Deserialize(buffer)
+                                            let n = decodeOldQNode ebbMode options def o
+                                            options.Cache.Add k n
+                                            Instrumentation.swDurableCodecDeserializeNode.Stop()
+                                            n
+
+
+                                // https://github.com/aardvark-platform/aardvark.geometry.quadtree/issues/3
+                                // load children for more exact bb as long as node has less than 4 children
+                                // this will traverse further down the tree in border regions to better appr. the real bb
+                                // but is still fast because most of the tree will not be loaded from store
+                                //let tmp = options.LoadNode k
+                                ebbFromOutOfCore <- Box2d(ebbFromOutOfCore, tmp.ExactBoundingBox)
+                                tmp
+
+                            else
+                                OutOfCoreNode (k, (fun () -> options.LoadNode k))
+                        )
+                    Some xs
+
+            let ebb = if ebbFromOutOfCore.IsValid then ebbFromOutOfCore else ebbFromLayerSet
+
+            let result = match subNodes with
+                         | Some ns -> InMemoryInner { Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle; SubNodes = ns }
+                         | None    -> InMemoryNode(QNode(id, ebb, cell, sle, layerSet))
+
+            result
+
+        else
+            failwith "Loading quadtree failed. Invalid data. 67592e74-bcd7-42c7-8364-9371cba70ded."
+            
                     
 
     (*
@@ -366,12 +400,16 @@ module Serialization =
         | None -> sprintf "Unknown node type %A. Error af2665dc-f137-4eaf-a3df-11fb7afd17cf." def |> failwith
 
     let Load (options: SerializationOptions) (id : Guid) : QNodeRef =
-
+    
         match options.TryLoad id with
         | None -> NoNode
         | Some buffer ->
+            Instrumentation.countDurableCodecDeserializeNode <- Instrumentation.countDurableCodecDeserializeNode + 1
+            Instrumentation.swDurableCodecDeserializeNode.Start()
             let struct (def, o) = DurableCodec.Deserialize(buffer)
-            decode options def o
+            let r = decode options def o
+            Instrumentation.swDurableCodecDeserializeNode.Stop()
+            r
 
     /// Enumerates node ids of given quadtree.
     let rec EnumerateKeys (outOfCore : bool) (qtree : QNodeRef) : Guid seq = seq {

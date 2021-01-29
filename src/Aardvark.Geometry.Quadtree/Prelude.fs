@@ -5,6 +5,20 @@ open Aardvark.Data
 open System
 open System.Collections.Generic
 open System.Runtime.CompilerServices
+open System.Diagnostics
+
+module Instrumentation =
+    
+    let swDurableCodecDeserializeLayer = new Stopwatch()
+    let mutable countDurableCodecDeserializeLayer = 0
+
+    let swDurableCodecDeserializeNode = new Stopwatch()
+    let mutable countDurableCodecDeserializeNode = 0
+    
+    let swSerializationOptionsLoadNode = new Stopwatch()
+    let mutable countSerializationOptionsLoadNode = 0
+
+    let mutable countStoreGet = 0
 
 [<AutoOpen>]
 module Prelude =

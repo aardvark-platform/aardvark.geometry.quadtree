@@ -47,10 +47,12 @@ module ILayerExtensions =
 
 type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
    
+    #if DEBUG
     do
         invariantm (data.Length >= mapping.WindowSize.X * mapping.WindowSize.Y) 
             (sprintf "Mapping window %A exceeds available data (length=%d)." mapping.Window data.Length)
             "971a69a6-cd25-43b8-b85b-7dd783456552"
+    #endif
 
     interface ILayer with
         
@@ -232,31 +234,39 @@ module Layer =
         (Defs.Heights1d, fun (map : M) -> map.[Defs.Heights1d])
         ]
 
-    let Deserialize (buffer : byte[]) : ILayer =
-        let struct (def, o) = DurableCodec.Deserialize(buffer)
-        let map = o :?> ImmutableDictionary<Durable.Def, obj>
-        let mapping = DataMapping(
-                        map.[Defs.Layer.BufferOrigin] :?> Cell2d,
-                        map.[Defs.Layer.BufferSize]   :?> V2i,
-                        map.[Defs.Layer.Window]       :?> Box2l
-                        )
-        let data = map |> foo.[def]
-        match data with
-        | :? (int[])        -> Layer<int>(def, data :?> int[], mapping) :> ILayer
-        | :? (int64[])      -> Layer<int64>(def, data :?> int64[], mapping) :> ILayer
-        | :? (float[])      -> Layer<float>(def, data :?> float[], mapping) :> ILayer
-        | :? (float32[])    -> Layer<float32>(def, data :?> float32[], mapping) :> ILayer
-        | :? (V2f[])        -> Layer<V2f>(def, data :?> V2f[], mapping) :> ILayer
-        | :? (V2d[])        -> Layer<V2d>(def, data :?> V2d[], mapping) :> ILayer
-        | :? (V3f[])        -> Layer<V3f>(def, data :?> V3f[], mapping) :> ILayer
-        | :? (V3d[])        -> Layer<V3d>(def, data :?> V3d[], mapping) :> ILayer
-        | :? (V4f[])        -> Layer<V4f>(def, data :?> V4f[], mapping) :> ILayer
-        | :? (V4d[])        -> Layer<V4d>(def, data :?> V4d[], mapping) :> ILayer
-        | :? (C3b[])        -> Layer<C3b>(def, data :?> C3b[], mapping) :> ILayer
-        | :? (C4b[])        -> Layer<C4b>(def, data :?> C4b[], mapping) :> ILayer
-        | :? (C3f[])        -> Layer<C3f>(def, data :?> C3f[], mapping) :> ILayer
-        | :? (C4f[])        -> Layer<C4f>(def, data :?> C4f[], mapping) :> ILayer
-        | _ -> failwith <| sprintf "Unknown type %A. Invariant 4e797062-04a2-445f-9725-79f66823aff8." (data.GetType())
+    //let Deserialize (buffer : byte[]) : ILayer =
+    //    Instrumentation.countDurableCodecDeserializeLayer <- Instrumentation.countDurableCodecDeserializeLayer + 1
+    //    Instrumentation.swDurableCodecDeserializeLayer.Start()
+    //    let struct (def, o) = DurableCodec.Deserialize(buffer)
+
+    //    let map = o :?> ImmutableDictionary<Durable.Def, obj>
+    //    let mapping = DataMapping(
+    //                    map.[Defs.Layer.BufferOrigin] :?> Cell2d,
+    //                    map.[Defs.Layer.BufferSize]   :?> V2i,
+    //                    map.[Defs.Layer.Window]       :?> Box2l
+    //                    )
+    //    let data = map |> foo.[def]
+    //    let result =
+    //        match data with
+    //        | :? (int[])        -> Layer<int>(def, data :?> int[], mapping) :> ILayer
+    //        | :? (int64[])      -> Layer<int64>(def, data :?> int64[], mapping) :> ILayer
+    //        | :? (float[])      -> Layer<float>(def, data :?> float[], mapping) :> ILayer
+    //        | :? (float32[])    -> Layer<float32>(def, data :?> float32[], mapping) :> ILayer
+    //        | :? (V2f[])        -> Layer<V2f>(def, data :?> V2f[], mapping) :> ILayer
+    //        | :? (V2d[])        -> Layer<V2d>(def, data :?> V2d[], mapping) :> ILayer
+    //        | :? (V3f[])        -> Layer<V3f>(def, data :?> V3f[], mapping) :> ILayer
+    //        | :? (V3d[])        -> Layer<V3d>(def, data :?> V3d[], mapping) :> ILayer
+    //        | :? (V4f[])        -> Layer<V4f>(def, data :?> V4f[], mapping) :> ILayer
+    //        | :? (V4d[])        -> Layer<V4d>(def, data :?> V4d[], mapping) :> ILayer
+    //        | :? (C3b[])        -> Layer<C3b>(def, data :?> C3b[], mapping) :> ILayer
+    //        | :? (C4b[])        -> Layer<C4b>(def, data :?> C4b[], mapping) :> ILayer
+    //        | :? (C3f[])        -> Layer<C3f>(def, data :?> C3f[], mapping) :> ILayer
+    //        | :? (C4f[])        -> Layer<C4f>(def, data :?> C4f[], mapping) :> ILayer
+    //        | _ -> failwith <| sprintf "Unknown type %A. Invariant 4e797062-04a2-445f-9725-79f66823aff8." (data.GetType())
+
+    //    Instrumentation.swDurableCodecDeserializeLayer.Stop()
+        
+    //    result
 
     let defineBuilder<'a> def = (def, fun mapping (data : obj) -> Layer<'a>(def, data :?> 'a[], mapping) :> ILayer)
     let private builders = Map.ofList [

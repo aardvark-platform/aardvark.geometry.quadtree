@@ -29,6 +29,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
     let globalCellStep = Math.Pow(2.0, float bufferOrigin.Exponent)
     let globalCellStepInv = 1.0 / globalCellStep
 
+    #if DEBUG
     do
         if bufferOrigin.IsCenteredAtOrigin then
             invariantm (bufferSize = V2i.II && window = Box2l.Invalid)
@@ -44,6 +45,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
             invariantm (window.Min.X >= bufferOrigin.X && window.Min.Y >= bufferOrigin.Y && window.Max.X <= max.X && window.Max.Y <= max.Y)
                 (sprintf "Invalid window (%A). Buffer origin is %A. Buffer size is %A." window bufferOrigin bufferSize)
                 "8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a"
+    #endif
 
     override this.GetHashCode() =
         hash (bufferOrigin, bufferSize, window)
