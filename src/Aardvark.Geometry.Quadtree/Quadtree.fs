@@ -108,13 +108,13 @@ module Quadtree =
     /// all layers must have the same sample exponent and sample window.
     let Build (config : BuildConfig) ([<ParamArray>] layers : ILayer[]) : QNodeRef =
         
-        invariantm (layers.Length > 0) "Can't build quadtree with 0 layers."                "6216df3f-279c-415f-a435-bdb35d274e39"
+        invariantm (layers.Length > 0) (fun()->"Can't build quadtree with 0 layers.")               "6216df3f-279c-415f-a435-bdb35d274e39"
 
         let layerExponents = layers |> Array.groupBy (fun x -> x.SampleExponent)
-        invariantm (layerExponents.Length = 1) "All layers must have same resolution."      "a25e5f58-c22a-436e-81be-69afb2b37492"
+        invariantm (layerExponents.Length = 1) (fun()->"All layers must have same resolution.")     "a25e5f58-c22a-436e-81be-69afb2b37492"
 
         let layerWindows = layers |> Array.groupBy (fun x -> x.SampleWindow)
-        invariantm (layerWindows.Length = 1) "All layers must have same samples window."    "36488503-b5b8-4d80-8992-b713e7552480"
+        invariantm (layerWindows.Length = 1) (fun()->"All layers must have same samples window.")   "36488503-b5b8-4d80-8992-b713e7552480"
             
         let sampleExponent = layers.[0].SampleExponent
         let minRootExponent = sampleExponent + config.SplitLimitPowerOfTwo

@@ -613,6 +613,8 @@ let cpunz20201116 () =
 open PrettyPrint
 open Aardvark.Geometry.Quadtree.Serialization
 open System.Threading
+open Aardvark.Data
+open System.Collections.Immutable
 
 let prettyPrintTest () =
 
@@ -842,26 +844,112 @@ let madorjan20210127() =
     
     let sw = Stopwatch()
 
+    let rawTest() =
+        Defs.init()
+        let swStore = Stopwatch()
+        let swDecode = Stopwatch()
+        let swLayers = Stopwatch()
+        let rec countNodes options id =
+
+            swStore.Start()
+            let buffer = options.TryLoad id
+            swStore.Stop()
+            match buffer with
+            | None -> 0
+            | Some buffer ->
+                swDecode.Start()
+                let struct (def, o) = DurableCodec.Deserialize(buffer)
+                swDecode.Stop()
+                if def = Defs.Node then
+                    let map  = o :?> ImmutableDictionary<Durable.Def, obj>
+
+                    let id   = map.Get(Defs.NodeId)              :?> Guid
+                    let cell = map.Get(Defs.CellBounds)          :?> Cell2d
+                    let sle  = map.Get(Defs.SplitLimitExponent)  :?> int
+
+                    swLayers.Start()
+                    let layerSet =  
+                        map 
+                        |> Seq.choose (fun kv ->
+                            match Defs.TryGetDefFromLayer kv.Key with
+                            | Some def -> 
+                                let m = kv.Value :?> ImmutableDictionary<Durable.Def, obj>
+                                Layer.FromDurableMap def m |> Some
+                            | None -> None
+                            )
+                        |> Seq.toArray
+                        |> LayerSet
+                    swLayers.Stop()
+
+                    match map.TryGetValue(Defs.SubnodeIds) with
+                    | (false, _) -> 1
+                    | (true, o)  ->
+                        let keys = o :?> Guid[]
+                        let counts = keys |> Seq.map (fun k -> if k <> Guid.Empty then countNodes options k else 0) |> Seq.sum
+                        1 + counts
+                else
+                    failwith "wrong type"
+
+        printfn "countNodes %A ..." id
+        sw.Restart()
+        let nodeCountFast = countNodes store id
+        sw.Stop()
+        printfn "total  %A" sw.Elapsed
+        printfn "store  %A" swStore.Elapsed
+        printfn "decode %A" swDecode.Elapsed
+        printfn "layers %A" swLayers.Elapsed
+        printfn "nodeCountFast = %d" nodeCountFast
+    //rawTest()
+
     printfn "load %A ..." id
     sw.Restart()
     let q = Quadtree.Load store id
     sw.Stop()
     printfn "%A" sw.Elapsed
-    printfn "%A" q
+    printfn "%A" q.ExactBoundingBox
 
-    printfn "save %A ..." q.Id
+    printfn "\nQuadtree.CountNodes %A ..." q.Id
+    sw.Restart()
+    let countNodes = Quadtree.CountNodes true q
+    sw.Stop()
+    printfn "%A" sw.Elapsed
+    printfn "%d" countNodes
+
+    printfn "\nsave %A ..." q.Id
     sw.Restart()
     let idNew = Quadtree.Save store q
     sw.Stop()
     printfn "%A" sw.Elapsed
     printfn "%A" idNew
 
-    printfn "load %A ..." idNew
+    printfn "\nreload %A ..." idNew
     sw.Restart()
     let qReloaded = Quadtree.Load store idNew
     sw.Stop()
     printfn "%A" sw.Elapsed
-    printfn "%A" qReloaded
+    printfn "%A" qReloaded.ExactBoundingBox
+
+    printfn "\nQuery.All ..."
+    sw.Restart()
+    let all = Query.All Query.Config.Default q |> Seq.toArray
+    sw.Stop()
+    printfn "%A" sw.Elapsed
+    printfn "%d" all.Length
+
+    printfn "\nQuery.All (repeat) ..."
+    sw.Restart()
+    let all = Query.All Query.Config.Default q |> Seq.toArray
+    sw.Stop()
+    printfn "%A" sw.Elapsed
+    printfn "%d" all.Length
+
+    //printfn "[Instrumentation] countStoreGet                     = %d" Instrumentation.countStoreGet
+    //printfn "[Instrumentation] countDurableCodecDeserializeLayer = %A" Instrumentation.countDurableCodecDeserializeLayer
+    //printfn "[Instrumentation] swDurableCodecDeserializeLayer    = %f" Instrumentation.swDurableCodecDeserializeLayer.Elapsed.TotalSeconds
+    //printfn "[Instrumentation] countDurableCodecDeserializeNode  = %A" Instrumentation.countDurableCodecDeserializeNode
+    //printfn "[Instrumentation] swDurableCodecDeserializeNode     = %f" Instrumentation.swDurableCodecDeserializeNode.Elapsed.TotalSeconds
+    //printfn "[Instrumentation] countDurableCodecDeserializeNode  = %A" Instrumentation.countSerializationOptionsLoadNode
+    //printfn "[Instrumentation] swDurableCodecDeserializeNode     = %f" Instrumentation.swSerializationOptionsLoadNode.Elapsed.TotalSeconds
 
 
 [<EntryPoint>]

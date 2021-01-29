@@ -29,18 +29,17 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
         invariant (exactBoundingBox.IsValid) "661f5dfa-2706-4935-ae4e-1d25f02224ae"
 
         invariantm (cell.Exponent - splitLimitExp = layers.SampleExponent) 
-            "Sample exponent does not match split limit and node cell."
+            (fun () -> "Sample exponent does not match split limit and node cell.")
             "1ec76eaa-534b-4339-b63b-8e0399562bb1"
 
         let w = layers.SampleWindow
         let e = layers.SampleExponent
         let bb = cell.BoundingBox
         for layer in layers.Layers do
-            invariantm (layer.SampleExponent = e) "Layers exponent mismatch."   "7adc422c-effc-4a86-b493-ff1cd0f9e991"
-            invariantm (layer.SampleWindow = w)   "Layers window mismatch."     "74a57d1d-6a7f-4f9e-b26c-41a1e79cb989"
+            invariantm (layer.SampleExponent = e) (fun()->"Layers exponent mismatch.")   "7adc422c-effc-4a86-b493-ff1cd0f9e991"
+            invariantm (layer.SampleWindow = w)   (fun()->"Layers window mismatch.")     "74a57d1d-6a7f-4f9e-b26c-41a1e79cb989"
             invariantm (bb.Contains(layer.Mapping.BoundingBox)) 
-                (sprintf "Layer %A is outside node bounds." layer.Def.Id)       "dbe069cc-df5c-42c1-bb58-59c5a061ee15"
-            
+                (fun()->sprintf "Layer %A is outside node bounds." layer.Def.Id)       "dbe069cc-df5c-42c1-bb58-59c5a061ee15"
 
     new (exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : int, layers : LayerSet) =
         QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers)

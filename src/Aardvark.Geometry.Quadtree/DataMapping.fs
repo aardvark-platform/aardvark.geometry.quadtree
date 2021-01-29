@@ -32,17 +32,17 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
     do
         if bufferOrigin.IsCenteredAtOrigin then
             invariantm (bufferSize = V2i.II && window = Box2l.Invalid)
-                (sprintf "If buffer origin is centered cell (%A), then buffer (%A) size must be 1x1, and window (%A) must be invalid." bufferOrigin bufferSize window)
+                (fun()->sprintf "If buffer origin is centered cell (%A), then buffer (%A) size must be 1x1, and window (%A) must be invalid." bufferOrigin bufferSize window)
                 "eca25b79-d810-4712-966f-7b71cb79d257"
         else
             invariantm (bufferSize.X >= 0 && bufferSize.Y >= 0)
-                (sprintf "Buffer size must be greater or equal than zero (%A)." bufferSize)
+                (fun()->sprintf "Buffer size must be greater or equal than zero (%A)." bufferSize)
                 "eca25b79-d810-4712-966f-7b71cb79d257"
 
             let max = bufferOrigin.XY + V2l(bufferSize)
 
             invariantm (window.Min.X >= bufferOrigin.X && window.Min.Y >= bufferOrigin.Y && window.Max.X <= max.X && window.Max.Y <= max.Y)
-                (sprintf "Invalid window (%A). Buffer origin is %A. Buffer size is %A." window bufferOrigin bufferSize)
+                (fun()->sprintf "Invalid window (%A). Buffer origin is %A. Buffer size is %A." window bufferOrigin bufferSize)
                 "8e2912ee-2a02-4fda-9a1c-6a1a2dfe801a"
 
     override this.GetHashCode() =
@@ -67,18 +67,19 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         DataMapping(Cell2d(origin, exponent), size, Box2l.FromMinAndSize(origin, V2l(size)))
 
     new (origin : Cell2d, maxIncl : Cell2d) =
+
         invariantm (not maxIncl.IsCenteredAtOrigin)
-            (sprintf "MaxIncl can't be centered cell (%A)." maxIncl)
+            (fun()->sprintf "MaxIncl can't be centered cell (%A)." maxIncl)
             "ab81389b-e227-424c-85a2-32e3190f6d2b"
 
         invariantm (origin.Exponent = maxIncl.Exponent)
-            "Exponents of origin and maxIncl must match."
+            (fun()->"Exponents of origin and maxIncl must match.")
             "ea829c55-edd1-4af9-8955-6aafddb88965"
 
         let size = maxIncl.XY - origin.XY + V2l.II
 
         invariantm (size.X >= 0L && size.Y >= 0L && size.X <= int64 Int32.MaxValue && size.Y <= int64 Int32.MaxValue)
-            (sprintf "Size (%A) is out of range." size)
+            (fun()->sprintf "Size (%A) is out of range." size)
             "a447d0d5-9036-4372-ba22-19e28decbfaa"
 
         DataMapping(origin, V2i(size), Box2l.FromMinAndSize(origin.XY, size))

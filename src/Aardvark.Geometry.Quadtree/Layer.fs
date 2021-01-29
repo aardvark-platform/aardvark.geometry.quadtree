@@ -49,7 +49,7 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
    
     do
         invariantm (data.Length >= mapping.WindowSize.X * mapping.WindowSize.Y) 
-            (sprintf "Mapping window %A exceeds available data (length=%d)." mapping.Window data.Length)
+            (fun()->sprintf "Mapping window %A exceeds available data (length=%d)." mapping.Window data.Length)
             "971a69a6-cd25-43b8-b85b-7dd783456552"
 
     interface ILayer with
@@ -70,13 +70,6 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         
         member this.WithSemantic (newSemantic : Durable.Def) =
             Layer(newSemantic, data, mapping) :> ILayer
-
-        //member this.ResampleUntyped (resampleRoot : Cell2d) =
-        //    let f = Resamplers.getResamplerFor def 
-        //    let r = this.Resample ClampToEdge (f :?> ('a*'a*'a*'a->'a)) resampleRoot
-        //    r :> ILayer
-
-        //member this.SupersampleUntyped () = this.Supersample () :> ILayer
 
         member this.Materialize () =
             if mapping.Window.Min = V2l.OO && mapping.WindowSize = mapping.BufferSize then
@@ -143,86 +136,6 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         let s = mapping.GetSampleCell globalPos
         this.GetSample(mode, s)
 
-    //member this.Resample (mode : BorderMode<'a>) (f : 'a*'a*'a*'a -> 'a) (resampleRoot : Cell2d) : Layer<'a> =
-
-    //    if resampleRoot.IsCenteredAtOrigin && this.SampleExponent + 1 = resampleRoot.Exponent then
-
-    //        let win = this.SampleWindow
-    //        if win.Min.X >= -1L && win.Min.Y >= -1L && win.Max.X <= +1L && win.Max.Y <= +1L then
-    //            let inline getSample x y = this.GetSample(mode, (Cell2d(int64 x, int64 y, this.SampleExponent)))
-    //            let v = f (getSample -1 -1, getSample 0 -1, getSample -1 0, getSample 0 0)
-    //            let buffer = Array.create 1 v
-    //            let newMapping = DataMapping(resampleRoot) 
-    //            Layer(def, buffer, newMapping)
-    //        else
-    //            failwith "Invariant 43144338-8f31-4336-be48-001cf4075ab0."
-
-    //    else
-
-    //        let wmin = this.SampleMin
-    //        let wmin = Cell2d(
-    //                    (if wmin.X % 2L = 0L then wmin.X else wmin.X + 1L), 
-    //                    (if wmin.Y % 2L = 0L then wmin.Y else wmin.Y + 1L),
-    //                    wmin.Exponent)
-
-    //        let wmax = this.SampleMaxIncl
-    //        let wmax = Cell2d(
-    //                    (if wmax.X % 2L = 1L then wmax.X else wmax.X - 1L),
-    //                    (if wmax.Y % 2L = 1L then wmax.Y else wmax.Y - 1L),
-    //                    wmin.Exponent)
-
-    //        let min = wmin.Parent
-    //        let maxIncl = wmax.Parent
-            
-    //        let w = int(maxIncl.X - min.X)
-    //        let h = int(maxIncl.Y - min.Y)
-
-    //        let buffer = Array.zeroCreate ((w + 1) * (h + 1))
-
-    //        let getSample (x : Cell2d) = this.GetSample(mode, x)
-    //        let mutable i = 0
-    //        for y = 0 to h do
-    //            for x = 0 to w do
-    //                let s = Cell2d(min.X + int64 x, min.Y + int64 y, min.Exponent)
-    //                let xs = s.Children |> Array.map getSample
-    //                let v = f (xs.[0], xs.[1], xs.[2], xs.[3])
-    //                buffer.[i] <- v
-    //                i <- i + 1
-                
-    //        let newMapping = DataMapping(min, maxIncl)
-    //        Layer(def, buffer, newMapping)
-
-    //member this.Supersample () : Layer<'a> =
-
-    //    if mapping.BufferOrigin.IsCenteredAtOrigin then
-
-    //        let s = data.[mapping.GetBufferIndex(mapping.BufferOrigin)]
-    //        let newMapping = DataMapping(origin = V2l(-1,-1), size = V2i(2,2), exponent = mapping.BufferOrigin.Exponent - 1)
-    //        Layer(def, [|s;s;s;s|], newMapping)
-
-    //    else
-
-    //        let size = mapping.WindowSize
-    //        let w = size.X
-    //        let h = size.Y
-    //        let w2 = w * 2
-
-    //        let buffer = Array.zeroCreate (w * h * 4)
-    //        let newMapping = DataMapping(origin = mapping.Window.Min * 2L, size = size * 2, exponent = mapping.BufferOrigin.Exponent - 1)
-
-    //        let o0 = mapping.Window.Min
-    //        let o1 = newMapping.Window.Min
-    //        for x = 0 to w-1 do
-    //            for y = 0 to h-1 do
-    //                let i = mapping.GetBufferIndex(o0.X + int64 x, o0.Y + int64 y)
-    //                let s = data.[i]
-    //                let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y))
-    //                buffer.[j] <- s; buffer.[j+1] <- s
-    //                let j = newMapping.GetBufferIndex(o1.X + int64(2*x), o1.Y + int64(2*y+1))
-    //                buffer.[j] <- s; buffer.[j+1] <- s
-
-    //        Layer(def, buffer, newMapping)
-   
 module Layer =
 
     let private verbose = false
@@ -395,7 +308,7 @@ type LayerSet(layers : ILayer[]) =
 
     do
 
-        invariantm (layers.Length > 0) "No layers." "3532f669-8321-4f47-a39d-8c9920cb5f67"
+        invariantm (layers.Length > 0) (fun()->"No layers.") "3532f669-8321-4f47-a39d-8c9920cb5f67"
 
     member this.Layers          with get() = layers
 

@@ -181,7 +181,7 @@ module Query =
                 if config.Verbose then printfn "[Generic ] InMemoryNode %A" n.Cell
 
                 invariantm (root.Cell.Exponent >= config.MinExponent)
-                    "Query cannot start at node with exponent smaller than configured minExponent."
+                    (fun()->"Query cannot start at node with exponent smaller than configured minExponent.")
                     "bd20d469-970c-4c9c-b99c-6694dc90923d."
 
                 if isNodeFullyOutside root then
@@ -302,7 +302,7 @@ module Query =
             | InMemoryNode n            ->
 
                 invariantm (n.Cell.Exponent >= config.MinExponent)
-                    "Query cannot start at node with exponent smaller than configured minExponent."
+                    (fun()->"Query cannot start at node with exponent smaller than configured minExponent.")
                     "2c82bfd9-e7ff-4f8f-a990-156f0460a255."
 
                 if isNodeFullyOutside root then
