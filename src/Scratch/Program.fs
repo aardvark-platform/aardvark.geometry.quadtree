@@ -951,11 +951,32 @@ let madorjan20210127() =
     //printfn "[Instrumentation] countDurableCodecDeserializeNode  = %A" Instrumentation.countSerializationOptionsLoadNode
     //printfn "[Instrumentation] swDurableCodecDeserializeNode     = %f" Instrumentation.swSerializationOptionsLoadNode.Elapsed.TotalSeconds
 
+let madorjan20210216() =
+
+    let id = "D56C938F-382E-456C-926B-BBBEE1DEA4E0" |> Guid.Parse
+    let store = @"T:\Vgm\Stores\2021-02-16_madorjan" |> SerializationOptions.SimpleDiskStore
+
+
+
+    match store.TryLoad id with
+    | None   ->
+        printfn "key %A does not exist in store" id
+    | Some _ ->
+
+        let root = OutOfCoreNode (id, fun () -> Quadtree.Load store id)
+        Quadtree.printStructure true root
+
+        let q = Quadtree.Load store id
+        printfn "%A" q.Id
+
 
 [<EntryPoint>]
 let main argv =
 
-    madorjan20210127 ()
+    madorjan20210216 ()
+
+    //madorjan20210127 ()
+    
     //exportTest_20210126 ()
 
     //intersectsCellTest_20210125 ()
