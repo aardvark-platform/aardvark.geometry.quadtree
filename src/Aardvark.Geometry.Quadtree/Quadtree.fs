@@ -30,6 +30,7 @@ module Quadtree =
         | OutOfCoreNode (_, load)   -> if outOfCore then load() |> recurse else a
         | InMemoryInner n           -> b + (n.SubNodes |> Array.sumBy recurse)
         | InMemoryMerge n           -> b + (n.First |> recurse) + (n.Second |> recurse)
+        | LinkedNode n              -> b + (n.Target |> recurse)
 
     /// Count number of nodes in quadtree.
     /// If outOfCore is false, then out-of-core nodes are handled like leafs.
@@ -53,11 +54,13 @@ module Quadtree =
                                             print indent (load())
                                          else
                                             printfn "%sOutOfCoreNode %A" indent id
-            | InMemoryInner n       -> printfn "%sInMemoryInner %A" indent n.Cell
-                                       for n in n.SubNodes do print (indent + "  ") n
-            | InMemoryMerge n       -> printfn "%sInMemoryMerge %A" indent n.Cell
-                                       print (indent + "  ") n.First
-                                       print (indent + "  ") n.Second
+            | InMemoryInner n         -> printfn "%sInMemoryInner %A" indent n.Cell
+                                         for n in n.SubNodes do print (indent + "  ") n
+            | InMemoryMerge n         -> printfn "%sInMemoryMerge %A" indent n.Cell
+                                         print (indent + "  ") n.First
+                                         print (indent + "  ") n.Second
+            | LinkedNode n            -> printfn "%sLinkedNode %A" indent n.Target.Cell
+                                         print (indent + "  ") n.Target
 
         print "" n
 
@@ -129,6 +132,9 @@ module Quadtree =
     /// Returns new merged quadtree. Immutable merge.
     let Merge (domination : Dominance) (first : QNodeRef) (second : QNodeRef) =
         Merge.merge domination first second
+
+    let Link (id : Guid) (target : QNodeRef) =
+        LinkedNode { Id = id; Target = target } 
 
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =

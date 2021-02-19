@@ -23,8 +23,10 @@ module Defs =
     let NodeLeaf               = def "c74fad23-1211-4073-94e5-54b778e0d295" "Quadtree.NodeLeaf" "A quadtree leaf node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let NodeInner              = def "1f7baa27-5bcc-420f-89a3-714b65d93a2d" "Quadtree.NodeInner" "A quadtree inner node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let NodeMerge              = def "2d80c73e-ed3e-442a-a631-4f570ff838fd" "Quadtree.NodeMerge" "A quadtree merge node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
-    
+    let NodeLinked             = def "8628aab6-a416-42ab-9192-bae0d5590f4f" "Quadtree.LinkedNode" "A reference (link) to another quadtree node. DurableMapAligned16" Durable.Primitives.DurableMapAligned16
+
     let NodeId                 = def "e46c4163-dd28-43a4-8254-bc21dc3f766b" "Quadtree.NodeId" "Quadtree. Unique id of a node. Guid." Durable.Primitives.GuidDef
+    let TargetId               = def "4a5396fa-9bc6-4616-a450-1516946514f0" "Quadtree.TargetId" "Quadtree. Reference (link) to another node. Guid." Durable.Primitives.GuidDef
     let CellBounds             = def "59258849-5765-4d11-b760-538282063a55" "Quadtree.CellBounds" "Quadtree. Node bounds in cell space. Cell2d." Durable.Aardvark.Cell2d
     let SplitLimitExponent     = def "472cf20a-e917-4aed-8379-7661cd880511" "Quadtree.SplitLimitExponent" "Quadtree. Power-of-two split limit exponent. Int32." Durable.Primitives.Int32
     let OriginalSampleExponent = def "16c41f1d-0c31-4ef8-b22b-36276d2f2e45" "Quadtree.OriginalSampleExponent" "Quadtree. Power-of-two original sample exponent. Int32." Durable.Primitives.Int32

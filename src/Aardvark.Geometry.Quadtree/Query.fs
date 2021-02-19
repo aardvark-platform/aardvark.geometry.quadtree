@@ -156,6 +156,10 @@ module Query =
                 if config.Verbose then printfn "[Generic ] OutOfCoreNode %A" id
                 yield! load() |> recurse
             
+            | LinkedNode n               ->
+                if config.Verbose then printfn "[Generic ] LinkedNode %A" id
+                yield! n.Target |> recurse
+
             | InMemoryInner n           ->
                 if config.Verbose then printfn "[Generic ] InMemoryInner %A %A" n.Cell n.Id
                 for subnode in n.SubNodes do
@@ -283,6 +287,7 @@ module Query =
             match root with
             | NoNode                    -> ()
             | OutOfCoreNode (_, load)   -> yield! load() |> recurse
+            | LinkedNode n              -> yield! n.Target |> recurse
             | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
             | InMemoryMerge n           ->
 
@@ -401,6 +406,8 @@ module Sample =
                         for (qi, ps) in gs do
                             if ps.Length > 0 then
                                 yield! PositionsWithBounds config ps (Box2d(ps)) (n.SubNodes.[qi])
+
+                | LinkedNode n -> yield! PositionsWithBounds config positions positionsBounds n.Target
 
                 | InMemoryMerge n ->
 

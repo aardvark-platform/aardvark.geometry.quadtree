@@ -205,6 +205,29 @@ module Serialization =
             }
 
     (*
+        QLinkedNode
+
+        durable definition 8628aab6-a416-42ab-9192-bae0d5590f4f
+    *)
+    
+    let private encodeQLinkedNode (options : SerializationOptions) (n : QLinkedNode) : byte[] =
+        let map = List<KeyValuePair<Durable.Def, obj>>()
+        
+        // node properties
+        map.Add(kvp Defs.NodeId n.Id)
+        map.Add(kvp Defs.TargetId n.Target.Id)
+        DurableCodec.Serialize(Defs.NodeLinked, map)
+
+    let private decodeQLinkedNode(options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
+        let map  = o :?> ImmutableDictionary<Durable.Def, obj>
+        let id   = map.Get(Defs.NodeId)              :?> Guid
+        let targetId = map.Get(Defs.TargetId)        :?> Guid
+        
+        let target = OutOfCoreNode (targetId, (fun () -> options.LoadNode targetId))
+
+        LinkedNode { Id = id; Target = target }
+
+    (*
         QNode
 
         durable definition c74fad23-1211-4073-94e5-54b778e0d295
@@ -346,7 +369,7 @@ module Serialization =
         | InMemoryNode n        -> saveBuffer n.Id (fun () -> encodeQNode options n) Array.empty
         | InMemoryInner n       -> saveBuffer n.Id (fun () -> encodeQInnerNode options n) n.SubNodes
         | InMemoryMerge n       -> saveBuffer n.Id (fun () -> encodeQMergeNode options n) [| n.First; n.Second |]
-                                    
+        | LinkedNode n          -> saveBuffer n.Id (fun () -> encodeQLinkedNode options n) [| n.Target |]
 
     
     (*
@@ -358,6 +381,7 @@ module Serialization =
         Defs.NodeInner.Id,  decodeQInnerNode
         Defs.NodeLeaf.Id,   decodeQNode
         Defs.NodeMerge.Id,  decodeQMergeNode
+        Defs.NodeLinked.Id, decodeQLinkedNode
         ]
 
     let rec private decode (options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
@@ -382,6 +406,7 @@ module Serialization =
         | InMemoryInner n         -> yield n.Id; for x in n.SubNodes do yield! recurse  x
         | InMemoryMerge n         -> yield n.Id; yield! recurse n.First; yield! recurse n.Second
         | OutOfCoreNode (_, load) -> yield! load() |> recurse
+        | LinkedNode n            -> yield n.Id; yield! recurse n.Target
 
         }
 

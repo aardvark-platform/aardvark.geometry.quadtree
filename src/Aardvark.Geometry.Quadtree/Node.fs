@@ -122,7 +122,11 @@ and
         First : QNodeRef
         Second : QNodeRef
         }
-
+and
+    QLinkedNode = {
+        Id : Guid
+        Target : QNodeRef
+        }
 and
 
     QNodeRef =
@@ -131,6 +135,7 @@ and
     | OutOfCoreNode of Guid * (unit -> QNodeRef)
     | InMemoryInner of QInnerNode
     | InMemoryMerge of QMergeNode
+    | LinkedNode   of QLinkedNode
     with
 
         /// Forces property Id. Throws exception if NoNode.
@@ -141,6 +146,7 @@ and
             | InMemoryInner n -> n.Id
             | InMemoryMerge n -> n.Id
             | OutOfCoreNode (_, load) -> load().Id
+            | LinkedNode n -> n.Id
 
         /// Forces property Cell. Throws exception if NoNode.
         member this.Cell with get() =
@@ -150,6 +156,7 @@ and
             | InMemoryInner n -> n.Cell
             | InMemoryMerge n -> n.Cell
             | OutOfCoreNode (_, load) -> load().Cell
+            | LinkedNode n -> n.Target.Cell
 
          /// Returns node's exact bounding box, or invalid box for NoNode.
         member this.ExactBoundingBox with get() =
@@ -159,6 +166,7 @@ and
             | InMemoryInner n -> n.ExactBoundingBox
             | InMemoryMerge n -> n.ExactBoundingBox
             | OutOfCoreNode (_, load) -> load().ExactBoundingBox
+            | LinkedNode n -> n.Target.ExactBoundingBox
 
         /// Forces property SplitLimitExp. Throws exception if NoNode.
         member this.SplitLimitExponent with get() =
@@ -168,6 +176,7 @@ and
             | InMemoryInner n -> n.SplitLimitExponent
             | InMemoryMerge n -> n.SplitLimitExponent
             | OutOfCoreNode (_, load) -> load().SplitLimitExponent
+            | LinkedNode n -> n.Target.SplitLimitExponent
 
         member this.ContainsLayer (semantic : Durable.Def) =
             match this with
@@ -176,6 +185,7 @@ and
             | InMemoryMerge _ -> false
             | InMemoryNode n -> n.ContainsLayer semantic
             | OutOfCoreNode (_, load) -> load().ContainsLayer semantic
+            | LinkedNode n -> n.Target.ContainsLayer semantic
 
         member this.LayerSet with get() : LayerSet option =
             match this with
@@ -184,14 +194,16 @@ and
             | InMemoryMerge _ -> None
             | InMemoryNode n -> Some(n.LayerSet)
             | OutOfCoreNode (_, load) -> load().LayerSet
+            | LinkedNode n -> n.Target.LayerSet
 
         member this.IsLeafNode with get() =
             match this with
-            | NoNode                -> false
-            | InMemoryInner _       -> false
-            | InMemoryMerge _       -> false
-            | InMemoryNode _        -> true
-            | OutOfCoreNode (_, _)  -> true
+            | NoNode          -> false
+            | InMemoryInner _ -> false
+            | InMemoryMerge _ -> false
+            | InMemoryNode _  -> true
+            | OutOfCoreNode _ -> true
+            | LinkedNode n    -> n.Target.IsLeafNode
 
         /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
         /// Returns (true, <newUpdatedOctree>) if 'oldSemantic' exists and is replaced.
@@ -207,49 +219,54 @@ and
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _           -> unchanged
-            | InMemoryNode  n           -> match n.UpdateLayerSemantic(oldSemantic, newSemantic) with
-                                           | Some qnode -> (true, InMemoryNode qnode)
-                                           | None       -> unchanged
-            | OutOfCoreNode (_, load)   -> load() |> qnode
+            | InMemoryMerge _         -> unchanged
+            | InMemoryNode  n         -> match n.UpdateLayerSemantic(oldSemantic, newSemantic) with
+                                         | Some qnode -> (true, InMemoryNode qnode)
+                                         | None       -> unchanged
+            | OutOfCoreNode (_, load) -> load() |> qnode
+            | LinkedNode n            -> n.Target.UpdateLayerSemantic (oldSemantic, newSemantic)
 
         /// Throws if no such layer.
         member this.GetLayer def : ILayer =
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _           -> sprintf "Layer not found. %A. Error 2c634f5f-d359-4523-b87a-a96d2522c018." def |> failwith
-            | InMemoryNode n            -> n.LayerSet.GetLayer def
-            | OutOfCoreNode (_, load)   -> load().LayerSet.Value.GetLayer def
+            | InMemoryMerge _         -> sprintf "Layer not found. %A. Error 2c634f5f-d359-4523-b87a-a96d2522c018." def |> failwith
+            | InMemoryNode n          -> n.LayerSet.GetLayer def
+            | OutOfCoreNode (_, load) -> load().LayerSet.Value.GetLayer def
+            | LinkedNode n            -> n.Target.GetLayer def
 
         /// Throws if no such layer.
         member this.GetLayer<'a> def = 
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _           -> sprintf "Layer not found. %A. Error f33f39a9-2394-473f-8dae-76bd8baaaafb." def |> failwith
-            | InMemoryNode n            -> n.LayerSet.GetLayer<'a> def
-            | OutOfCoreNode (_, load)   -> load().LayerSet.Value.GetLayer<'a> def
+            | InMemoryMerge _         -> sprintf "Layer not found. %A. Error f33f39a9-2394-473f-8dae-76bd8baaaafb." def |> failwith
+            | InMemoryNode n          -> n.LayerSet.GetLayer<'a> def
+            | OutOfCoreNode (_, load) -> load().LayerSet.Value.GetLayer<'a> def
+            | LinkedNode n            -> n.Target.GetLayer<'a> def
     
         member this.TryGetLayer def =
             match this with
             | NoNode
             | InMemoryInner _ 
-            | InMemoryMerge _           -> None
-            | InMemoryNode n            -> n.LayerSet.TryGetLayer def
-            | OutOfCoreNode (_, load)   -> match load().LayerSet with
-                                           | Some ls -> ls.TryGetLayer def
-                                           | None -> None
+            | InMemoryMerge _         -> None
+            | InMemoryNode n          -> n.LayerSet.TryGetLayer def
+            | OutOfCoreNode (_, load) -> match load().LayerSet with
+                                         | Some ls -> ls.TryGetLayer def
+                                         | None -> None
+            | LinkedNode n            -> n.Target.TryGetLayer def
 
         member this.TryGetLayer<'a> def =
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _           -> None
-            | InMemoryNode n            -> n.LayerSet.TryGetLayer<'a> def
-            | OutOfCoreNode (_, load)   -> match load().LayerSet with
-                                           | Some ls -> ls.TryGetLayer<'a> def
-                                           | None -> None
+            | InMemoryMerge _         -> None
+            | InMemoryNode n          -> n.LayerSet.TryGetLayer<'a> def
+            | OutOfCoreNode (_, load) -> match load().LayerSet with
+                                         | Some ls -> ls.TryGetLayer<'a> def
+                                         | None -> None
+            | LinkedNode n            -> n.Target.TryGetLayer<'a> def
 
 module QNode =
 

@@ -92,6 +92,18 @@ module SerializationTests =
 
         ()
 
+    [<Fact>]
+    let ``Quadtree save linked node`` () =
+
+        let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
+        let customid = Guid.NewGuid()
+        let l = Quadtree.Link customid a
+
+        let options = SerializationOptions.NewInMemoryStore(verbose = true)
+        let id = l |> Quadtree.Save options
+
+        ()
+
 
     let private roundTrip (qtree : QNodeRef) =
 
@@ -159,6 +171,18 @@ module SerializationTests =
 
         // roundtrip
         roundTrip m
+
+        ()
+
+    [<Fact>]
+    let ``Quadtree roundtrip linked node`` () =
+
+        let a = createQuadtreeWithValue 0 0 1 1  0 8<powerOfTwo> 10.0f
+        let customid = Guid.NewGuid()
+        let l = Quadtree.Link customid a
+
+        // roundtrip
+        roundTrip l
 
         ()
 
