@@ -178,10 +178,21 @@ and
             | OutOfCoreNode (_, load) -> load().SplitLimitExponent
             | LinkedNode n -> n.Target.SplitLimitExponent
 
+        member this.GetFirstNonEmptySubNode() : QNodeRef option =
+            match this with
+            | NoNode -> None
+            | InMemoryInner n -> n.SubNodes |> Array.tryFind (fun sn -> match sn with | NoNode -> false | _ -> true)
+            | InMemoryMerge n -> Some n.First
+            | InMemoryNode n -> None
+            | OutOfCoreNode (_, load) -> load().GetFirstNonEmptySubNode()
+            | LinkedNode n -> n.Target.GetFirstNonEmptySubNode()
+
         member this.ContainsLayer (semantic : Durable.Def) =
             match this with
             | NoNode -> false
-            | InMemoryInner _ -> false
+            | InMemoryInner _ -> match this.GetFirstNonEmptySubNode() with
+                                 | Some n -> n.ContainsLayer(semantic)
+                                 | None -> failwith "Invariant 0a85f195-7feb-4ecb-912d-7fd4e7024951."
             | InMemoryMerge _ -> false
             | InMemoryNode n -> n.ContainsLayer semantic
             | OutOfCoreNode (_, load) -> load().ContainsLayer semantic
@@ -217,13 +228,32 @@ and
                 n.UpdateLayerSemantic(oldSemantic, newSemantic)
 
             match this with
-            | NoNode
-            | InMemoryInner _
-            | InMemoryMerge _         -> unchanged
-            | InMemoryNode  n         -> match n.UpdateLayerSemantic(oldSemantic, newSemantic) with
-                                         | Some qnode -> (true, InMemoryNode qnode)
-                                         | None       -> unchanged
+            | NoNode                  -> unchanged
+
+            | InMemoryInner n         ->
+                let xs = n.SubNodes |> Array.map (fun sn -> sn.UpdateLayerSemantic(oldSemantic, newSemantic))
+                match xs |> Array.exists fst with
+                | false -> unchanged
+                | true  -> let sns = xs |> Array.map snd
+                           let updatedNode = { n with SubNodes = sns }
+                           (true, InMemoryInner updatedNode)
+
+            | InMemoryMerge n         ->
+                let n1 = n.First.UpdateLayerSemantic(oldSemantic, newSemantic)
+                let n2 = n.Second.UpdateLayerSemantic(oldSemantic, newSemantic)
+                match n1, n2 with
+                | (false, _), (false, _) -> unchanged
+                | (_, q1), (_, q2)       -> 
+                    let updatedNode = { n with First = q1; Second = q2 }
+                    (true, InMemoryMerge updatedNode)
+
+            | InMemoryNode  n         ->
+                match n.UpdateLayerSemantic(oldSemantic, newSemantic) with
+                | Some qnode -> (true, InMemoryNode qnode)
+                | None       -> unchanged
+
             | OutOfCoreNode (_, load) -> load() |> qnode
+
             | LinkedNode n            -> n.Target.UpdateLayerSemantic (oldSemantic, newSemantic)
 
         /// Throws if no such layer.

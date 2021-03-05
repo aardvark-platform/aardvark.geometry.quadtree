@@ -615,6 +615,7 @@ open Aardvark.Geometry.Quadtree.Serialization
 open System.Threading
 open Aardvark.Data
 open System.Collections.Immutable
+open Uncodium.SimpleStore
 
 let prettyPrintTest () =
 
@@ -969,11 +970,46 @@ let madorjan20210216() =
         let q = Quadtree.Load store id
         printfn "%A" q.Id
 
+let test_20210304_adorjan () =
+
+    //let store = @"C:\DATA\2020.3.terrain_store"
+    let storePath = @"T:\Vgm\Data\Raster\2020.3.terrain_store"
+    let key = "396630ec-859d-4bc8-b53e-ffe21620227a" |> Guid.Parse
+
+    let testKey (k : Guid) =
+        use store = new SimpleDiskStore(storePath)
+        printfn "Quadtree exists: %b" (store.Contains (string k))
+        let options = SerializationOptions.SimpleStore(store)
+        let q = Quadtree.Load options k
+        let containsBil = Quadtree.ContainsLayer Defs.BilinearParams4f q
+        let containsH = Quadtree.ContainsLayer Defs.HeightsBilinear4f q
+        let lset = q.LayerSet
+
+        let (success, q2) = Quadtree.UpdateLayerSemantic (Defs.BilinearParams4f, Defs.HeightsBilinear4f) q
+
+        let sampleCount =
+            q |> Query.All Query.Config.Default
+              |> Seq.collect (fun cell -> cell.GetSamples<V4f> Defs.BilinearParams4f)
+              |> Seq.length
+
+        printfn "%A\n\nContains BilinearParams4f: %b\nContains HeightsBilinear4f: %b\nLayerSet: %A\nUpdateLayerSemantic successful: %b\nSamples at BilinearParams4f:%d" q containsBil containsH lset success sampleCount
+
+        let containsBil = Quadtree.ContainsLayer Defs.BilinearParams4f q2
+        let containsH = Quadtree.ContainsLayer Defs.HeightsBilinear4f q2
+
+        printfn "=============================="
+        printfn "%A\n\nContains BilinearParams4f: %b\nContains HeightsBilinear4f: %b\nLayerSet: %A\nUpdateLayerSemantic successful: %b\nSamples at BilinearParams4f:%d" q containsBil containsH lset success sampleCount
+        
+
+    testKey key
+
 
 [<EntryPoint>]
 let main argv =
 
-    madorjan20210216 ()
+    test_20210304_adorjan ()
+
+    //madorjan20210216 ()
 
     //madorjan20210127 ()
     
