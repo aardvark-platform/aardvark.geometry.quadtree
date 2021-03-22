@@ -1004,10 +1004,45 @@ let test_20210304_adorjan () =
     testKey key
 
 
+let test_20210318_cpunz () =
+
+    let storePath = @"T:\Vgm\Data\Raster\20210318_cpunz"
+    let key = "b32cc924-10d4-4251-a8ba-b20892007b65" |> Guid.Parse
+
+    use store = new SimpleDiskStore(storePath)
+    //for k in store.SnapshotKeys() do printfn "%A" k
+
+    // check if specified key exists
+    printfn "Quadtree exists: %b" (store.Contains (string key))
+    let options = SerializationOptions.SimpleStore(store)
+
+    // load quadtree
+    let qtree = Quadtree.Load options key
+    printfn "loaded quadtree (bounds = %A)" qtree.ExactBoundingBox
+
+    // query ...
+    let poly = Polygon2d([|
+        V2d(66032.0822094507, 270047.489626304)
+        V2d(66033.1935671793, 270047.489626304)
+        V2d(66033.1935671793, 270049.141204067)
+        V2d(66032.0822094507, 270049.141204067)
+        |])
+
+    let config = Query.Config.Default
+    let xs = qtree |> Query.InsidePolygon config poly |> Seq.toArray
+    printfn "results (count=%d):" xs.Length
+    for x in xs do printfn "    %A" x
+
+    let ys = xs |> Array.collect (fun chunk -> chunk.GetSamples<V4f> Defs.VolumesBilinear4f)
+    printfn "samples (count=%d):" ys.Length
+    for y in ys do printfn "    %A" y
+
 [<EntryPoint>]
 let main argv =
 
-    test_20210304_adorjan ()
+    test_20210318_cpunz ()
+
+    //test_20210304_adorjan ()
 
     //madorjan20210216 ()
 
