@@ -56,8 +56,10 @@ module Quadtree =
                                             printfn "%sOutOfCoreNode %A" indent id
             | InMemoryInner n         -> printfn "%sInMemoryInner %A" indent n.Cell
                                          for n in n.SubNodes do print (indent + "  ") n
-            | InMemoryMerge n         -> printfn "%sInMemoryMerge %A" indent n.Cell
+            | InMemoryMerge n         -> printfn "%sInMemoryMerge %A %A" indent n.Cell n.Id
+                                         printfn "%s  FIRST :" indent
                                          print (indent + "  ") n.First
+                                         printfn "%s  SECOND:" indent
                                          print (indent + "  ") n.Second
             | LinkedNode n            -> printfn "%sLinkedNode %A" indent n.Target.Cell
                                          print (indent + "  ") n.Target

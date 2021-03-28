@@ -7,6 +7,8 @@ open System
 open System.Globalization
 open System.IO
 open Xunit
+open Aardvark.Geometry.Quadtree.Serialization
+open Uncodium.SimpleStore
 
 module cpunz =
 
@@ -427,6 +429,47 @@ module cpunz =
 
         ()
 
+    [<Fact>]
+    let cpunz_20210318 () =
+    
+        if USE_LOCAL_TESTFILES then
+            let storePath = @"T:\Vgm\Data\Raster\20210318_cpunz"
+            let key = "b32cc924-10d4-4251-a8ba-b20892007b65" |> Guid.Parse
+    
+            use store = new SimpleDiskStore(storePath)
+            //for k in store.SnapshotKeys() do printfn "%A" k
+    
+            // check if specified key exists
+            printfn "Quadtree exists: %b" (store.Contains (string key))
+            let options = SerializationOptions.SimpleStore(store)
+    
+            // load quadtree
+            let qtree = Quadtree.Load options key
+            printfn "loaded quadtree (bounds = %A)" qtree.ExactBoundingBox
+    
+            // query ...
+            let poly = Polygon2d([|
+                V2d(66017.513819274, 270086.360212579)
+                V2d(66022.1350611048, 270086.360212579)
+                V2d(66022.1350611048, 270090.195622167)
+                V2d(66017.513819274, 270090.195622167)
+                |])
+    
+            let config = Query.Config.Default
+            let xs = qtree |> Query.InsidePolygon config poly |> Seq.toArray
+            printfn "results (count=%d):" xs.Length
+            for x in xs do printfn "    %A" x
+    
+            let ys = xs |> Array.collect (fun chunk -> chunk.GetSamples<V4f> Defs.VolumesBilinear4f)
+            printfn "samples (count=%d):" ys.Length
+            for y in ys do printfn "    %A" y
+
+        ()
+
+
+
+
+
     let hor1_main = V4f(1.0, 0.0,0.0,0.0)
     let oblique1_main = V4f(1.5, 1.0,0.0,0.0)
     let nanVal = V4f(nan, nan, nan, nan)  
@@ -563,7 +606,6 @@ module cpunz =
         
         ()
 
-    open PrettyPrint
     let generatePrettyPrintTable () =
     
         let f = { HAlign=Center; VAlign=Middle; Bgcolor=C3b.White}

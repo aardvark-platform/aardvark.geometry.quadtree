@@ -103,6 +103,9 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
     member this.GetSample (p : V2d) : Cell2d =
         layers.Mapping.GetSampleCell(p)
 
+    /// Returns 2.0 ^ SampleExponent.
+    member this.SampleSize with get() : float = layers.SampleSize
+
 and
     QInnerNode = {
         Id : Guid

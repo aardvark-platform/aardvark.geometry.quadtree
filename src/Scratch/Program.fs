@@ -56,56 +56,6 @@ let example () =
 
     ()
 
-//let merge () =
-
-//    // create first quadtree
-//    let heights1 = [| 
-//        1.0; 1.0; 2.0; 2.0
-//        1.5; 1.6; 1.7; 1.8
-//        1.6; 1.7; 2.0; 2.2
-//        |]
-//    let mapping1 = DataMapping(origin = Cell2d(0, 0, 0), size = V2i(4, 3))
-//    let heightsLayer1 = Layer(Defs.Heights1d, heights1, mapping1)
-//    let firstQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer1 |]
-//    printfn "%A" (firstQuadtree.TryGetInMemory().Value.Cell)
-
-//    // create second quadtree
-//    let heights2 = [| 
-//        3.1; 3.2
-//        3.3; 3.4
-//        |]
-//    let mapping2 = DataMapping(origin = Cell2d(4, 2, -1), size = V2i(2, 2))
-//    let heightsLayer2 = Layer(Defs.Heights1d, heights2, mapping2)
-//    let secondQuadtree = Quadtree.Build BuildConfig.Default [| heightsLayer2 |]
-//    printfn "%A" (secondQuadtree.TryGetInMemory().Value.Cell)
-
-//    // merge both octrees
-//    let mergedQtree = Quadtree.Merge MoreDetailedOrSecond firstQuadtree secondQuadtree
-//    printfn "%A" (mergedQtree.TryGetInMemory().Value.Cell)
-
-//    // enumerate all samples
-//    let chunks = mergedQtree |> Query.InsideCell Query.Config.Default (mergedQtree.TryGetInMemory().Value.Cell)
-    
-//    let allSamples = chunks |> Seq.collect (fun chunk -> chunk.GetSamples<float> Defs.Heights1d)
-//    for cell, x in allSamples do printfn "%A -> %f" cell x
-
-//    // save
-//    let options = SerializationOptions.NewInMemoryStore(verbose = true)
-//    //let options = SerializationOptions.SimpleDiskStore(@"T:\qstore2")
-//    let id = mergedQtree |> Quadtree.Save options
-//    printfn "saved quadtree %A" id
-
-//    // load
-//    let loadedQtree = Quadtree.Load options id
-//    match loadedQtree with
-//    | InMemoryNode loadedQtree -> printfn "loaded quadtree %A" loadedQtree.Id
-//    | NoNode                   -> printfn "quadtree %A does not exist" id
-//    | OutOfCoreNode _          -> printfn "quadtree %A came back is OutOfCoreNode - strange!" id
-
-//    printfn "count nodes: %d" (Quadtree.CountNodes loadedQtree)
-
-//    ()
-   
 let buildQuadtree () =
 
     let size = V2i(15000,10000)
@@ -348,8 +298,6 @@ let cpunz20200829 () =
 
     //let result1 = qtree |> Query.All Query.Config.Default |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.BilinearParams4f) |> Seq.toArray
     //printfn "Query.Polygon: length = %d" result1.Length
-
-    
 
     ()
 
@@ -607,7 +555,6 @@ let cpunz20201116 () =
     
     //printfn "%A" resultCells
 
-
     ()
 
 open PrettyPrint
@@ -700,6 +647,8 @@ let intersectsCellTest_20210122 () =
     //    let (ycell, ysample) = ys.[i]
     //    let ok = if xcell = ycell && xsample = ysample then " " else "X"
     //    printfn "%A = %A    %s" xcell ycell ok
+
+    ()
 
 /// fast when in memory, slow when from disk
 let intersectsCellTest_20210125 () =
@@ -952,12 +901,12 @@ let madorjan20210127() =
     //printfn "[Instrumentation] countDurableCodecDeserializeNode  = %A" Instrumentation.countSerializationOptionsLoadNode
     //printfn "[Instrumentation] swDurableCodecDeserializeNode     = %f" Instrumentation.swSerializationOptionsLoadNode.Elapsed.TotalSeconds
 
+    ()
+
 let madorjan20210216() =
 
     let id = "D56C938F-382E-456C-926B-BBBEE1DEA4E0" |> Guid.Parse
     let store = @"T:\Vgm\Stores\2021-02-16_madorjan" |> SerializationOptions.SimpleDiskStore
-
-
 
     match store.TryLoad id with
     | None   ->
@@ -1003,7 +952,6 @@ let test_20210304_adorjan () =
 
     testKey key
 
-
 let test_20210318_cpunz () =
 
     let storePath = @"T:\Vgm\Data\Raster\20210318_cpunz"
@@ -1018,24 +966,27 @@ let test_20210318_cpunz () =
 
     // load quadtree
     let qtree = Quadtree.Load options key
+    //Quadtree.printStructure true qtree
     printfn "loaded quadtree (bounds = %A)" qtree.ExactBoundingBox
 
     // query ...
     let poly = Polygon2d([|
-        V2d(66032.0822094507, 270047.489626304)
-        V2d(66033.1935671793, 270047.489626304)
-        V2d(66033.1935671793, 270049.141204067)
-        V2d(66032.0822094507, 270049.141204067)
+        V2d(66017.513819274, 270086.360212579)
+        V2d(66022.1350611048, 270086.360212579)
+        V2d(66022.1350611048, 270090.195622167)
+        V2d(66017.513819274, 270090.195622167)
         |])
 
-    let config = Query.Config.Default
+    let config = { Query.Config.Default with Verbose = false }
     let xs = qtree |> Query.InsidePolygon config poly |> Seq.toArray
     printfn "results (count=%d):" xs.Length
     for x in xs do printfn "    %A" x
 
+    printfn "------"
+
     let ys = xs |> Array.collect (fun chunk -> chunk.GetSamples<V4f> Defs.VolumesBilinear4f)
     printfn "samples (count=%d):" ys.Length
-    for y in ys do printfn "    %A" y
+    for (c, x) in ys do printfn "    %A %A" c (c.BoundingBox)
 
 [<EntryPoint>]
 let main argv =

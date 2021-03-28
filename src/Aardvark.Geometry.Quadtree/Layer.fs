@@ -107,9 +107,12 @@ type Layer<'a>(def : Durable.Def, data : 'a[], mapping : DataMapping) =
         let min = this.SampleMin
         let maxIncl = this.SampleMaxIncl
 
-        let s = if c.Exponent = min.Exponent then c
-                elif c.Exponent + 1 = min.Exponent then c.Parent
-                else failwith "Invariant 4d59a076-37ee-42d4-8326-2341be922a6c."
+        if c.Exponent > min.Exponent then failwith "Invariant 4270bb56-29a0-4267-82d3-aacffd7c5e88."
+        let mutable s = c
+        while s.Exponent < min.Exponent do s <- s.Parent
+        //let s = if c.Exponent = min.Exponent then c
+        //        elif c.Exponent + 1 = min.Exponent then c.Parent
+        //        else failwith "Invariant 4d59a076-37ee-42d4-8326-2341be922a6c."
 
         let inline inside () = s.X >= min.X && s.Y >= min.Y && s.X <= maxIncl.X && s.Y <= maxIncl.Y
 
@@ -316,6 +319,8 @@ type LayerSet(layers : ILayer[]) =
     member this.Mapping         with get() = layers.[0].Mapping
     member this.SampleExponent  with get() = layers.[0].Mapping.BufferOrigin.Exponent
     member this.SampleWindow    with get() = layers.[0].Mapping.Window
+    /// Returns 2.0 ^ SampleExponent.
+    member this.SampleSize      with get() = 2.0 ** float(layers.[0].Mapping.BufferOrigin.Exponent)
 
     member this.TryGetLayer (semantic : Durable.Def) : ILayer option =
         layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id)

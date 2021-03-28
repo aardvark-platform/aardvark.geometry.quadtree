@@ -60,6 +60,7 @@ module Query =
             | WindowSelected window -> this.Node.GetAllSamplesInsideWindow(window)
             | SubtractionSelected second -> this.Node.LayerSet.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.LayerSet.SampleExponent)
             | FullySelected -> this.Node.GetAllSamples()
+        
         member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
             let cells = this.GetSampleCells ()
@@ -75,8 +76,9 @@ module Query =
     let private mergeDominating (config : Config) (xs : Result seq) (ys : Result seq) : Result seq =
 
         let xs = xs |> Seq.toArray
-        let getInterferingXs (y : Result) = 
-            xs |> Array.filter(fun x -> x.Node.ExactBoundingBox.Intersects(y.Node.ExactBoundingBox))
+        let getInterferingXs (y : Result) =
+            let yebb = y.Node.ExactBoundingBox
+            xs |> Array.filter(fun x -> x.Node.ExactBoundingBox.Intersects(yebb))
 
         seq {
             // return ALL dominating samples ...
@@ -116,9 +118,19 @@ module Query =
 
                     if result.Length > 0 then
                         if config.Verbose then printfn "[mergeDominating] YIELD resolved samples: %A" result
-                        yield { Node = y.Node; Selection = result |> Array.ofList |> SubCellsSelected }
 
-                            
+                        // DEBUG code
+                        //let subcellExponent = y.Node.Cell.Exponent - 1
+                        //for subcell in result do
+                        //    if subcell.Exponent <> subcellExponent then failwith "Invariant d06646a3-0c0e-4f19-aad7-9045b06617d1."
+                        //    ()
+
+                        // subcells may not only be direct subcells due to recursive splitting (see resolve)
+                        // this may happen if resolution of merged layers differs by more than 1 exponent
+                        // at least this is what I think happens ;-)
+
+                        yield { Node = y.Node; Selection = SubCellsSelected (result |> Array.ofList) }
+
                 else
                     // dominated sample IS NOT interfered with -> return
                     if config.Verbose then printfn "[mergeDominating] YIELD non-dominating sample: %A" (y.GetSampleCells())
@@ -126,12 +138,18 @@ module Query =
         }
 
     let private merge (config : Config) (dom : Dominance) (xs : Result seq) (ys : Result seq) : Result seq =
-        
-        match dom with
-        | FirstDominates
-        | MoreDetailedOrFirst  -> mergeDominating config xs ys
-        | SecondDominates
-        | MoreDetailedOrSecond -> mergeDominating config ys xs
+        match xs |> Seq.isEmpty, ys |> Seq.isEmpty with
+        // both sequences contain values
+        | false, false ->
+            match dom with
+            | FirstDominates
+            | MoreDetailedOrFirst  -> mergeDominating config xs ys
+            | SecondDominates
+            | MoreDetailedOrSecond -> mergeDominating config ys xs
+        // xs contains values, ys is empty -> no need to merge, just return xs
+        | false, true  -> xs
+        // xs is empty -> no need to merge, just return ys
+        | true, _      -> ys
 
 
     /// The generic query function.
@@ -232,7 +250,7 @@ module Query =
 
     /// Returns all samples inside given polygon.
     let InsidePolygon (config : Config) (filter : Polygon2d) (root : QNodeRef) : Result seq =
-        let filter = 
+        let filter =
             let p = filter.WithoutMultiplePoints()
             if p.IsCcw() then p else p.Reversed
         let rpos = V2d(config.SampleMode.RelativePosition)
@@ -276,9 +294,11 @@ module Query =
             (config : Config) 
             (isNodeFullyInside : QNodeRef -> bool) 
             (isNodeFullyOutside : QNodeRef -> bool) 
-            (getSamplesInside : QNodeRef -> Result option)
+            (getSamplesInside : QNode -> Result option)
             (root : QNodeRef) 
             : Result seq =
+
+        //printfn "[Generic'] %A" root.Cell
 
         let recurse = Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside
 
@@ -286,7 +306,7 @@ module Query =
 
             match root with
             | NoNode                    -> ()
-            | OutOfCoreNode (_, load)   -> yield! load() |> recurse
+            | OutOfCoreNode (n, load)   -> yield! load() |> recurse
             | LinkedNode n              -> yield! n.Target |> recurse
             | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
             | InMemoryMerge n           ->
@@ -328,7 +348,7 @@ module Query =
                         else
                             // partially inside
                             if config.Verbose then printfn "[Generic'] partially inside"
-                            match getSamplesInside root with
+                            match getSamplesInside n with
                             | None -> ()
                             | Some result -> 
                                 if config.Verbose then printfn "[Generic'] YIELD %A" result
@@ -340,31 +360,57 @@ module Query =
         let filterBb = filter.BoundingBox
         let isNodeFullyInside  (n : QNodeRef) = filterBb.Contains n.ExactBoundingBox
         let isNodeFullyOutside (n : QNodeRef) = not (filterBb.Intersects n.ExactBoundingBox)
-        let getSamplesInside   (n : QNodeRef) =
-            match n with
-            | InMemoryNode n ->
-                let overlap = filter.GetBoundsForExponent(n.LayerSet.SampleExponent).Intersection(n.LayerSet.SampleWindow)
-                if overlap.SizeX > 0L && overlap.SizeY > 0L then
-                    Some { Node = n; Selection = WindowSelected overlap }
-                else
-                    None
-            | _ -> failwith "todo"
+        let getSamplesInside   (n : QNode) =
+            let overlap = filter.GetBoundsForExponent(n.LayerSet.SampleExponent).Intersection(n.LayerSet.SampleWindow)
+            if overlap.SizeX > 0L && overlap.SizeY > 0L then
+                Some { Node = n; Selection = WindowSelected overlap }
+            else
+                None
 
         Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside root
+
+    /// Returns all samples inside given polygon.
+    let InsidePolygon' (config : Config) (filter : Polygon2d) (root : QNodeRef) : Result seq =
+        let filter =
+            let p = filter.WithoutMultiplePoints()
+            if p.IsCcw() then p else p.Reversed
+        let isNodeFullyInside (n : QNodeRef) =
+            n.ExactBoundingBox.ToPolygon2dCCW().IsFullyContainedInside(filter)
+        let isNodeFullyOutside (n : QNodeRef) =
+            not (filter.Intersects(n.ExactBoundingBox.ToPolygon2dCCW()))
+        let getSamplesInside (n : QNode) : Result option =
+            let relativeSamplePos = V2d(config.SampleMode.RelativePosition) * n.SampleSize
+            let xs = n.GetAllSamples() |> Array.filter (fun s ->
+                let p = s.BoundingBox.Min + relativeSamplePos
+                let isInside = filter.Contains(p)
+                isInside
+                )
+            if xs.Length > 0 then
+                let result = { Node = n; Selection = CellsSelected xs }
+                if config.Verbose then printfn "[InsidePolygon] n=%A, YIELD %A" n.Cell result
+                Some result
+            else
+                if config.Verbose then printfn "[InsidePolygon] n=%A, NO SAMPLES inside polygon %A." n.Cell filter
+                None
+
+        Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside root
+
+
 
     [<Obsolete("Use IntersectsCell instead.")>]
     let IntersectsCell' = IntersectsCell
 
-
-    /// Enumerates all samples in quadtree, including samples from inner cells.
+    /// Enumerates all samples in the quadtree,
+    /// including samples from inner cells.
     let rec Full (root : QNodeRef) : Result seq = seq {
         match root with
         | NoNode -> ()
-        | InMemoryInner n -> for subnode in n.SubNodes do yield! Full subnode
-        | InMemoryNode  n -> yield { Node = n; Selection = FullySelected }
-        | InMemoryMerge n -> yield! Full n.First
-                             yield! Full n.Second
-        | _ -> failwith "todo"
+        | InMemoryInner n         -> for subnode in n.SubNodes do yield! Full subnode
+        | InMemoryNode  n         -> yield { Node = n; Selection = FullySelected }
+        | InMemoryMerge n         -> yield! Full n.First
+                                     yield! Full n.Second
+        | LinkedNode    n         -> yield! Full n.Target
+        | OutOfCoreNode (_, load) -> yield! Full (load())
     }
 
 module Sample =
