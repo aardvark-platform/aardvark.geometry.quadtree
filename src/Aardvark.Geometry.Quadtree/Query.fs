@@ -73,7 +73,7 @@ module Query =
             result
 
     /// xs dominate always
-    let private mergeDominating (config : Config) (xs : Result seq) (ys : Result seq) : Result seq =
+    let private mergeDominating (config : Config) (xs : Result list) (ys : Result list) : Result seq =
 
         let xs = xs |> Seq.toArray
         let getInterferingXs (y : Result) =
@@ -83,7 +83,7 @@ module Query =
         seq {
             // return ALL dominating samples ...
             if config.Verbose then printfn "[mergeDominating] YIELD all dominating samples: %A" (xs |> Array.collect(fun z -> z.GetSampleCells()))
-            yield! xs
+            if xs.Length > 0 then yield! xs
 
             // resolve dominated results ...
             for y in ys do
@@ -137,19 +137,130 @@ module Query =
                     yield y
         }
 
-    let private merge (config : Config) (dom : Dominance) (xs : Result seq) (ys : Result seq) : Result seq =
+    let private merge (config : Config) (dom : Dominance) (xs : Result list) (ys : Result list) : Result list =
         match xs |> Seq.isEmpty, ys |> Seq.isEmpty with
         // both sequences contain values
         | false, false ->
             match dom with
             | FirstDominates
-            | MoreDetailedOrFirst  -> mergeDominating config xs ys
+            | MoreDetailedOrFirst  -> mergeDominating config xs ys |> Seq.toList
             | SecondDominates
-            | MoreDetailedOrSecond -> mergeDominating config ys xs
+            | MoreDetailedOrSecond -> mergeDominating config ys xs |> Seq.toList
         // xs contains values, ys is empty -> no need to merge, just return xs
         | false, true  -> xs
         // xs is empty -> no need to merge, just return ys
         | true, _      -> ys
+
+    let rec private merge'
+            (config : Config)
+            (isNodeFullyInside : QNodeRef -> bool) 
+            (isNodeFullyOutside : QNodeRef -> bool) 
+            (dom : Dominance)
+            (first : QNodeRef) (second : QNodeRef)
+            (generic : QNodeRef -> Result seq)
+            : Result seq = seq {
+
+        if first.Cell <> second.Cell then failwith "Invariant a2175093-5832-4cf4-97dc-90068b2a15b3."
+
+        let recurse a b = merge' config isNodeFullyInside isNodeFullyOutside dom a b generic
+
+        let perSampleMerge a b : Result list =
+            //printf "[merge'  ] ... "
+            let xs = generic a |> Seq.toList
+            let ys = generic b |> Seq.toList
+            //printf "merge first (%d) + second (%d)  %A ... " xs.Length ys.Length a.Cell
+            let r = merge config dom xs ys
+            //printfn "done %d" (r |> List.sumBy (fun x -> x.GetSampleCells().Length))
+            r
+
+        if isNodeFullyOutside first then
+            if config.Verbose then printfn "[merge'] fully outside -> skip"
+            ()
+        else
+            match first, second with
+        
+            // load out-of-core nodes ...
+            | OutOfCoreNode (_, load1), OutOfCoreNode (_, load2) ->
+                if config.Verbose then printfn "[merge'] both out-of-core -> load"
+                let r = recurse (load1()) (load2()) |> Seq.toList
+                if r.Length > 0 then yield! r
+            | OutOfCoreNode (_, load1), b ->
+                if config.Verbose then printfn "[merge'] first is out-of-core -> load"
+                let r = recurse (load1()) b |> Seq.toList
+                if r.Length > 0 then yield! r
+            | a, OutOfCoreNode (_, load2) ->
+                if config.Verbose then printfn "[merge'] second is out-of-core -> load"
+                let r = recurse a (load2()) |> Seq.toList
+                if r.Length > 0 then yield! r
+
+            // in-core
+            | first, second ->
+
+                let ebb1 = first.ExactBoundingBox
+                let ebb2 = second.ExactBoundingBox
+                let firstContainsSecond = ebb1.Contains(ebb2)
+
+                match dom with
+
+                | FirstDominates       ->
+                    if config.Verbose then printfn "[merge'] FirstDominates"
+
+                    if firstContainsSecond then
+                        let r = generic first |> Seq.toList
+                        if r.Length > 0 then yield! r
+                    else
+                        let r = perSampleMerge first second
+                        if r.Length > 0 then yield! r
+
+                | MoreDetailedOrFirst  ->
+                    if config.Verbose then printfn "[merge'] MoreDetailedOrFirst"
+
+                    match first, second with
+                    | InMemoryInner a, InMemoryInner b ->
+                        for i = 0 to 3 do
+                            let aSub = a.SubNodes.[i]
+                            let bSub = b.SubNodes.[i]
+                            if config.Verbose then printfn "[QUADRANTS %d] %A %A" i aSub.ExactBoundingBox bSub.ExactBoundingBox
+                            let r = recurse aSub bSub |> Seq.toList
+                            if r.Length > 0 then yield! r
+            
+                    | InMemoryInner a, InMemoryNode b ->
+                        if firstContainsSecond then
+                            // mode is MoreDetailedOrFirst:
+                            // first is definitely more detailed than second (it has subnodes, but second does not)
+                            // and first completely overlaps second (so there is no rest from second visible outside bounds of first)
+                            // -> therefore we can safely ignore second
+                            if config.Verbose then printfn "[merge'] MoreDetailedOrFirst -> firstContainsSecond -> FIRST ONLY"
+                            let r = generic first |> Seq.toList
+                            if r.Length > 0 then yield! r
+
+                        else
+                            if config.Verbose then 
+                                printfn "[merge'][FIRST  %A] %A" first.Cell first.ExactBoundingBox
+                                Quadtree.printStructure true first
+                                printfn "[merge'][SECOND %A] %A" second.Cell second.ExactBoundingBox
+                                Quadtree.printStructure true second
+
+                            let r = perSampleMerge first second
+                            if r.Length > 0 then yield! r
+                            ()
+
+                    | _ ->
+                        //failwith "Falling back to per-sample merge."
+                        let r = perSampleMerge first second
+                        if r.Length > 0 then yield! r
+
+                | SecondDominates      ->
+                    if config.Verbose then printfn "[merge'] SecondDominates -> flip"
+                    let r = merge' config isNodeFullyInside isNodeFullyOutside FirstDominates second first generic |> Seq.toList
+                    if r.Length > 0 then yield! r
+
+                | MoreDetailedOrSecond ->
+                    if config.Verbose then printfn "[merge'] MoreDetailedOrSecond -> flip"
+                    let r = merge' config isNodeFullyInside isNodeFullyOutside MoreDetailedOrFirst second first generic |> Seq.toList
+                    if r.Length > 0 then yield! r
+
+    }
 
 
     /// The generic query function.
@@ -163,69 +274,84 @@ module Query =
 
         let recurse = Generic config isNodeFullyInside isNodeFullyOutside isSampleInside
 
-        seq {
+        if isNodeFullyOutside root then
+            if config.Verbose then printfn "[Generic ] isFullyOutside"
+            Seq.empty<Result>
 
-            match root with
-            | NoNode                    -> 
-                if config.Verbose then printfn "[Generic ] NoNode"
-                ()
-            
-            | OutOfCoreNode (id, load)   ->
-                if config.Verbose then printfn "[Generic ] OutOfCoreNode %A" id
-                yield! load() |> recurse
-            
-            | LinkedNode n               ->
-                if config.Verbose then printfn "[Generic ] LinkedNode %A" id
-                yield! n.Target |> recurse
+        else
+            seq {
 
-            | InMemoryInner n           ->
-                if config.Verbose then printfn "[Generic ] InMemoryInner %A %A" n.Cell n.Id
-                for subnode in n.SubNodes do
-                    if config.Verbose then printfn "[Generic ]     subnode %A ->" n.Id
-                    yield! subnode |> recurse
-            
-            | InMemoryMerge n           ->
-                if config.Verbose then printfn "[Generic ] InMemoryMerge %A" n.Cell
-                if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
-                    let xs = (n.First |> recurse)
-                    let ys = (n.Second |> recurse)
-                    if config.Verbose then printfn "[Generic ]     merge first + second  %A" n.Cell
-                    yield! merge config n.Dominance xs ys
-                else
-                    // first and second do not interfere, so simply return all samples of both
-                    if config.Verbose then printfn "[Generic ]     yield first  %A" n.Cell
-                    yield! n.First  |> recurse
-                    if config.Verbose then printfn "[Generic ]     yield second %A" n.Cell
-                    yield! n.Second |> recurse
-
-            | InMemoryNode n            ->
-
-                if config.Verbose then printfn "[Generic ] InMemoryNode %A" n.Cell
-
-                invariantm (root.Cell.Exponent >= config.MinExponent)
-                    (fun()->"Query cannot start at node with exponent smaller than configured minExponent.")
-                    "bd20d469-970c-4c9c-b99c-6694dc90923d."
-
-                if isNodeFullyOutside root then
-                    if config.Verbose then printfn "[Generic ] isFullyOutside"
+                match root with
+                | NoNode                    -> 
+                    if config.Verbose then printfn "[Generic ] NoNode"
                     ()
-                else
-                    if config.Verbose then printfn "[Generic ] reached leaf or max depth"
-                    if isNodeFullyInside root then
-                        // fully inside
-                        let result = { Node = n; Selection = FullySelected }
-                        if config.Verbose then
-                            printfn "[Generic ] fully inside"
-                            printfn "[Generic ] YIELD %A" result
-                        yield result
+            
+                | OutOfCoreNode (id, load)   ->
+                    if config.Verbose then printfn "[Generic ] OutOfCoreNode %A" id
+                    yield! load() |> recurse
+            
+                | LinkedNode n               ->
+                    if config.Verbose then printfn "[Generic ] LinkedNode %A" id
+                    yield! n.Target |> recurse
+
+                | InMemoryInner n           ->
+                    if config.Verbose then printfn "[Generic ] InMemoryInner %A %A" n.Cell n.Id
+                    for subnode in n.SubNodes do
+                        match subnode with
+                        | NoNode -> ()
+                        | _ -> 
+                            if config.Verbose then printfn "[Generic ]     subnode %A ->" n.Id
+                            let r = subnode |> recurse |> Seq.toList
+                            if r.Length > 0 then yield! r
+            
+                | InMemoryMerge n           ->
+                    if config.Verbose then printfn "[Generic ] InMemoryMerge %A" n.Cell
+                    if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
+
+                        let r = merge' config isNodeFullyInside isNodeFullyOutside n.Dominance n.First n.Second (Generic config isNodeFullyInside isNodeFullyOutside isSampleInside) |> Seq.toList
+                        if r.Length > 0 then yield! r
+
+                        //let xs = (n.First |> recurse) |> Seq.toList
+                        //let ys = (n.Second |> recurse)  |> Seq.toList
+                        //if config.Verbose then printfn "[Generic ]     merge first + second  %A" n.Cell
+                        //yield! merge config n.Dominance xs ys
                     else
-                        // partially inside
-                        if config.Verbose then printfn "[Generic ] partially inside"
-                        let xs = n.GetAllSamples() |> Array.filter isSampleInside
-                        if xs.Length > 0 then
-                            let result = { Node = n; Selection = CellsSelected xs }
-                            if config.Verbose then printfn "[Generic ] YIELD %A" result
+                        // first and second do not interfere, so simply return all samples of both
+                        if config.Verbose then printfn "[Generic ]     yield first  %A" n.Cell
+                        let r1 = n.First  |> recurse |> Seq.toList
+                        if r1.Length > 0 then yield! r1
+                        if config.Verbose then printfn "[Generic ]     yield second %A" n.Cell
+                        let r2 = n.Second |> recurse |> Seq.toList
+                        if r2.Length > 0 then yield! r2
+
+                | InMemoryNode n            ->
+
+                    if config.Verbose then printfn "[Generic ] InMemoryNode %A" n.Cell
+
+                    invariantm (root.Cell.Exponent >= config.MinExponent)
+                        (fun()->"Query cannot start at node with exponent smaller than configured minExponent.")
+                        "bd20d469-970c-4c9c-b99c-6694dc90923d."
+
+                    if isNodeFullyOutside root then
+                        if config.Verbose then printfn "[Generic ] isFullyOutside"
+                        ()
+                    else
+                        if config.Verbose then printfn "[Generic ] reached leaf or max depth"
+                        if isNodeFullyInside root then
+                            // fully inside
+                            let result = { Node = n; Selection = FullySelected }
+                            if config.Verbose then
+                                printfn "[Generic ] fully inside"
+                                printfn "[Generic ] YIELD %A" result
                             yield result
+                        else
+                            // partially inside
+                            if config.Verbose then printfn "[Generic ] partially inside"
+                            let xs = n.GetAllSamples() |> Array.filter isSampleInside
+                            if xs.Length > 0 then
+                                let result = { Node = n; Selection = CellsSelected xs }
+                                if config.Verbose then printfn "[Generic ] YIELD %A" result
+                                yield result
                    
         }
     
@@ -302,58 +428,68 @@ module Query =
 
         let recurse = Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside
 
-        seq {
+        if isNodeFullyOutside root then
+            if config.Verbose then printfn "[Generic'] isFullyOutside"
+            Seq.empty<Result>
+        else
+            seq {
 
-            match root with
-            | NoNode                    -> ()
-            | OutOfCoreNode (n, load)   -> yield! load() |> recurse
-            | LinkedNode n              -> yield! n.Target |> recurse
-            | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
-            | InMemoryMerge n           ->
+                match root with
+                | NoNode                    -> ()
+                | OutOfCoreNode (n, load)   -> yield! load() |> recurse
+                | LinkedNode n              -> yield! n.Target |> recurse
+                | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
+                | InMemoryMerge n           ->
 
-                if config.Verbose then printfn "[Generic'] InMemoryMerge %A" n.Cell
-                if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
-                    let xs = (n.First |> recurse)
-                    let ys = (n.Second |> recurse)
-                    if config.Verbose then printfn "[Generic']     merge first + second  %A" n.Cell
-                    yield! merge config n.Dominance xs ys
-                else
-                    // first and second do not interfere, so simply return all samples of both
-                    if config.Verbose then printfn "[Generic']     yield first  %A" n.Cell
-                    yield! n.First  |> recurse
-                    if config.Verbose then printfn "[Generic']     yield second %A" n.Cell
-                    yield! n.Second |> recurse
+                    if config.Verbose then printfn "[Generic'] InMemoryMerge %A" n.Cell
+                    if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
 
-            | InMemoryNode n            ->
+                        let r = merge' config isNodeFullyInside isNodeFullyOutside n.Dominance n.First n.Second (Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside) |> Seq.toList
+                        if r.Length > 0 then yield! r
 
-                invariantm (n.Cell.Exponent >= config.MinExponent)
-                    (fun()->"Query cannot start at node with exponent smaller than configured minExponent.")
-                    "2c82bfd9-e7ff-4f8f-a990-156f0460a255."
+                        //let xs = (n.First |> recurse)
+                        //let ys = (n.Second |> recurse)
+                        //if config.Verbose then printfn "[Generic']     merge first + second  %A" n.Cell
+                        //yield! merge config n.Dominance xs ys
+                    else
+                        // first and second do not interfere, so simply return all samples of both
+                        if config.Verbose then printfn "[Generic']     yield first  %A" n.Cell
+                        let r1 = n.First  |> recurse |> Seq.toList
+                        if r1.Length > 0 then yield! r1
+                        if config.Verbose then printfn "[Generic']     yield second %A" n.Cell
+                        let r2 = n.Second |> recurse |> Seq.toList
+                        if r2.Length > 0 then yield! r2
 
-                if isNodeFullyOutside root then
-                    if config.Verbose then printfn "[Generic'] isFullyOutside"
-                    ()
+                | InMemoryNode n            ->
 
-                else
-                    //if root.IsLeafNode || n.Cell.Exponent = config.MinExponent then
-                        // reached leaf or max depth
-                        if config.Verbose then printfn "[Generic'] reached leaf or max depth"
-                        if isNodeFullyInside root then
-                            // fully inside
-                            let result = { Node = n; Selection = FullySelected }
-                            if config.Verbose then 
-                                printfn "[Generic'] fully inside"
-                                printfn "[Generic'] YIELD %A" result
-                            yield result
-                        else
-                            // partially inside
-                            if config.Verbose then printfn "[Generic'] partially inside"
-                            match getSamplesInside n with
-                            | None -> ()
-                            | Some result -> 
-                                if config.Verbose then printfn "[Generic'] YIELD %A" result
+                    invariantm (n.Cell.Exponent >= config.MinExponent)
+                        (fun()->"Query cannot start at node with exponent smaller than configured minExponent.")
+                        "2c82bfd9-e7ff-4f8f-a990-156f0460a255."
+
+                    if isNodeFullyOutside root then
+                        if config.Verbose then printfn "[Generic'] isFullyOutside"
+                        ()
+
+                    else
+                        //if root.IsLeafNode || n.Cell.Exponent = config.MinExponent then
+                            // reached leaf or max depth
+                            if config.Verbose then printfn "[Generic'] reached leaf or max depth"
+                            if isNodeFullyInside root then
+                                // fully inside
+                                let result = { Node = n; Selection = FullySelected }
+                                if config.Verbose then 
+                                    printfn "[Generic'] fully inside"
+                                    printfn "[Generic'] YIELD %A" result
                                 yield result
-        }
+                            else
+                                // partially inside
+                                if config.Verbose then printfn "[Generic'] partially inside"
+                                match getSamplesInside n with
+                                | None -> ()
+                                | Some result -> 
+                                    if config.Verbose then printfn "[Generic'] YIELD %A" result
+                                    yield result
+            }
 
     /// Returns all samples intersecting given cell.
     let IntersectsCell (config : Config) (filter : Cell2d) (root : QNodeRef) : Result seq =

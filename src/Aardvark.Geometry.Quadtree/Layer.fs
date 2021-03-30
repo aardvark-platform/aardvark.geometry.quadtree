@@ -319,6 +319,7 @@ type LayerSet(layers : ILayer[]) =
     member this.Mapping         with get() = layers.[0].Mapping
     member this.SampleExponent  with get() = layers.[0].Mapping.BufferOrigin.Exponent
     member this.SampleWindow    with get() = layers.[0].Mapping.Window
+
     /// Returns 2.0 ^ SampleExponent.
     member this.SampleSize      with get() = 2.0 ** float(layers.[0].Mapping.BufferOrigin.Exponent)
 

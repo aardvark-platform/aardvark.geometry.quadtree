@@ -988,10 +988,14 @@ let test_20210318_cpunz () =
     printfn "samples (count=%d):" ys.Length
     for (c, x) in ys do printfn "    %A %A" c (c.BoundingBox)
 
+open Aardvark.Geometry.Quadtree.Scratch
+
 [<EntryPoint>]
 let main argv =
 
-    test_20210318_cpunz ()
+    Perftests.timeReallyLargeMergedQuadtreeQueries ()
+
+    //test_20210318_cpunz ()
 
     //test_20210304_adorjan ()
 
