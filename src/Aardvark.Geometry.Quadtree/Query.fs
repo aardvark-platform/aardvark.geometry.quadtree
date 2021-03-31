@@ -100,8 +100,12 @@ module Query =
                     // all sample cells of dominated result
                     let ycs = y.GetSampleCells ()
                     for yc in ycs do
-                        let isDominatedCellYcFullyCovered   (s : Cell2d) = zcs |> Array.exists(fun zc -> zc.BoundingBox.Contains(s.BoundingBox))
-                        let isDominatedCellYcInterferedWith (s : Cell2d) = zcs |> Array.exists(fun zc -> s.BoundingBox.Intersects(zc.BoundingBox))
+                        let isDominatedCellYcFullyCovered   (s : Cell2d) = 
+                            let bb = s.BoundingBox
+                            zcs |> Array.exists(fun zc -> zc.Contains(s))
+                        let isDominatedCellYcInterferedWith (s : Cell2d) =
+                            let bb = s.BoundingBox
+                            zcs |> Array.exists(fun zc -> s.Intersects(zc))
 
                         // -> resolve by recursively splitting sample into fragments
                         let rec resolve (s : Cell2d) =
@@ -160,7 +164,8 @@ module Query =
             (generic : QNodeRef -> Result seq)
             : Result seq = seq {
 
-        if first.Cell <> second.Cell then failwith "Invariant a2175093-5832-4cf4-97dc-90068b2a15b3."
+        if not (QMergeNode.isLegalMergeConstellation first second) then
+            failwith "Invariant a2175093-5832-4cf4-97dc-90068b2a15b3."
 
         let recurse a b = merge' config isNodeFullyInside isNodeFullyOutside dom a b generic
 
@@ -170,6 +175,7 @@ module Query =
             let ys = generic b |> Seq.toList
             //printf "merge first (%d) + second (%d)  %A ... " xs.Length ys.Length a.Cell
             let r = merge config dom xs ys
+            let foo = r |> List.collect (fun x -> x.GetSampleCells() |> Array.toList)
             //printfn "done %d" (r |> List.sumBy (fun x -> x.GetSampleCells().Length))
             r
 

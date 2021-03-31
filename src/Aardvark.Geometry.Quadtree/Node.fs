@@ -338,12 +338,16 @@ module QInnerNode =
 
 module QMergeNode =
 
-    let ofNodes dom (first : QNodeRef) (second : QNodeRef) : QMergeNode =
+    let isLegalMergeConstellation (first : QNodeRef) (second : QNodeRef) : bool =
         let isSpecialOverlappingCase = first.Cell.IsCenteredAtOrigin && second.Cell.TouchesOrigin ||
                                        second.Cell.IsCenteredAtOrigin && first.Cell.TouchesOrigin
         let bothTouchOrigin = first.Cell.TouchesOrigin && second.Cell.TouchesOrigin
         let bothCentered = first.Cell.IsCenteredAtOrigin && second.Cell.IsCenteredAtOrigin
-        invariant (first.Cell = second.Cell || isSpecialOverlappingCase || bothTouchOrigin || bothCentered) "42a0c7ba-cf29-4820-b420-a74d668cb159"
+
+        first.Cell = second.Cell || isSpecialOverlappingCase || bothTouchOrigin || bothCentered
+
+    let ofNodes dom (first : QNodeRef) (second : QNodeRef) : QMergeNode =
+        invariant (isLegalMergeConstellation first second) "42a0c7ba-cf29-4820-b420-a74d668cb159"
         let ebb = Box2d(first.ExactBoundingBox, second.ExactBoundingBox)
         let cell = first.Cell.Union(second.Cell)
         {
