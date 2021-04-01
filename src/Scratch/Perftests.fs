@@ -33,6 +33,7 @@ module Perftests =
         let n = 50
 
         let config = { Query.Config.Default with Verbose = false }
+        let mutable globalSeconds = 0.0
         let sw = Stopwatch()
         for _ = 1 to iterations do
             let r = Random(4711)
@@ -80,3 +81,8 @@ module Perftests =
             printfn "avg: %A" (totalSeconds / float(n))
 
             printfn "%A %A %f" Query.mergeDominatingT0.Elapsed Query.mergeDominatingT1.Elapsed (Query.mergeDominatingT1.Elapsed.TotalSeconds / Query.mergeDominatingT0.Elapsed.TotalSeconds)
+
+            globalSeconds <- globalSeconds + (totalSeconds / float(n))
+
+        printfn "-----------------------------------------"
+        printfn "global avg: %A" (globalSeconds / float(iterations))

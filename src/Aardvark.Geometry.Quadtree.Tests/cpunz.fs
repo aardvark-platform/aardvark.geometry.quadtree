@@ -12,7 +12,7 @@ open Uncodium.SimpleStore
 
 module cpunz =
 
-    let USE_LOCAL_TESTFILES = true
+    let USE_LOCAL_TESTFILES = false
 
     [<AutoOpen>]
     module Helpers =
@@ -458,16 +458,19 @@ module cpunz =
             printfn "---------------------------"
             let config = Query.Config.Default
             let xs = qtree |> Query.InsidePolygon config poly |> Seq.toArray
+            Assert.True(xs.Length = 17)
             printfn "results (count=%d):" xs.Length
             for x in xs do printfn "    %A" x
             
             printfn "---------------------------"
             let ys = xs |> Array.collect (fun chunk -> chunk.GetSamples<V4f> Defs.VolumesBilinear4f)
+            Assert.True(ys.Length = 33)
             printfn "samples (count=%d):" ys.Length
             for y in ys do printfn "    %A" y
 
             printfn "---------------------------"
             let zs = ys |> Seq.collect(fun (y,_) -> Query.IntersectsCell config y qtree) |> Seq.toArray
+            Assert.True(zs.Length = 49)
             printfn "samples (count=%d):" zs.Length
             for z in zs do printfn "    %A" z
 

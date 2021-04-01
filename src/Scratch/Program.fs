@@ -998,9 +998,9 @@ open Aardvark.Geometry.Quadtree.Scratch
 [<EntryPoint>]
 let main argv =
 
-    //Perftests.timeReallyLargeMergedQuadtreeQueries ()
+    Perftests.timeReallyLargeMergedQuadtreeQueries ()
 
-    test_20210318_cpunz ()
+    //test_20210318_cpunz ()
 
     //test_20210304_adorjan ()
 
