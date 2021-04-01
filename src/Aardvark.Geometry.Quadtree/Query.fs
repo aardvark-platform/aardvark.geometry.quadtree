@@ -5,6 +5,7 @@ open Aardvark.Data
 open System
 open System.Collections.Generic
 open System.Threading
+open System.Diagnostics
 
 module Query =
 
@@ -72,6 +73,9 @@ module Query =
                 )
             result
 
+    let mergeDominatingT0 = Stopwatch()
+    let mergeDominatingT1 = Stopwatch()
+
     /// xs dominate always
     let private mergeDominating (config : Config) (xs : Result list) (ys : Result list) : Result seq =
 
@@ -81,6 +85,9 @@ module Query =
             xs |> Array.filter(fun x -> x.Node.ExactBoundingBox.Intersects(yebb))
 
         seq {
+
+            mergeDominatingT0.Start();
+
             // return ALL dominating samples ...
             if config.Verbose then printfn "[mergeDominating] YIELD all dominating samples: %A" (xs |> Array.collect(fun z -> z.GetSampleCells()))
             if xs.Length > 0 then yield! xs
@@ -92,35 +99,36 @@ module Query =
                 if zs.Length > 0 then
 
                     // dominated result IS interfered with -> resolve remaining (virtual) sample cells
-                    let mutable result = List.empty
+                    let mutable result = List<Cell2d>(8192)
 
                     // all dominating sample cells intersecting dominated result
-                    let zcs = zs |> Array.collect(fun z -> z.GetSampleCells()) |> Array.filter(fun zc -> zc.BoundingBox.Intersects(yebb))
+                    let zcs = zs |> Array.collect(fun z -> z.GetSampleCells()) |> Array.filter(fun zc -> zc.BoundingBox.Intersects(yebb)) |> Array.map(fun c -> c.BoundingBox)
 
                     // all sample cells of dominated result
                     let ycs = y.GetSampleCells ()
                     for yc in ycs do
-                        let isDominatedCellYcFullyCovered   (s : Cell2d) = 
-                            let bb = s.BoundingBox
+                        let isDominatedCellYcFullyCovered (s : Box2d) = 
                             zcs |> Array.exists(fun zc -> zc.Contains(s))
-                        let isDominatedCellYcInterferedWith (s : Cell2d) =
-                            let bb = s.BoundingBox
+                        let isDominatedCellYcInterferedWith (s : Box2d) =
                             zcs |> Array.exists(fun zc -> s.Intersects(zc))
 
                         // -> resolve by recursively splitting sample into fragments
                         let rec resolve (s : Cell2d) =
-                            if isDominatedCellYcInterferedWith s then
-                                if isDominatedCellYcFullyCovered s then
+                            let bb = s.BoundingBox
+                            if isDominatedCellYcInterferedWith bb then
+                                if isDominatedCellYcFullyCovered bb then
                                     () // discard sample, it is completely covered by dominating sample
                                 else
                                     // partially covered, aaargh
                                     for q in s.Children do resolve q
                             else
-                                result <- s :: result
+                                result.Add(s)
 
+                        mergeDominatingT1.Start()
                         resolve yc
+                        mergeDominatingT1.Stop()
 
-                    if result.Length > 0 then
+                    if result.Count > 0 then
                         if config.Verbose then printfn "[mergeDominating] YIELD resolved samples: %A" result
 
                         // DEBUG code
@@ -133,12 +141,14 @@ module Query =
                         // this may happen if resolution of merged layers differs by more than 1 exponent
                         // at least this is what I think happens ;-)
 
-                        yield { Node = y.Node; Selection = SubCellsSelected (result |> Array.ofList) }
+                        yield { Node = y.Node; Selection = SubCellsSelected (result.ToArray()) }
 
                 else
                     // dominated sample IS NOT interfered with -> return
                     if config.Verbose then printfn "[mergeDominating] YIELD non-dominating sample: %A" (y.GetSampleCells())
                     yield y
+
+            mergeDominatingT0.Stop()
         }
 
     let private merge (config : Config) (dom : Dominance) (xs : Result list) (ys : Result list) : Result list =
@@ -179,10 +189,26 @@ module Query =
             //printfn "done %d" (r |> List.sumBy (fun x -> x.GetSampleCells().Length))
             r
 
-        if isNodeFullyOutside first then
+        let firstIsFullyOutside = isNodeFullyOutside first
+        let secondIsFullyOutside = isNodeFullyOutside second
+
+        match isNodeFullyOutside first, isNodeFullyOutside second with
+        
+        | true, true ->
             if config.Verbose then printfn "[merge'] fully outside -> skip"
             ()
-        else
+        
+        | true, false ->
+            if config.Verbose then printfn "[merge'] drop first (fully outside)"
+            let r = generic second |> Seq.toList
+            if r.Length > 0 then yield! r
+        
+        | false, true ->
+            if config.Verbose then printfn "[merge'] drop second (fully outside)"
+            let r = generic first |> Seq.toList
+            if r.Length > 0 then yield! r
+        
+        | false, false ->
             match first, second with
         
             // load out-of-core nodes ...
@@ -211,7 +237,7 @@ module Query =
                 | FirstDominates       ->
                     if config.Verbose then printfn "[merge'] FirstDominates"
 
-                    if firstContainsSecond then
+                    if firstContainsSecond  then
                         let r = generic first |> Seq.toList
                         if r.Length > 0 then yield! r
                     else

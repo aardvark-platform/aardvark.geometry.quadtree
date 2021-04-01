@@ -3,16 +3,16 @@
 open Aardvark.Base
 open Aardvark.Geometry.Quadtree
 open Aardvark.Geometry.Quadtree.PrettyPrint
+open Aardvark.Geometry.Quadtree.Serialization
 open System
 open System.Globalization
 open System.IO
 open Xunit
-open Aardvark.Geometry.Quadtree.Serialization
 open Uncodium.SimpleStore
 
 module cpunz =
 
-    let USE_LOCAL_TESTFILES = false
+    let USE_LOCAL_TESTFILES = true
 
     [<AutoOpen>]
     module Helpers =
@@ -455,14 +455,21 @@ module cpunz =
                 V2d(66017.513819274, 270090.195622167)
                 |])
     
+            printfn "---------------------------"
             let config = Query.Config.Default
             let xs = qtree |> Query.InsidePolygon config poly |> Seq.toArray
             printfn "results (count=%d):" xs.Length
             for x in xs do printfn "    %A" x
-    
+            
+            printfn "---------------------------"
             let ys = xs |> Array.collect (fun chunk -> chunk.GetSamples<V4f> Defs.VolumesBilinear4f)
             printfn "samples (count=%d):" ys.Length
             for y in ys do printfn "    %A" y
+
+            printfn "---------------------------"
+            let zs = ys |> Seq.collect(fun (y,_) -> Query.IntersectsCell config y qtree) |> Seq.toArray
+            printfn "samples (count=%d):" zs.Length
+            for z in zs do printfn "    %A" z
 
         ()
 

@@ -78,3 +78,5 @@ module Perftests =
                 i <- i + 1
 
             printfn "avg: %A" (totalSeconds / float(n))
+
+            printfn "%A %A %f" Query.mergeDominatingT0.Elapsed Query.mergeDominatingT1.Elapsed (Query.mergeDominatingT1.Elapsed.TotalSeconds / Query.mergeDominatingT0.Elapsed.TotalSeconds)
