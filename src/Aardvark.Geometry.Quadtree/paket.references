@@ -1,4 +1,5 @@
 FSharp.Core
+System.Collections.Immutable
 Aardvark.Base
 Aardvark.Data.Durable
 Aardvark.Data.Durable.Codec

@@ -1,4 +1,5 @@
 FSharp.Core
+System.Collections.Immutable
 xunit
 xunit.runner.visualstudio
 coverlet.collector

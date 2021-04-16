@@ -4,6 +4,7 @@ storage: none
 framework: netcoreapp3.1, netstandard2.0, netstandard2.1
 
 nuget FSharp.Core                       >= 4.6.2 lowest_matching: true
+nuget System.Collections.Immutable      >= 1.7.0 lowest_matching: true
 
 nuget Aardvark.Base                     ~> 5.1.8
 nuget Aardvark.Data.Durable             ~> 0.2.19
