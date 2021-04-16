@@ -69,7 +69,7 @@ module Serialization =
             let store = new Uncodium.SimpleStore.SimpleDiskStore(path)
             {
                 SerializationOptions.Default with
-                    Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
+                    Save    = fun id buffer -> store.Add(id.ToString(), buffer)
                     TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
@@ -77,7 +77,7 @@ module Serialization =
         static member SimpleStore (store : Uncodium.SimpleStore.ISimpleStore) =
             {
                 SerializationOptions.Default with
-                    Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
+                    Save    = fun id buffer -> store.Add(id.ToString(), buffer)
                     TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
@@ -86,7 +86,7 @@ module Serialization =
             let store = new Uncodium.SimpleStore.SimpleFolderStore(path)
             { 
                 SerializationOptions.Default with
-                    Save    = fun id buffer -> store.Add(id.ToString(), buffer, fun () -> buffer)
+                    Save    = fun id buffer -> store.Add(id.ToString(), buffer)
                     TryLoad = fun id        -> match store.Get(id.ToString()) with | null -> None | buffer -> Some buffer
                     Exists  = fun id        -> store.Contains(id.ToString())
             }
