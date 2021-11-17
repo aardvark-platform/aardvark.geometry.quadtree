@@ -795,7 +795,7 @@ let madorjan20210127() =
     let sw = Stopwatch()
 
     let rawTest() =
-        Defs.init()
+        //Defs.init()
         let swStore = Stopwatch()
         let swDecode = Stopwatch()
         let swLayers = Stopwatch()
@@ -993,12 +993,25 @@ let test_20210318_cpunz () =
     printfn "samples (count=%d):" zs.Length
     for z in zs do printfn "    %A" z
 
+let madorjan20211103() =
+    let heights = Array.create 16 V4f.Zero
+    
+    let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(4, 4))
+    let heightsLayer = Layer(Defs.HeightsBilinear4f, heights, mapping) :> ILayer
+    let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
+    let qTree = Quadtree.Build config [| heightsLayer |]
+    
+    printfn "qTree.Cell.BoundingBox: %A" qTree.Cell.BoundingBox
+    printfn "qTree.LayerSet        : %A" qTree.LayerSet
+
 open Aardvark.Geometry.Quadtree.Scratch
 
 [<EntryPoint>]
 let main argv =
 
-    Perftests.timeReallyLargeMergedQuadtreeQueries ()
+    madorjan20211103 ()
+
+    //Perftests.timeReallyLargeMergedQuadtreeQueries ()
 
     //test_20210318_cpunz ()
 

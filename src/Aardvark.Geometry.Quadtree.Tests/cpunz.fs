@@ -3,12 +3,10 @@
 open Aardvark.Base
 open Aardvark.Geometry.Quadtree
 open Aardvark.Geometry.Quadtree.PrettyPrint
-open Aardvark.Geometry.Quadtree.Serialization
 open System
 open System.Globalization
 open System.IO
 open Xunit
-open Uncodium.SimpleStore
 
 module cpunz =
 
@@ -165,10 +163,10 @@ module cpunz =
 
             printfn "---------- e = %d --------------" e
 
-            let (q0, cells0) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50.pts" -1 e false
-            let (q1, cells1) = import @"T:\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50_1.pts" -1 e false
+            let (q0, cells0) = import @"\\hyperspace\Work\Datasets\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50.pts" -1 e false
+            let (q1, cells1) = import @"\\hyperspace\Work\Datasets\Vgm\Data\Raster\20200925_cpunz\epoche_deponie_Bodenpunktraster1_0,50_1.pts" -1 e false
 
-            let polygon = parsePolygon @"T:\Vgm\Data\Raster\20200925_cpunz\polygon_volumen.txt"
+            let polygon = parsePolygon @"\\hyperspace\Work\Datasets\Vgm\Data\Raster\20200925_cpunz\polygon_volumen.txt"
 
             let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) =
         
@@ -432,8 +430,9 @@ module cpunz =
     [<Fact>]
     let cpunz_20210318 () =
     
+        #if LOST_TEST_STORE
         if USE_LOCAL_TESTFILES then
-            let storePath = @"T:\Vgm\Data\Raster\20210318_cpunz"
+            let storePath = @"\\hyperspace\Work\Datasets\Vgm\Data\Raster\20210318_cpunz"
             let key = "b32cc924-10d4-4251-a8ba-b20892007b65" |> Guid.Parse
     
             use store = new SimpleDiskStore(storePath)
@@ -473,9 +472,9 @@ module cpunz =
             Assert.True(zs.Length = 49)
             printfn "samples (count=%d):" zs.Length
             for z in zs do printfn "    %A" z
-
+        
+        #endif
         ()
-
 
 
 
@@ -636,7 +635,7 @@ module cpunz =
                         ])
                 ])
     
-        File.WriteAllLines(@"T:\index.html", cells |> Cells.toHtml)
+        File.WriteAllLines(@"\\hyperspace\Work\Datasets\Vgm\Data\Raster\tmp\index.html", cells |> Cells.toHtml)
     
         ()
 

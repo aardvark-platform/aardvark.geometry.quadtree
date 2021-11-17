@@ -1,12 +1,24 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28711.60
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.31903.286
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Aardvark.Geometry.Quadtree", "Aardvark.Geometry.Quadtree\Aardvark.Geometry.Quadtree.fsproj", "{D5E695EE-9313-4C82-BCF9-8E5D498200FA}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Aardvark.Geometry.Quadtree.Tests", "Aardvark.Geometry.Quadtree.Tests\Aardvark.Geometry.Quadtree.Tests.fsproj", "{A4C8C4EE-1AC7-418A-84D5-A0514810BFCF}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Aardvark.Geometry.Quadtree.Tests", "Aardvark.Geometry.Quadtree.Tests\Aardvark.Geometry.Quadtree.Tests.fsproj", "{A4C8C4EE-1AC7-418A-84D5-A0514810BFCF}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Scratch", "Scratch\Scratch.fsproj", "{B45B208D-DAAC-45AA-A7B8-D1E417D38D17}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Scratch", "Scratch\Scratch.fsproj", "{B45B208D-DAAC-45AA-A7B8-D1E417D38D17}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{CBD0D4B2-E888-4CAB-917C-8D3092651A94}"
+	ProjectSection(SolutionItems) = preProject
+		..\.gitignore = ..\.gitignore
+		..\build.cmd = ..\build.cmd
+		..\build.sh = ..\build.sh
+		..\LICENSE = ..\LICENSE
+		..\paket.dependencies = ..\paket.dependencies
+		..\paket.lock = ..\paket.lock
+		..\pushpackage.cmd = ..\pushpackage.cmd
+		..\README.md = ..\README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,7 +43,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
 		SolutionGuid = {E996B5E6-49B2-4479-9DDE-455A40509F43}
+		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
 	EndGlobalSection
 EndGlobal

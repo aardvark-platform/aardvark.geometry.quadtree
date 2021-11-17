@@ -102,15 +102,15 @@ module Query =
                     let mutable result = List<Cell2d>(8192)
 
                     // all dominating sample cells intersecting dominated result
-                    let zcs = zs |> Array.collect(fun z -> z.GetSampleCells()) |> Array.filter(fun zc -> zc.BoundingBox.Intersects(yebb)) |> Array.map(fun c -> c.BoundingBox)
+                    let zcs = zs |> Array.collect(fun z -> z.GetSampleCells() |> Array.filter(fun zc -> zc.BoundingBox.Intersects(yebb))) |> Array.map(fun c -> c.BoundingBox)
 
                     // all sample cells of dominated result
                     let ycs = y.GetSampleCells ()
                     for yc in ycs do
-                        let isDominatedCellYcFullyCovered (s : Box2d) = 
-                            zcs |> Array.exists(fun zc -> zc.Contains(s))
-                        let isDominatedCellYcInterferedWith (s : Box2d) =
-                            zcs |> Array.exists(fun zc -> s.Intersects(zc))
+                        let inline isDominatedCellYcFullyCovered (bb : Box2d) = 
+                            zcs |> Array.exists(fun zc -> zc.Contains(bb))
+                        let inline isDominatedCellYcInterferedWith (bb : Box2d) =
+                            zcs |> Array.exists(fun zc -> bb.Intersects(zc))
 
                         // -> resolve by recursively splitting sample into fragments
                         let rec resolve (s : Cell2d) =
@@ -119,7 +119,7 @@ module Query =
                                 if isDominatedCellYcFullyCovered bb then
                                     () // discard sample, it is completely covered by dominating sample
                                 else
-                                    // partially covered, aaargh
+                                    // partially covered, aaargh -> resolve recursively
                                     for q in s.Children do resolve q
                             else
                                 result.Add(s)

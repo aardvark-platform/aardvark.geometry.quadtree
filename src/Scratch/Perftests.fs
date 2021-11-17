@@ -29,8 +29,8 @@ module Perftests =
         //printfn "m: %A" ebb
         printfn "start"
 
-        let iterations = 10
-        let n = 50
+        let iterations = 25
+        let n = 100
 
         let config = { Query.Config.Default with Verbose = false }
         let mutable globalSeconds = 0.0

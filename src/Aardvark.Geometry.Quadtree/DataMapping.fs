@@ -133,7 +133,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
 
     member this.BoundingBox with get() =
         let min = Cell2d(window.Min, bufferOrigin.Exponent).BoundingBox.Min
-        let max = Cell2d(window.Max, bufferOrigin.Exponent).BoundingBox.Min
+        let max = Cell2d(window.Max.X - 1L, window.Max.Y - 1L, bufferOrigin.Exponent).BoundingBox.Min
         Box2d(min, max)
 
     member this.WithWindow (newWindow : Box2l) =

@@ -386,4 +386,18 @@ module QuadtreeTests =
         newTree2.ContainsLayer(Defs.HeightsBilinear4f)      |> Assert.True
 
         ()
-   
+ 
+    [<Fact>]
+    let ``Madorjan 2021-11-03`` () =
+        // https://github.com/vrvis/Vgm.Api/issues/26
+        let heights = Array.create 16 V4f.Zero
+        
+        let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(4, 4))
+        let heightsLayer = Layer(Defs.HeightsBilinear4f, heights, mapping) :> ILayer
+        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
+        let qTree = Quadtree.Build config [| heightsLayer |]
+        
+        Assert.True(qTree.Cell.BoundingBox = Box2d(0.0, 0.0, 4.0, 4.0))
+        Assert.True(qTree.LayerSet.IsSome)
+
+        ()
