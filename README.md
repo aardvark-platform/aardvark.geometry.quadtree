@@ -1,3 +1,7 @@
+[![windows](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/windows.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/windows.yml)
+[![linux](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/linux.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/linux.yml)
+[![macos](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/macos.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/macos.yml)
+
 # Overview
 This library provides tools for out-of-core processing of unbounded multi-layer raster data.
 
