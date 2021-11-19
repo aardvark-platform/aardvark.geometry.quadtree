@@ -282,7 +282,16 @@ module StructureTests =
      ************************************************************************************)
 
     [<Fact>]
-    let ``leaf non-centered`` () =
+    let ``leaf non-centered 1`` () =
+ 
+        Assert.ThrowsAny<Exception>(fun () ->
+            createQuadtree { Origin = Cell2d(0); Size = (1,1); Split = 8; Data = [|
+                1.0
+            |]} |> ignore
+            )
+
+    [<Fact>]
+    let ``leaf non-centered 2`` () =
 
         createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Split = 8; Data = [|
             1.0;  2.0; 

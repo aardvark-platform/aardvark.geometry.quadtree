@@ -16,10 +16,16 @@ module MergeTests =
         let q01 = createQuadtree 0 8 8 8 0 2<powerOfTwo>
         let q11 = createQuadtree 8 8 8 8 0 2<powerOfTwo>
 
-        Assert.True(q00.Cell = Cell2d(0L, 0L, 3))
-        Assert.True(q10.Cell = Cell2d(1L, 0L, 3))
-        Assert.True(q01.Cell = Cell2d(0L, 1L, 3))
-        Assert.True(q11.Cell = Cell2d(1L, 1L, 3))
+        // before log2int/Cell2d-fix
+        //Assert.True(q00.Cell = Cell2d(0L, 0L, 3))
+        //Assert.True(q10.Cell = Cell2d(1L, 0L, 3))
+        //Assert.True(q01.Cell = Cell2d(0L, 1L, 3))
+        //Assert.True(q11.Cell = Cell2d(1L, 1L, 3))
+        // after log2int/Cell2d-fix
+        Assert.True(q00.Cell = Cell2d(0L, 0L, 4))
+        Assert.True(q10.Cell = Cell2d(0L, 0L, 5))
+        Assert.True(q01.Cell = Cell2d(0L, 0L, 5))
+        Assert.True(q11.Cell = Cell2d(0L, 0L, 5))
 
         let m1 = Quadtree.Merge SecondDominates q00 q10
         Assert.True(Quadtree.CountLeafs true m1 = 8)
@@ -32,7 +38,10 @@ module MergeTests =
         let m = Quadtree.Merge SecondDominates m2 q11
         Assert.True(Quadtree.CountLeafs true m = 16)
         Assert.True(Quadtree.CountNodes true m = Quadtree.CountInner true m + Quadtree.CountLeafs true m)
-        Assert.True(m.Cell = Cell2d(0L,0L,4))
+        // before log2int/Cell2d-fix
+        //Assert.True(m.Cell = Cell2d(0L,0L,4))
+        // after log2int/Cell2d-fix
+        Assert.True(m.Cell = Cell2d(0L,0L,5))
 
         ()
 
@@ -44,10 +53,16 @@ module MergeTests =
         let q01 = createQuadtree 0 6 1 1 0 2<powerOfTwo>
         let q11 = createQuadtree 5 7 1 1 0 2<powerOfTwo>
 
+        // before log2int/Cell2d-fix
+        //Assert.True(q00.Cell = Cell2d(0L, 0L, 2))
+        //Assert.True(q10.Cell = Cell2d(1L, 0L, 2))
+        //Assert.True(q01.Cell = Cell2d(0L, 1L, 2))
+        //Assert.True(q11.Cell = Cell2d(1L, 1L, 2))
+        // after log2int/Cell2d-fix
         Assert.True(q00.Cell = Cell2d(0L, 0L, 2))
-        Assert.True(q10.Cell = Cell2d(1L, 0L, 2))
+        Assert.True(q10.Cell = Cell2d(0L, 0L, 4))
         Assert.True(q01.Cell = Cell2d(0L, 1L, 2))
-        Assert.True(q11.Cell = Cell2d(1L, 1L, 2))
+        Assert.True(q11.Cell = Cell2d(0L, 0L, 4))
 
         let m1 = Quadtree.Merge SecondDominates q00 q10
         Assert.True(Quadtree.CountLeafs true m1 = 2)
@@ -60,7 +75,10 @@ module MergeTests =
         let m = Quadtree.Merge SecondDominates m2 q11
         Assert.True(Quadtree.CountLeafs true m = 4)
         Assert.True(Quadtree.CountNodes true m = Quadtree.CountInner true m + Quadtree.CountLeafs true m)
-        Assert.True(m.Cell = Cell2d(0L,0L,3))
+        // before log2int/Cell2d-fix
+        //Assert.True(m.Cell = Cell2d(0L,0L,3))
+        // after log2int/Cell2d-fix
+        Assert.True(m.Cell = Cell2d(0L,0L,4))
 
         ()
 
@@ -93,7 +111,10 @@ module MergeTests =
         let m = Quadtree.Merge SecondDominates m2 q11
         let mLeafCount = Quadtree.CountLeafs true m
         mLeafCount = 85 |> Assert.True
-        Assert.True(m.Cell = Cell2d(0L,0L,4))
+        // before log2int/Cell2d-fix
+        //Assert.True(m.Cell = Cell2d(0L,0L,4))
+        // after log2int/Cell2d-fix
+        Assert.True(m.Cell = Cell2d(0L,0L,5))
 
         ()
 

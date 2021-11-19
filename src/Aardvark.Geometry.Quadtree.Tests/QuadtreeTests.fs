@@ -397,7 +397,12 @@ module QuadtreeTests =
         let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
         let qTree = Quadtree.Build config [| heightsLayer |]
         
-        Assert.True(qTree.Cell.BoundingBox = Box2d(0.0, 0.0, 4.0, 4.0))
-        Assert.True(qTree.LayerSet.IsSome)
+        //// before log2int/Cell2d fixes
+        //Assert.True(qTree.Cell.BoundingBox = Box2d(0.0, 0.0, 4.0, 4.0))
+        //Assert.True(qTree.LayerSet.IsSome)
+
+        // after log2int/Cell2d fixes
+        Assert.True(qTree.Cell.BoundingBox = Box2d(0.0, 0.0, 8.0, 8.0))
+        Assert.True(qTree.LayerSet.IsNone)
 
         ()
