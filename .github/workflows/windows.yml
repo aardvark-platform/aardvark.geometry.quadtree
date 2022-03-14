@@ -1,11 +1,15 @@
-name: windows
+name: Windows
 
-on:
+on: 
   push:
-    branches: [ master ]
+    paths-ignore:
+    - 'README.md'
+    - 'docs/'
   pull_request:
-    branches: [ master ]
-
+    paths-ignore:
+    - 'README.md'
+    - 'docs/'
+    
 jobs:
   build:
 
@@ -13,13 +17,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Setup .NET Core
+    - name: Install Dotnet
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 6.0.100
-    - name: Setup Paket
-      run: dotnet tool restore
-    - name: Install dependencies
-      run: dotnet paket restore
+        dotnet-version: '6.0.100'
     - name: Build
-      run: dotnet build src/Aardvark.Geometry.Quadtree.sln --configuration Release
+      run: .\build.cmd
