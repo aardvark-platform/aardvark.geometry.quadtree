@@ -4,5 +4,4 @@ System.Collections.Immutable
 Aardvark.Base
 Aardvark.Data.Durable
 Aardvark.Data.Durable.Codec
-Newtonsoft.Json
 Uncodium.SimpleStore
