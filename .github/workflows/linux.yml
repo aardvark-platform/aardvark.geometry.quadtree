@@ -1,4 +1,4 @@
-name: Windows
+name: Linux
 
 on: 
   push:
@@ -13,7 +13,7 @@ on:
 jobs:
   build:
 
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout
@@ -22,5 +22,5 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: '6.0.103'
-    - name: build
-      run: .\build.cmd
+    - name: Build
+      run: sh ./build.sh
