@@ -1,7 +1,7 @@
 source https://api.nuget.org/v3/index.json
 
 storage: none
-framework: netstandard2.0, net6.0 
+framework: auto-detect
 
 nuget FSharp.Core                       >= 5.0.0 lowest_matching: true
 nuget System.Collections.Immutable      ~> 6.0
