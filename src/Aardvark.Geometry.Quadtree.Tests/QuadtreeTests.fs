@@ -7,6 +7,7 @@ open Aardvark.Geometry.Quadtree.Serialization
 open Xunit
 
 #nowarn "44"
+#nowarn "3560"
 
 module QuadtreeTests =
 

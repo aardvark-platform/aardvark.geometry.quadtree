@@ -4,6 +4,8 @@ open Aardvark.Base
 open Aardvark.Geometry.Quadtree
 open System
 
+#nowarn "3560"
+
 [<AutoOpen>]
 module Prelude =
 

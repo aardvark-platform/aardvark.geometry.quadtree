@@ -8,6 +8,8 @@ open System.Globalization
 open System.IO
 open Xunit
 
+#nowarn "3560"
+
 module cpunz =
 
     let USE_LOCAL_TESTFILES = false
@@ -156,7 +158,7 @@ module cpunz =
       if USE_LOCAL_TESTFILES then
 
         
-        /// Query.IntersectsCell speed too slow (seen for many queries) ...
+        // Query.IntersectsCell speed too slow (seen for many queries) ...
         CultureInfo.DefaultThreadCurrentCulture <- CultureInfo.InvariantCulture
 
         for e = 3 to 10 do
@@ -1134,4 +1136,110 @@ module cpunz =
         let resultCells1 = newTree |> Query.All config
         let qtreeCells1 = resultCells1  |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.VolumesBilinear4f))
                                         |> Seq.collect (fun arr -> arr)
+        ()
+
+    [<Fact>]
+    let ``punz_insidePolygon_20231017`` () =
+
+        let createQuadTreePlanesZeroBase =
+
+            // define mapping of raw data to raster space
+            let hor0 = V4f(0.0, 0.0,0.0,0.0)
+            
+            let parameters = [|hor0; hor0; hor0; 
+                               hor0; hor0; hor0;
+                               hor0; hor0; hor0;
+                               hor0; hor0; hor0;
+                               hor0; hor0; hor0;|]
+            
+            let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 5))
+            
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+            
+            // build the quadtree (incl. levels-of-detail)        
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo = 10 } [| bilinParameters |]
+            
+            qtree
+
+        let createOneSubCell (level : int) (east:int64) (north:int64)= 
+            // define mapping of raw data to raster space
+            let elevation = -1.0*((float)level)
+            let hor1 = V4f(elevation, 0.0,0.0,0.0)
+            
+            let parameters = [|hor1;hor1;hor1;hor1|]
+
+            let mapping = DataMapping(origin = Cell2d(east, north, level), size = V2i(2, 2))
+
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+            
+            // build the quadtree (incl. levels-of-detail)
+            
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo = 10 } [| bilinParameters |]
+
+            qtree
+
+        //initAardvark()
+        //let pointCloudService = new TDWorx.Designer.Logic.Services.PointCloudService(new FilterService(new ApiFilterService())) :> TDWorx.Designer.Logic.Services.IPointCloudService
+        //let queryService = new TDWorx.Designer.Logic.Services.QueryService(pointCloudService) :> TDWorx.Designer.Logic.Services.IQueryService
+        let mainTree = createQuadTreePlanesZeroBase
+
+        let config = Query.Config.Default
+        let oldOne = Query.All config mainTree |> Seq.toArray
+        //let oldOne = queryService.QueryQuadtreeAll mainTree |> Seq.toArray
+
+        let subTree2 = createOneSubCell -2 0L 0L
+        let subTree2_1 = createOneSubCell -2 2L 0L
+        let subTree2_2 = createOneSubCell -2 2L 2L
+        let subTree2_3 = createOneSubCell -2 0L 2L
+        let mutable newTree = Quadtree.Merge SecondDominates mainTree subTree2
+        newTree <- Quadtree.Merge SecondDominates newTree subTree2_1
+        newTree <- Quadtree.Merge SecondDominates newTree subTree2_2
+        newTree <- Quadtree.Merge SecondDominates newTree subTree2_3
+
+        let subTree3 = createOneSubCell -1 2L 6L
+        newTree <- Quadtree.Merge SecondDominates newTree subTree3
+
+        //let config = Query.Config.Default
+
+        let queryPoly = new Polygon2d([|V2d(0.49,0.49); V2d(2.25,0.49); V2d(2.25,3.25); V2d(0.49,3.25)|])
+        //let allNew = queryService.QueryQuadtreeAll newTree |> Seq.toArray
+        //let resultCellsPoly = newTree |> Query.InsidePolygon config queryPoly |> Seq.toArray
+        //let posAndParamsPoly =
+        //    resultCellsPoly
+        //    |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.HeightsBilinear4f)
+
+        //let newOnes = queryService.QueryQuadtreePolygon newTree Defs.HeightsBilinear4f queryPoly  |> Seq.toArray
+
+        let queryPoly1 = new Polygon2d([|V2d(0.26,0.26); V2d(2.25,0.26); V2d(2.25,3.51); V2d(0.26,3.51)|])
+        //let newOnes1 = Query.InsidePolygon config queryPoly1 newTree |> Seq.toArray
+        //let newOnes1 = queryService.QueryQuadtreePolygon newTree Defs.HeightsBilinear4f queryPoly1  |> Seq.toArray
+
+            
+
+        //let resultCellsAll = newTree |> Query.All config |> Seq.toArray
+
+        let resultCellsPoly1 =
+            newTree
+            |> Query.InsidePolygon { config with Verbose = true } queryPoly1
+            |> Seq.toArray
+
+        //let posAndParamsPoly1 =
+        //    resultCellsPoly1
+        //    |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> Defs.HeightsBilinear4f)
+            
+        //Quadtree.printStructure true newTree
+
+        //printfn "\n%A" queryPoly1
+
+        for x in resultCellsPoly1 do
+            let cs = x.GetSampleCells()
+            for c in cs do
+                printfn "%A" c
+
+        //showHtmlDebugView<V4f> "punz_insidePolygon_20231017" Defs.HeightsBilinear4f [
+        //    ("newTree", newTree)
+        //    ]
+
         ()

@@ -1,3 +1,6 @@
+### 0.4.3
+- fix queries
+
 ### 0.4.2
 - fix System.Collections.Immutable dependency (from 7 to 6)
 

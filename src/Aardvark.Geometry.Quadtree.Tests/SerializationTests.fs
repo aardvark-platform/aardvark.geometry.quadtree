@@ -8,6 +8,8 @@ open Xunit
 open System
 open System.Threading
 
+#nowarn "3560"
+
 module SerializationTests =
 
     [<Fact>]

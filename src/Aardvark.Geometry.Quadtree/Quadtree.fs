@@ -4,7 +4,7 @@ open Aardvark.Base
 open Aardvark.Data
 open Aardvark.Geometry.Quadtree.Serialization
 open System
-open System.Threading
+open System.Collections.Generic
 
 #nowarn "1337"
 
@@ -21,7 +21,28 @@ with
 
 module Quadtree =
 
-    /// Count in-memory nodes. Out-of-core nodes are handled like leaf nodes.
+    /// Enumerate nodes. If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
+    let enumerateNodesBreadthFirst (outOfCore : bool) (root : QNodeRef) : seq<QNodeRef> = seq {
+
+        let queue = Queue<QNodeRef>()
+        queue.Enqueue(root)
+
+        while queue.Count > 0 do
+
+            let node = queue.Dequeue()
+            yield node
+
+            match node with
+            | NoNode                    -> ()
+            | InMemoryNode _            -> ()
+            | OutOfCoreNode (_, load)   -> if outOfCore then load() |> queue.Enqueue else ()
+            | InMemoryInner n           -> for subNode in n.SubNodes do subNode |> queue.Enqueue
+            | InMemoryMerge n           -> n.First |> queue.Enqueue
+                                           n.Second |> queue.Enqueue
+            | LinkedNode n              -> n.Target |> queue.Enqueue
+        }
+
+    /// Count nodes. If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
     let rec private tryCount (outOfCore : bool) (a : int) (b : int) (root : QNodeRef) =
         let recurse = tryCount outOfCore a b
         match root with
@@ -57,10 +78,10 @@ module Quadtree =
             | InMemoryInner n         -> printfn "%sInMemoryInner %A" indent n.Cell
                                          for n in n.SubNodes do print (indent + "  ") n
             | InMemoryMerge n         -> printfn "%sInMemoryMerge %A %A" indent n.Cell n.Id
-                                         printfn "%s  FIRST :" indent
-                                         print (indent + "  ") n.First
                                          printfn "%s  SECOND:" indent
                                          print (indent + "  ") n.Second
+                                         printfn "%s  FIRST :" indent
+                                         print (indent + "  ") n.First
             | LinkedNode n            -> printfn "%sLinkedNode %A" indent n.Target.Cell
                                          print (indent + "  ") n.Target
 

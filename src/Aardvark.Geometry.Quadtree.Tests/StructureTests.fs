@@ -6,6 +6,8 @@ open Aardvark.Base
 open System
 open Xunit
 
+#nowarn "3560"
+
 module StructureTests =
 
     type QuadtreeSpec = {

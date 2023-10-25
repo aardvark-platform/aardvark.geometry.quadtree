@@ -92,6 +92,7 @@ module Serialization =
             }
 
         member this.LoadNode (id : Guid) : QNodeRef =
+            //printfn "[LOAD NODE] %A" id
             match this.Cache.TryGet(id) with
             | Some n -> n
             | None   ->

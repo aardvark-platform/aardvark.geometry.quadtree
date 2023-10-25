@@ -77,9 +77,18 @@ module Query =
     let mergeDominatingT1 = Stopwatch()
 
     /// xs dominate always
-    let private mergeDominating (config : Config) (xs : Result list) (ys : Result list) : Result seq =
+    let private mergeDominating (config : Config) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result seq =
 
+        if config.Verbose then 
+            printfn "[mergeDominating] xs:"
+            for x in xs |> Seq.collect(fun z -> z.GetSampleCells()) do
+                printfn "[mergeDominating]     %A" x
+            printfn "[mergeDominating] ys:"
+            for y in ys |> Seq.collect(fun z -> z.GetSampleCells()) do
+                printfn "[mergeDominating]     %A" y
+                
         let xs = xs |> Seq.toArray
+
         let getInterferingXs (y : Result) =
             let yebb = y.Node.ExactBoundingBox
             xs |> Array.filter(fun x -> x.Node.ExactBoundingBox.Intersects(yebb))
@@ -89,9 +98,13 @@ module Query =
             mergeDominatingT0.Start();
 
             // return ALL dominating samples ...
-            if config.Verbose then printfn "[mergeDominating] YIELD all dominating samples: %A" (xs |> Array.collect(fun z -> z.GetSampleCells()))
-            if xs.Length > 0 then yield! xs
-
+            if xs.Length > 0 then
+                if config.Verbose then 
+                    printfn "[mergeDominating] YIELD all dominating samples:"
+                    for c in (xs |> Array.collect(fun z -> z.GetSampleCells())) do
+                        printfn "[mergeDominating]   Y %A" c
+                yield! xs
+                
             // resolve dominated results ...
             for y in ys do
                 let yebb = y.Node.ExactBoundingBox
@@ -122,14 +135,20 @@ module Query =
                                     // partially covered, aaargh -> resolve recursively
                                     for q in s.Children do resolve q
                             else
-                                result.Add(s)
+                                if isSampleInside s then
+                                    result.Add(s)
+                                else
+                                    ()
 
                         mergeDominatingT1.Start()
                         resolve yc
                         mergeDominatingT1.Stop()
 
                     if result.Count > 0 then
-                        if config.Verbose then printfn "[mergeDominating] YIELD resolved samples: %A" result
+                        if config.Verbose then 
+                            printfn "[mergeDominating] YIELD resolved samples:"
+                            for c in result do
+                                printfn "[mergeDominating]   Y %A" c
 
                         // DEBUG code
                         //let subcellExponent = y.Node.Cell.Exponent - 1
@@ -151,15 +170,15 @@ module Query =
             mergeDominatingT0.Stop()
         }
 
-    let private merge (config : Config) (dom : Dominance) (xs : Result list) (ys : Result list) : Result list =
+    let private merge (config : Config) (dom : Dominance) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result list =
         match xs |> Seq.isEmpty, ys |> Seq.isEmpty with
         // both sequences contain values
         | false, false ->
             match dom with
             | FirstDominates
-            | MoreDetailedOrFirst  -> mergeDominating config xs ys |> Seq.toList
+            | MoreDetailedOrFirst  -> mergeDominating config xs ys isSampleInside |> Seq.toList
             | SecondDominates
-            | MoreDetailedOrSecond -> mergeDominating config ys xs |> Seq.toList
+            | MoreDetailedOrSecond -> mergeDominating config ys xs isSampleInside |> Seq.toList
         // xs contains values, ys is empty -> no need to merge, just return xs
         | false, true  -> xs
         // xs is empty -> no need to merge, just return ys
@@ -168,7 +187,8 @@ module Query =
     let rec private merge'
             (config : Config)
             (isNodeFullyInside : QNodeRef -> bool) 
-            (isNodeFullyOutside : QNodeRef -> bool) 
+            (isNodeFullyOutside : QNodeRef -> bool)
+            (isSampleInside : Cell2d -> bool)
             (dom : Dominance)
             (first : QNodeRef) (second : QNodeRef)
             (generic : QNodeRef -> Result seq)
@@ -177,14 +197,14 @@ module Query =
         if not (QMergeNode.isLegalMergeConstellation first second) then
             failwith "Invariant a2175093-5832-4cf4-97dc-90068b2a15b3."
 
-        let recurse a b = merge' config isNodeFullyInside isNodeFullyOutside dom a b generic
+        let recurse a b = merge' config isNodeFullyInside isNodeFullyOutside isSampleInside dom a b generic
 
         let perSampleMerge a b : Result list =
             //printf "[merge'  ] ... "
             let xs = generic a |> Seq.toList
             let ys = generic b |> Seq.toList
             //printf "merge first (%d) + second (%d)  %A ... " xs.Length ys.Length a.Cell
-            let r = merge config dom xs ys
+            let r = merge config dom xs ys isSampleInside
             let foo = r |> List.collect (fun x -> x.GetSampleCells() |> Array.toList)
             //printfn "done %d" (r |> List.sumBy (fun x -> x.GetSampleCells().Length))
             r
@@ -235,12 +255,12 @@ module Query =
                 match dom with
 
                 | FirstDominates       ->
-                    if config.Verbose then printfn "[merge'] FirstDominates"
-
-                    if firstContainsSecond  then
+                    if firstContainsSecond then
+                        if config.Verbose then printfn "[merge'] FirstDominates (firstContainsSecond)"
                         let r = generic first |> Seq.toList
                         if r.Length > 0 then yield! r
                     else
+                        if config.Verbose then printfn "[merge'] FirstDominates (not firstContainsSecond)"
                         let r = perSampleMerge first second
                         if r.Length > 0 then yield! r
 
@@ -284,12 +304,12 @@ module Query =
 
                 | SecondDominates      ->
                     if config.Verbose then printfn "[merge'] SecondDominates -> flip"
-                    let r = merge' config isNodeFullyInside isNodeFullyOutside FirstDominates second first generic |> Seq.toList
+                    let r = merge' config isNodeFullyInside isNodeFullyOutside isSampleInside FirstDominates second first generic |> Seq.toList
                     if r.Length > 0 then yield! r
 
                 | MoreDetailedOrSecond ->
                     if config.Verbose then printfn "[merge'] MoreDetailedOrSecond -> flip"
-                    let r = merge' config isNodeFullyInside isNodeFullyOutside MoreDetailedOrFirst second first generic |> Seq.toList
+                    let r = merge' config isNodeFullyInside isNodeFullyOutside isSampleInside MoreDetailedOrFirst second first generic |> Seq.toList
                     if r.Length > 0 then yield! r
 
     }
@@ -340,7 +360,7 @@ module Query =
                     if config.Verbose then printfn "[Generic ] InMemoryMerge %A" n.Cell
                     if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
 
-                        let r = merge' config isNodeFullyInside isNodeFullyOutside n.Dominance n.First n.Second (Generic config isNodeFullyInside isNodeFullyOutside isSampleInside) |> Seq.toList
+                        let r = merge' config isNodeFullyInside isNodeFullyOutside isSampleInside n.Dominance n.First n.Second (Generic config isNodeFullyInside isNodeFullyOutside isSampleInside) |> Seq.toList
                         if r.Length > 0 then yield! r
 
                         //let xs = (n.First |> recurse) |> Seq.toList
@@ -373,16 +393,20 @@ module Query =
                             // fully inside
                             let result = { Node = n; Selection = FullySelected }
                             if config.Verbose then
-                                printfn "[Generic ] fully inside"
+                                printfn "[Generic ] fully inside (%A)" root.Cell
                                 printfn "[Generic ] YIELD %A" result
+                                for c in result.GetSampleCells() do printfn "[Generic ]   Y %A" c
                             yield result
                         else
                             // partially inside
-                            if config.Verbose then printfn "[Generic ] partially inside"
+                            if config.Verbose then 
+                                printfn "[Generic ] partially inside (%A)" root.Cell
                             let xs = n.GetAllSamples() |> Array.filter isSampleInside
                             if xs.Length > 0 then
                                 let result = { Node = n; Selection = CellsSelected xs }
-                                if config.Verbose then printfn "[Generic ] YIELD %A" result
+                                if config.Verbose then
+                                    printfn "[Generic ] YIELD %A" result
+                                    for c in result.GetSampleCells() do printfn "[Generic ]   Y %A" c
                                 yield result
                    
         }
@@ -419,7 +443,8 @@ module Query =
         let isSampleInside (n : Cell2d) =
             let bb = n.BoundingBox
             let p = V2d(bb.Min.X + bb.SizeX * rpos.X, bb.Min.Y + bb.SizeY * rpos.Y)
-            filter.Contains(p)
+            let isInside = filter.Contains(p)
+            isInside
         Generic config isNodeFullyInside isNodeFullyOutside isSampleInside root
 
     /// Returns all samples within a given distance of a line.
@@ -451,14 +476,15 @@ module Query =
     let rec Generic' 
             (config : Config) 
             (isNodeFullyInside : QNodeRef -> bool) 
-            (isNodeFullyOutside : QNodeRef -> bool) 
+            (isNodeFullyOutside : QNodeRef -> bool)
+            (isSampleInside : Cell2d -> bool)
             (getSamplesInside : QNode -> Result option)
             (root : QNodeRef) 
             : Result seq =
 
         //printfn "[Generic'] %A" root.Cell
 
-        let recurse = Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside
+        let recurse = Generic' config isNodeFullyInside isNodeFullyOutside isSampleInside getSamplesInside
 
         if isNodeFullyOutside root then
             if config.Verbose then printfn "[Generic'] isFullyOutside"
@@ -476,7 +502,7 @@ module Query =
                     if config.Verbose then printfn "[Generic'] InMemoryMerge %A" n.Cell
                     if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
 
-                        let r = merge' config isNodeFullyInside isNodeFullyOutside n.Dominance n.First n.Second (Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside) |> Seq.toList
+                        let r = merge' config isNodeFullyInside isNodeFullyOutside isSampleInside n.Dominance n.First n.Second (Generic' config isNodeFullyInside isNodeFullyOutside isSampleInside getSamplesInside) |> Seq.toList
                         if r.Length > 0 then yield! r
 
                         //let xs = (n.First |> recurse)
@@ -528,14 +554,20 @@ module Query =
         let filterBb = filter.BoundingBox
         let isNodeFullyInside  (n : QNodeRef) = filterBb.Contains n.ExactBoundingBox
         let isNodeFullyOutside (n : QNodeRef) = not (filterBb.Intersects n.ExactBoundingBox)
-        let getSamplesInside   (n : QNode) =
+        let isSampleInside (n : Cell2d) =
+            let bb = n.BoundingBox
+            let relativeSamplePos = V2d(config.SampleMode.RelativePosition) * bb.Size
+            let p = bb.Min + relativeSamplePos
+            let isInside = filter.BoundingBox.Contains(p)
+            isInside
+        let getSamplesInside (n : QNode) =
             let overlap = filter.GetBoundsForExponent(n.LayerSet.SampleExponent).Intersection(n.LayerSet.SampleWindow)
             if overlap.SizeX > 0L && overlap.SizeY > 0L then
                 Some { Node = n; Selection = WindowSelected overlap }
             else
                 None
 
-        Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside root
+        Generic' config isNodeFullyInside isNodeFullyOutside isSampleInside getSamplesInside root
 
     /// Returns all samples inside given polygon.
     let InsidePolygon' (config : Config) (filter : Polygon2d) (root : QNodeRef) : Result seq =
@@ -546,6 +578,12 @@ module Query =
             n.ExactBoundingBox.ToPolygon2dCCW().IsFullyContainedInside(filter)
         let isNodeFullyOutside (n : QNodeRef) =
             not (filter.Intersects(n.ExactBoundingBox.ToPolygon2dCCW()))
+        let isSampleInside (n : Cell2d) =
+            let bb = n.BoundingBox
+            let relativeSamplePos = V2d(config.SampleMode.RelativePosition) * bb.Size
+            let p = bb.Min + relativeSamplePos
+            let isInside = filter.Contains(p)
+            isInside
         let getSamplesInside (n : QNode) : Result option =
             let relativeSamplePos = V2d(config.SampleMode.RelativePosition) * n.SampleSize
             let xs = n.GetAllSamples() |> Array.filter (fun s ->
@@ -561,7 +599,7 @@ module Query =
                 if config.Verbose then printfn "[InsidePolygon] n=%A, NO SAMPLES inside polygon %A." n.Cell filter
                 None
 
-        Generic' config isNodeFullyInside isNodeFullyOutside getSamplesInside root
+        Generic' config isNodeFullyInside isNodeFullyOutside isSampleInside getSamplesInside root
 
 
 

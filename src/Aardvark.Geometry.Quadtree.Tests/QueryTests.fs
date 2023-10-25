@@ -5,6 +5,8 @@ open Aardvark.Geometry.Quadtree
 open Aardvark.Base
 open PrettyPrint
 
+#nowarn "3560"
+
 module QueryTests =
 
     let private createQuadtree () =

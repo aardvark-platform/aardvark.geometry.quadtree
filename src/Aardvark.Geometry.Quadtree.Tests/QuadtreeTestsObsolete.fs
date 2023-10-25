@@ -6,6 +6,7 @@ open Aardvark.Base
 open Aardvark.Data
 
 #nowarn "44"
+#nowarn "3560"
 
 module QuadtreeTestsObsolete =
 
