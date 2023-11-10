@@ -21,8 +21,16 @@ with
 
 module Quadtree =
 
-    /// Enumerate nodes. If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
-    let enumerateNodesBreadthFirst (outOfCore : bool) (root : QNodeRef) : seq<QNodeRef> = seq {
+    /// If node is an OutOfCoreNode it is loaded and returned as an InMemoryNode.
+    /// Otherwise node is returned.
+    let EnsureInMemory (node : QNodeRef)  =
+        match node with
+        | OutOfCoreNode (_, load) -> load()
+        | _ -> node
+
+    /// Enumerate all nodes breadth first.
+    /// If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
+    let EnumerateNodesBreadthFirst (outOfCore : bool) (root : QNodeRef) : seq<QNodeRef> = seq {
 
         let queue = Queue<QNodeRef>()
         queue.Enqueue(root)
@@ -30,42 +38,66 @@ module Quadtree =
         while queue.Count > 0 do
 
             let node = queue.Dequeue()
-            yield node
 
             match node with
             | NoNode                    -> ()
-            | InMemoryNode _            -> ()
-            | OutOfCoreNode (_, load)   -> if outOfCore then load() |> queue.Enqueue else ()
-            | InMemoryInner n           -> for subNode in n.SubNodes do subNode |> queue.Enqueue
-            | InMemoryMerge n           -> n.First |> queue.Enqueue
+            | InMemoryNode _            -> yield node
+            | OutOfCoreNode (_, load)   -> if outOfCore then load() |> queue.Enqueue else yield node
+            | InMemoryInner n           -> yield node
+                                           for subNode in n.SubNodes do subNode |> queue.Enqueue
+            | InMemoryMerge n           -> yield node
+                                           n.First |> queue.Enqueue
                                            n.Second |> queue.Enqueue
             | LinkedNode n              -> n.Target |> queue.Enqueue
         }
 
+    [<Obsolete("Use EnumerateNodesBreadthFirst instead.")>]
+    let enumerateNodesBreadthFirst = EnumerateNodesBreadthFirst
+        
     /// Count nodes. If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
-    let rec private tryCount (outOfCore : bool) (a : int) (b : int) (root : QNodeRef) =
-        let recurse = tryCount outOfCore a b
-        match root with
-        | NoNode                    -> 0
-        | InMemoryNode _            -> a
-        | OutOfCoreNode (_, load)   -> if outOfCore then load() |> recurse else a
-        | InMemoryInner n           -> b + (n.SubNodes |> Array.sumBy recurse)
-        | InMemoryMerge n           -> b + (n.First |> recurse) + (n.Second |> recurse)
-        | LinkedNode n              -> b + (n.Target |> recurse)
+    let private tryCount (outOfCore : bool) (weightLeaf : int) (weightInner : int) (root : QNodeRef) =
+        
+        let mutable count = 0
+
+        let stack = Stack<QNodeRef>()
+        stack.Push root
+
+        while stack.Count > 0 do
+            let n = stack.Pop()
+
+            //let recurse = tryCount outOfCore a b
+            count <- count + match n with
+                             | NoNode                  -> 0
+                             | InMemoryNode _          -> weightLeaf
+                             | OutOfCoreNode (_, load) -> if outOfCore then 
+                                                              let loadedNode = load()
+                                                              loadedNode |> stack.Push 
+                                                              0 
+                                                          else 
+                                                              weightLeaf
+                             | InMemoryInner n         -> for x in n.SubNodes do x |> stack.Push
+                                                          weightInner
+                             | InMemoryMerge n         -> n.First  |> stack.Push
+                                                          n.Second |> stack.Push
+                                                          weightInner
+                             | LinkedNode n            -> n.Target |> stack.Push
+                                                          weightInner
+
+        count
 
     /// Count number of nodes in quadtree.
     /// If outOfCore is false, then out-of-core nodes are handled like leafs.
-    let rec CountNodes outOfCore root = root |> tryCount outOfCore 1 1
+    let CountNodes outOfCore root = root |> tryCount outOfCore 1 1
 
     /// Count number of leaf nodes in quadtree.
     /// If outOfCore is false, then out-of-core nodes are handled like leafs.
-    let rec CountLeafs outOfCore root = root |> tryCount outOfCore 1 0
+    let CountLeafs outOfCore root = root |> tryCount outOfCore 1 0
 
     /// Count number of inner nodes in quadtree.
     /// If outOfCore is false, then out-of-core nodes are handled like leafs.
-    let rec CountInner outOfCore root = root |> tryCount outOfCore 0 1
+    let CountInner outOfCore root = root |> tryCount outOfCore 0 1
 
-    let printStructure (outOfCore : bool) (n : QNodeRef) =
+    let PrintStructure (outOfCore : bool) (n : QNodeRef) =
 
         let rec print indent (n : QNodeRef) =
             match n with
@@ -86,6 +118,9 @@ module Quadtree =
                                          print (indent + "  ") n.Target
 
         print "" n
+
+    [<Obsolete("Use PrintStructure instead.")>]
+    let printStructure = PrintStructure
 
 
     let rec private build (config : BuildConfig) (rootCell : Cell2d) (layers : ILayer[]) : QNodeRef =

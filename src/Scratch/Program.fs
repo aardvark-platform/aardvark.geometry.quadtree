@@ -4,8 +4,10 @@ open Aardvark.Geometry.Quadtree
 open System.Diagnostics
 open System.IO
 open System.Globalization
+open System.Collections.Generic
 
 #nowarn "3560"
+#nowarn "0044"
 
 let example () =
 
@@ -597,7 +599,7 @@ let loadObsoleteFormatTest () =
     let xs1 = Query.All Query.Config.Default q1 |> Seq.collect (fun x -> x.GetSampleCells()) |> Seq.toArray
     printfn "%d" xs1.Length
 
-    //Quadtree.printStructure true q1
+    //Quadtree.PrintStructure true q1
 
     ()
 
@@ -968,7 +970,7 @@ let test_20210318_cpunz () =
 
     // load quadtree
     let qtree = Quadtree.Load options key
-    //Quadtree.printStructure true qtree
+    //Quadtree.PrintStructure true qtree
     printfn "loaded quadtree (bounds = %A)" qtree.ExactBoundingBox
 
     // query ...
@@ -995,7 +997,7 @@ let test_20210318_cpunz () =
     printfn "samples (count=%d):" zs.Length
     for z in zs do printfn "    %A" z
 
-let madorjan20211103() =
+let madorjan20211103 () =
     let heights = Array.create 16 V4f.Zero
     
     let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(4, 4))
@@ -1006,12 +1008,77 @@ let madorjan20211103() =
     printfn "qTree.Cell.BoundingBox: %A" qTree.Cell.BoundingBox
     printfn "qTree.LayerSet        : %A" qTree.LayerSet
 
-open Aardvark.Geometry.Quadtree.Scratch
+let flattenSketch () =
+
+    let store = @"W:\Datasets\Vgm\Data\2023-09-04_bugreport"
+    let key = Guid "c0d343c1-8aaf-4884-9f98-4627b4f09396"
+    let options = Serialization.SerializationOptions.SimpleDiskStore store
+
+    
+    let root = Quadtree.Load options key
+    
+    //let nodeCount = root |> Quadtree.enumerateNodesBreadthFirst true |> Seq.length
+    printfn "node count (all)   = %d" (root |> Quadtree.CountNodes true)
+    printfn "node count (inner) = %d" (root |> Quadtree.CountInner true)
+    printfn "node count (leafs) = %d" (root |> Quadtree.CountLeafs true)
+
+    let foo (root : QNodeRef) : seq<QNodeRef> = seq {
+        
+        let ensureInMemory n = match n with | OutOfCoreNode (_, load)   -> load() | _ -> n
+
+        let stack = Stack<QNodeRef>()
+        stack.Push root
+
+        while stack.Count > 0 do
+
+            let node = stack.Pop() |> ensureInMemory
+
+            match node with
+            | NoNode          -> ()
+            | InMemoryNode _  -> yield node
+            | OutOfCoreNode _ -> failwith "Internal error 7a6995bd-c0d3-4650-8ea5-9764ec3fe26c."
+            | InMemoryInner n -> yield node
+                                 for subNode in n.SubNodes do subNode |> stack.Push
+            | InMemoryMerge n -> yield node
+                                 n.First |> stack.Push
+                                 n.Second |> stack.Push
+            | LinkedNode n    -> n.Target |> stack.Push
+        }
+
+    let fooSeq = foo root |> List.ofSeq
+    
+    let nodeCount = root |> foo |> Seq.length
+    printfn "node count (foo  ) = %d" nodeCount
+
+    //Quadtree.PrintStructure true q
+
+    //let xs = 
+    //    root 
+    //    |> Quadtree.enumerateNodesBreadthFirst true
+    //    |> Seq.filter (fun x -> match x with | InMemoryNode _ -> true | _ -> false)
+    //    |> Seq.map (fun x -> match x with | InMemoryNode n -> n | _ -> failwith "Unexpected type.")
+
+    //printfn "count = %d" (xs |> Seq.length)
+
+    //let gs = xs |> Seq.groupBy (fun x -> x.LayerSet.SampleWindow)
+    //for (key, g) in gs do printfn "group: %A" key
+
+    //for x in xs do
+    //  printfn "%A" x.LayerSet.SampleWindow
+
+    //q
+    //|> Query.All { Query.Config.Default with Verbose=true }
+    //|> Seq.toArray
+    //|> ignore
+
+    ()
 
 [<EntryPoint>]
 let main argv =
 
-    madorjan20211103 ()
+    flattenSketch ()
+
+    //madorjan20211103 ()
 
     //Perftests.timeReallyLargeMergedQuadtreeQueries ()
 

@@ -289,9 +289,9 @@ module Query =
                         else
                             if config.Verbose then 
                                 printfn "[merge'][FIRST  %A] %A" first.Cell first.ExactBoundingBox
-                                Quadtree.printStructure true first
+                                Quadtree.PrintStructure true first
                                 printfn "[merge'][SECOND %A] %A" second.Cell second.ExactBoundingBox
-                                Quadtree.printStructure true second
+                                Quadtree.PrintStructure true second
 
                             let r = perSampleMerge first second
                             if r.Length > 0 then yield! r
