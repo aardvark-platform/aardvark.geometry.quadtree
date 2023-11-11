@@ -31,7 +31,7 @@ module StructureTests =
         Split : int
         }
 
-    let createQuadtreeTyped<'a> def spec =
+    let createQuadtreeTyped<'a when 'a : equality> def spec =
         let (w, h) = spec.Size
         let mapping = DataMapping(spec.Origin, V2i(w,h))
         let layer = Layer<'a>(def, spec.Data, mapping)

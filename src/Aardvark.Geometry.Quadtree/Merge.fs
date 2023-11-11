@@ -78,10 +78,22 @@ with
 module Merge =
 
     let winner dom (first : QNodeRef) (second : QNodeRef) : QNodeRef option =
-        match dom, first.ExactBoundingBox, second.ExactBoundingBox with
-        | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
-        | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
-        | _ -> None
+        
+        None
+
+        (*
+            removed optimization, because this no longer works when masks are involved
+
+            - adding mask info (e.g. HasMask for all nodes/subtrees) would break backwards compatibility in serialization
+            - we can add this back again if it turns out that this makes a huge difference
+              (and would then also need to add more metadata and upgrade serialization accordingly)
+        *)
+
+        //match dom, first.ExactBoundingBox, second.ExactBoundingBox with
+        //    | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
+        //    | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
+        //    | _ -> None
+            
 
     let growParent (n : QNodeRef) : QNodeRef = QInnerNode.ofSubNode(n) |> InMemoryInner
 

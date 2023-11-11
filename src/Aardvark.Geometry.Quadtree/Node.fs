@@ -70,13 +70,13 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
     member this.TryGetLayer (semantic : Durable.Def) : ILayer option =
         layers.TryGetLayer(semantic)
 
-    member this.TryGetLayer<'a> (semantic : Durable.Def) : Layer<'a> option =
+    member this.TryGetLayer<'a when 'a : equality> (semantic : Durable.Def) : Layer<'a> option =
         layers.TryGetLayer<'a>(semantic)
 
     member this.GetLayer(semantic : Durable.Def) : ILayer =
         layers.GetLayer(semantic)
 
-    member this.GetLayer<'a>(semantic : Durable.Def) : Layer<'a> =
+    member this.GetLayer<'a when 'a : equality>(semantic : Durable.Def) : Layer<'a> =
         layers.GetLayer<'a>(semantic)
 
     member this.WithWindow (w : Box2l) : QNode option =
@@ -102,6 +102,9 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
 
     member this.GetSample (p : V2d) : Cell2d =
         layers.Mapping.GetSampleCell(p)
+
+    /// Resolution level.
+    member this.SampleExponent with get() = layers.SampleExponent
 
     /// Returns 2.0 ^ SampleExponent.
     member this.SampleSize with get() : float = layers.SampleSize
@@ -138,7 +141,7 @@ and
     | OutOfCoreNode of Guid * (unit -> QNodeRef)
     | InMemoryInner of QInnerNode
     | InMemoryMerge of QMergeNode
-    | LinkedNode   of QLinkedNode
+    | LinkedNode    of QLinkedNode
     with
 
         /// Forces property Id. Throws exception if NoNode.
@@ -270,7 +273,7 @@ and
             | LinkedNode n            -> n.Target.GetLayer def
 
         /// Throws if no such layer.
-        member this.GetLayer<'a> def = 
+        member this.GetLayer<'a when 'a : equality> def = 
             match this with
             | NoNode
             | InMemoryInner _
@@ -290,7 +293,7 @@ and
                                          | None -> None
             | LinkedNode n            -> n.Target.TryGetLayer def
 
-        member this.TryGetLayer<'a> def =
+        member this.TryGetLayer<'a when 'a : equality> def =
             match this with
             | NoNode
             | InMemoryInner _

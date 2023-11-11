@@ -62,7 +62,7 @@ module Query =
             | SubtractionSelected second -> this.Node.LayerSet.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.LayerSet.SampleExponent)
             | FullySelected -> this.Node.GetAllSamples()
         
-        member this.GetSamples<'a>(def : Durable.Def) : (Cell2d*'a)[] =
+        member this.GetSamples<'a when 'a : equality>(def : Durable.Def) : (Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
             let cells = this.GetSampleCells ()
             let result = cells |> Array.map (fun p ->
@@ -628,7 +628,7 @@ module Sample =
     }
     with
         member this.GetSampleCells () : Cell2d[] = this.Cells
-        member this.GetSamples<'a>(def : Durable.Def) : (V2d*Cell2d*'a)[] =
+        member this.GetSamples<'a when 'a : equality>(def : Durable.Def) : (V2d*Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
             this.Cells |> Array.map2 (fun p c -> (p, c, layer.GetSample(Fail, c))) this.Positions
 
@@ -747,7 +747,7 @@ module Sample =
         let result = Positions config [| position |] root |> Seq.toArray
         result |> Seq.tryHead
 
-    let PositionTyped<'a>  (config : Query.Config) (position : V2d) (def : Durable.Def) (root : QNodeRef) : 'a option =
+    let PositionTyped<'a when 'a : equality>  (config : Query.Config) (position : V2d) (def : Durable.Def) (root : QNodeRef) : 'a option =
         match Position config position root with
         | Some x -> 
             let xs = x.GetSamples<'a> def

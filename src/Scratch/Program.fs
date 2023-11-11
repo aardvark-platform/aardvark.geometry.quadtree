@@ -1010,45 +1010,111 @@ let madorjan20211103 () =
 
 let flattenSketch () =
 
-    let store = @"W:\Datasets\Vgm\Data\2023-09-04_bugreport"
-    let key = Guid "c0d343c1-8aaf-4884-9f98-4627b4f09396"
+    let store = @"W:\Datasets\Vgm\Data\2023-09-04_quadtree"
+    //let store = @"W:\Datasets\Vgm\Data\2023-11-10_quadtree"
+
+    let key = File.ReadAllText(Path.Combine(store, "key.txt")) |> Guid
     let options = Serialization.SerializationOptions.SimpleDiskStore store
 
+    let root : QNodeRef = Quadtree.Load options key
     
-    let root = Quadtree.Load options key
-    
-    //let nodeCount = root |> Quadtree.enumerateNodesBreadthFirst true |> Seq.length
-    printfn "node count (all)   = %d" (root |> Quadtree.CountNodes true)
-    printfn "node count (inner) = %d" (root |> Quadtree.CountInner true)
-    printfn "node count (leafs) = %d" (root |> Quadtree.CountLeafs true)
+    let leafNodes = root |> Quadtree.EnumerateLeafNodesInMemory |> List.ofSeq
+    printfn "original quadtree has %d leaf nodes and %d merge nodes" leafNodes.Length (Quadtree.CountMergeNodes true root)
 
-    let foo (root : QNodeRef) : seq<QNodeRef> = seq {
+    
+    let resolutions = leafNodes |> List.groupBy (fun n -> n.SampleExponent)
+
+
+    let builder = Builder()
+    for n in leafNodes do builder.Add n
+    
+    match builder.Build() with
+    | None -> printfn ""
+    | Some newAndBetterTree ->
+        let countLeafNodes = newAndBetterTree |> Quadtree.CountLeafNodes true
+        let countMergeNodes = newAndBetterTree |> Quadtree.CountMergeNodes true
+        //for n in Quadtree.EnumerateNodes true newAndBetterTree do printfn "%A" (n.GetType())
+        printfn "new quadtree has %d leaf nodes and %d merge nodes" countLeafNodes countMergeNodes
+
+
+    
         
-        let ensureInMemory n = match n with | OutOfCoreNode (_, load)   -> load() | _ -> n
 
-        let stack = Stack<QNodeRef>()
-        stack.Push root
+    ////let nodeCount = root |> Quadtree.enumerateNodesBreadthFirst true |> Seq.length
+    //printfn "node count (all)   = %d" (root |> Quadtree.CountNodes true)
+    //printfn "node count (inner) = %d" (root |> Quadtree.CountInner true)
+    //printfn "node count (leafs) = %d" (root |> Quadtree.CountLeafs true)
 
-        while stack.Count > 0 do
-
-            let node = stack.Pop() |> ensureInMemory
-
-            match node with
-            | NoNode          -> ()
-            | InMemoryNode _  -> yield node
-            | OutOfCoreNode _ -> failwith "Internal error 7a6995bd-c0d3-4650-8ea5-9764ec3fe26c."
-            | InMemoryInner n -> yield node
-                                 for subNode in n.SubNodes do subNode |> stack.Push
-            | InMemoryMerge n -> yield node
-                                 n.First |> stack.Push
-                                 n.Second |> stack.Push
-            | LinkedNode n    -> n.Target |> stack.Push
-        }
-
-    let fooSeq = foo root |> List.ofSeq
     
-    let nodeCount = root |> foo |> Seq.length
-    printfn "node count (foo  ) = %d" nodeCount
+    //printfn ""
+    //printfn "grouping by sample size"
+    //let gs = leafNodes |> Seq.groupBy (fun n -> n.LayerSet.SampleExponent) |> List.ofSeq
+    //let histo = gs
+    //            |> Seq.map (fun (key, ns) -> (key, ns |> List.ofSeq))
+    //            //|> Seq.sortByDescending (fun (key, _) -> key)
+
+    //for (k, ns) in histo do
+
+    //    let countPatches = ns |> List.length
+    //    let countSamples = ns |> List.sumBy (fun x -> x.LayerSet.SampleWindow.Area)
+    //    let ebb = ns |> Seq.map (fun n -> n.ExactBoundingBox) |> Box2d
+    //    printfn "  %d" k
+    //    printfn "  patches %8d" countPatches
+    //    printfn "  samples %8d" countSamples
+    //    printfn "  ebb     %A"  ebb
+    //    printfn ""
+
+    //    //let result = ns |> List.map (fun n -> n.LayerSet) |> Builder.Build
+
+    //    for n in ns do builder.Add(n.LayerSet)
+
+    //    ()
+
+        //let boxes = List<Box2l>()
+        //for n in ns do
+        //    let foo = n |> InMemoryNode |> Query.All Query.Config.Default |> Seq.collect (fun x -> x.GetSampleCells ()) |> Seq.groupBy id |> Seq.filter (fun (_, xs) -> xs |> Seq.length <> 1) |> Array.ofSeq
+        //    for (c, cs) in foo do printfn "%A -> %d" c (cs |> Seq.length)
+        //    // printfn "[%d] %A" k n.LayerSet.SampleWindow
+        //    boxes.Add(n.LayerSet.SampleWindow)
+        //    ()
+
+        //let mergeBoxes (boxes : List<Box2l>) : List<Box2l> =
+        //    let gbb = Box2l(boxes)
+        //    printfn "gbb %A with size = %A" gbb gbb.Size
+
+        //    let candidateSets = boxes |> Seq.groupBy (fun box -> box.Min.X) |> Seq.map (fun (k, bs) -> (k, bs |> List.ofSeq)) |> List.ofSeq
+        //    printfn "    candidate sets     : %d" candidateSets.Length
+        //    printfn "    candidate sets (>1): %d" (candidateSets |> Seq.filter (fun (k, bs) -> bs.Length > 1) |> Seq.length)
+
+        //    //for (minX, bs) in candidateSets do
+        //    //    let groupedByWidth = bs |> Seq.groupBy (fun b -> b.Size.X) |> List.ofSeq
+        //    //    for (w, bs) in groupedByWidth do
+        //    //        // same min.X, same width
+        //    //        printfn "minX = %d, width = %d, count = %d" minX w (bs |> Seq.length)
+        //    //        let bs2 = bs |> Seq.sortBy (fun b -> b.Min.Y)
+        //    //        for b in bs2 do
+        //    //            printfn "    * %A  %A" b b.Size
+
+
+        //    let result = List<Box2l>()
+        //    result
+
+        //let boxesMerged = mergeBoxes boxes
+
+        //printfn "  merged boxes ... %d" boxesMerged.Count
+        
+    
+    //printfn ""
+    //let nodeCount = root |> enumerateLeafs |> Seq.length
+    //printfn "node count (foo  ) = %d" nodeCount
+
+    //printfn ""
+    //let histo = root 
+    //            |> Quadtree.EnumerateNodesBreadthFirst true 
+    //            |> Seq.groupBy (fun n -> n.GetType().Name)
+    //            |> Seq.map (fun (key, ns) -> (key, ns |> Seq.length))
+    //            |> Map.ofSeq
+    //for kv in histo do printfn "%s -> %d" kv.Key kv.Value
 
     //Quadtree.PrintStructure true q
 

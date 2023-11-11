@@ -28,6 +28,50 @@ module Quadtree =
         | OutOfCoreNode (_, load) -> load()
         | _ -> node
 
+    /// Enumerate all nodes.
+    /// Out-of-core nodes are automatically loaded and traversed.
+    /// A resulting QNode object x can be simply converted back to a QNodeRef by calling `InMemoryNode x`.
+    let EnumerateLeafNodesInMemory (root : QNodeRef) : seq<QNode> = seq {
+        
+        let stack = Stack<QNodeRef>()
+        stack.Push root
+
+        while stack.Count > 0 do
+
+            let node = stack.Pop() |> EnsureInMemory
+
+            match node with
+            | NoNode          -> ()
+            | InMemoryNode q  -> yield q
+            | OutOfCoreNode _ -> failwith "Internal error 7a6995bd-c0d3-4650-8ea5-9764ec3fe26c."
+            | InMemoryInner n -> for subNode in n.SubNodes do subNode |> stack.Push
+            | InMemoryMerge n -> n.First |> stack.Push
+                                 n.Second |> stack.Push
+            | LinkedNode n    -> n.Target |> stack.Push
+        }
+
+    /// Enumerate all nodes of given quadtree.
+    /// If outOfCore is true, then the full tree is traversed, even nodes that are stored out-of-core.
+    let EnumerateNodes (outOfCore : bool) (root : QNodeRef) : seq<QNodeRef> = seq {
+        
+        let stack = Stack<QNodeRef>()
+        stack.Push root
+
+        while stack.Count > 0 do
+
+            let node = stack.Pop()
+
+            match node with
+            | NoNode          -> ()
+            | InMemoryNode n  -> yield node
+            | OutOfCoreNode (_, load) -> if outOfCore then stack.Push (load()) else yield node
+            | InMemoryInner n -> for subNode in n.SubNodes do subNode |> stack.Push
+            | InMemoryMerge n -> n.First |> stack.Push
+                                 n.Second |> stack.Push
+                                 yield node
+            | LinkedNode n    -> n.Target |> stack.Push
+        }
+
     /// Enumerate all nodes breadth first.
     /// If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
     let EnumerateNodesBreadthFirst (outOfCore : bool) (root : QNodeRef) : seq<QNodeRef> = seq {
@@ -86,16 +130,26 @@ module Quadtree =
         count
 
     /// Count number of nodes in quadtree.
-    /// If outOfCore is false, then out-of-core nodes are handled like leafs.
+    /// If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
     let CountNodes outOfCore root = root |> tryCount outOfCore 1 1
 
     /// Count number of leaf nodes in quadtree.
-    /// If outOfCore is false, then out-of-core nodes are handled like leafs.
-    let CountLeafs outOfCore root = root |> tryCount outOfCore 1 0
+    /// If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
+    let CountLeafNodes outOfCore root = root |> tryCount outOfCore 1 0
+    
+    [<Obsolete("Use CountLeafNodes instead.")>]
+    let CountLeafs = CountLeafNodes
 
     /// Count number of inner nodes in quadtree.
-    /// If outOfCore is false, then out-of-core nodes are handled like leafs.
-    let CountInner outOfCore root = root |> tryCount outOfCore 0 1
+    /// If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
+    let CountInnerNodes outOfCore root = root |> tryCount outOfCore 0 1
+
+    [<Obsolete("Use CountInnerNodes instead.")>]
+    let CountInner = CountInnerNodes
+
+    /// Count number of merge nodes in quadtree.
+    /// If outOfCore is false, then out-of-core nodes are handled like leaf nodes.
+    let CountMergeNodes outOfCore root : int = root |> EnumerateNodes outOfCore |> Seq.filter (fun n -> match n with | InMemoryMerge _ -> true | _ -> false) |> Seq.length
 
     let PrintStructure (outOfCore : bool) (n : QNodeRef) =
 
@@ -153,7 +207,7 @@ module Quadtree =
             for i = 0 to 3 do
                 match subNodes.[i] with
                 | InMemoryNode x    -> invariant (x.Cell = children.[i])   "15f2c6c3-6f5b-4ac0-9ec0-8ab968ac9c2e"
-                | InMemoryInner x       -> invariant (x.Cell = children.[i])   "817d1b42-8fd9-465c-9cac-4d197a9a5bb9"
+                | InMemoryInner x   -> invariant (x.Cell = children.[i])   "817d1b42-8fd9-465c-9cac-4d197a9a5bb9"
                 | NoNode            -> ()
                 | _                 -> failwith "Todo 6f5d63bc-ece6-49ef-b634-879f81a4fc36."
 
@@ -211,7 +265,7 @@ module Quadtree =
         qtree.ContainsLayer(semantic)
 
     /// Throws if no such layer.
-    let GetLayer<'a> (semantic : Durable.Def) (qtree : QNodeRef) : Layer<'a> =
+    let GetLayer<'a when 'a : equality> (semantic : Durable.Def) (qtree : QNodeRef) : Layer<'a> =
         qtree.GetLayer<'a>(semantic)
 
     /// Throws if no such layer.
@@ -219,7 +273,7 @@ module Quadtree =
         qtree.GetLayer(semantic)
 
     /// Throws if no such layer.
-    let TryGetLayer<'a> (semantic : Durable.Def) (qtree : QNodeRef) : Layer<'a> option =
+    let TryGetLayer<'a when 'a : equality> (semantic : Durable.Def) (qtree : QNodeRef) : Layer<'a> option =
         qtree.TryGetLayer<'a>(semantic)
 
     /// Throws if no such layer.

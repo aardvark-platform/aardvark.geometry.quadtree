@@ -34,7 +34,18 @@ module Prelude =
     let inline inDifferentQuadrants (a : Cell2d) (b : Cell2d) =
         if a.IsCenteredAtOrigin || b.IsCenteredAtOrigin then false
         else ((a.X >= 0L) <> (b.X >= 0L)) || ((a.Y >= 0L) <> (b.Y >= 0L))
-            
+
+    /// Gets cell bounds in resolution 2^e with inclusive min and exclusive max.
+    let getBoundsForExponent (e : int) (cell : Cell2d) : Box2l =
+        if cell.IsCenteredAtOrigin then
+            invariant (e < cell.Exponent) "ecfc0260-688b-43f2-9e10-a0bc66132ac1"
+            let d = cell.Exponent - e - 1
+            let x = 1L <<< d
+            Box2l(-x, -x, x, x)
+        else
+            invariant (e <= cell.Exponent) "316764bd-c4fe-4202-bba4-bf603061b629"
+            let d = cell.Exponent - e
+            Box2l(cell.X <<< d, cell.Y <<< d, (cell.X + 1L) <<< d, (cell.Y + 1L) <<< d)
 
 module Option =
 

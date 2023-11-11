@@ -129,7 +129,7 @@ module PrettyPrint =
             | -3 -> C3b(128,255,255)
             | _ -> C3b.Gray80
 
-        let ofQNodeRef<'a> (name : string) (pos : Pos) (def : Durable.Def) (qref : QNodeRef) : Cells =
+        let ofQNodeRef<'a when 'a : equality> (name : string) (pos : Pos) (def : Durable.Def) (qref : QNodeRef) : Cells =
 
             let f = { HAlign=Left; VAlign=Top; Bgcolor=C3b.White }
 
@@ -203,11 +203,11 @@ module PrettyPrint =
 
 
 
-    let generateHtmlDebugView<'a> title def quadtrees =
+    let generateHtmlDebugView<'a when 'a : equality> title def quadtrees =
         let content = quadtrees |> List.mapi (fun i x -> Cells.ofQNodeRef<'a> (sprintf "<h2>%s</h2>" (fst x)) {X=0;Y=i*2} def (snd x))
         Cells.Group({X=0;Y=0}, Format.Default, sprintf "<h1>%s</h1>" title, content) |> Cells.toHtml
 
-    let showHtmlDebugView<'a> title def quadtrees =
+    let showHtmlDebugView<'a when 'a : equality> title def quadtrees =
         let html = generateHtmlDebugView<'a> title def quadtrees
         let now = DateTime.Now
         let filename = sprintf "quadtree_%04d-%02d-%02d-%02d-%02d-%02d.html" now.Year now.Month now.Day now.Hour now.Minute now.Second
