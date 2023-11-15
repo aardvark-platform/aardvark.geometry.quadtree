@@ -1008,32 +1008,36 @@ let madorjan20211103 () =
     printfn "qTree.Cell.BoundingBox: %A" qTree.Cell.BoundingBox
     printfn "qTree.LayerSet        : %A" qTree.LayerSet
 
-let flattenSketch () =
+let builderSketch () =
 
+    // (1) load octree with many merges as test data
     let store = @"W:\Datasets\Vgm\Data\2023-09-04_quadtree"
     //let store = @"W:\Datasets\Vgm\Data\2023-11-10_quadtree"
 
     let key = File.ReadAllText(Path.Combine(store, "key.txt")) |> Guid
     let options = Serialization.SerializationOptions.SimpleDiskStore store
 
-    let root : QNodeRef = Quadtree.Load options key
+    let originalQuadtree : QNodeRef = Quadtree.Load options key
     
-    let leafNodes = root |> Quadtree.EnumerateLeafNodesInMemory |> List.ofSeq
-    printfn "original quadtree has %d leaf nodes and %d merge nodes" leafNodes.Length (Quadtree.CountMergeNodes true root)
-
+    // (2) take all leaf nodes as test patches
+    // (these should be the original data that was merged together)
+    let patches = originalQuadtree |> Quadtree.EnumerateLeafNodesInMemory |> List.ofSeq
     
-    let resolutions = leafNodes |> List.groupBy (fun n -> n.SampleExponent)
+    // stats
+    printfn "original quadtree has %d leaf nodes and %d merge nodes" patches.Length (Quadtree.CountMergeNodes true originalQuadtree)
+    let resolutions = patches |> List.groupBy (fun n -> n.SampleExponent) |> List.map (fun (k, v) -> k) |> List.sortDescending   
+    printfn "original quadtree resolution levels: %A" resolutions
 
-
+    // (3) create a new builder and add all patches
     let builder = Builder()
-    for n in leafNodes do builder.Add n
+    for n in patches do builder.Add n
     
+    // (4) build new and better quadtree
     match builder.Build() with
-    | None -> printfn ""
+    | None -> printfn "no quadtree"
     | Some newAndBetterTree ->
         let countLeafNodes = newAndBetterTree |> Quadtree.CountLeafNodes true
         let countMergeNodes = newAndBetterTree |> Quadtree.CountMergeNodes true
-        //for n in Quadtree.EnumerateNodes true newAndBetterTree do printfn "%A" (n.GetType())
         printfn "new quadtree has %d leaf nodes and %d merge nodes" countLeafNodes countMergeNodes
 
 
@@ -1142,7 +1146,7 @@ let flattenSketch () =
 [<EntryPoint>]
 let main argv =
 
-    flattenSketch ()
+    builderSketch ()
 
     //madorjan20211103 ()
 
