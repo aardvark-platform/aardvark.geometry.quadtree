@@ -1,3 +1,6 @@
+### 0.4.4
+- Builder (creates quadtree from many small patches)
+
 ### 0.4.3
 - fix queries
 

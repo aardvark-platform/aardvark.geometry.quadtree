@@ -232,17 +232,17 @@ module Query =
             match first, second with
         
             // load out-of-core nodes ...
-            | OutOfCoreNode (_, load1), OutOfCoreNode (_, load2) ->
+            | OutOfCoreNode n1, OutOfCoreNode n2 ->
                 if config.Verbose then printfn "[merge'] both out-of-core -> load"
-                let r = recurse (load1()) (load2()) |> Seq.toList
+                let r = recurse (n1.Load()) (n2.Load()) |> Seq.toList
                 if r.Length > 0 then yield! r
-            | OutOfCoreNode (_, load1), b ->
+            | OutOfCoreNode n1, b ->
                 if config.Verbose then printfn "[merge'] first is out-of-core -> load"
-                let r = recurse (load1()) b |> Seq.toList
+                let r = recurse (n1.Load()) b |> Seq.toList
                 if r.Length > 0 then yield! r
-            | a, OutOfCoreNode (_, load2) ->
+            | a, OutOfCoreNode n2 ->
                 if config.Verbose then printfn "[merge'] second is out-of-core -> load"
-                let r = recurse a (load2()) |> Seq.toList
+                let r = recurse a (n2.Load()) |> Seq.toList
                 if r.Length > 0 then yield! r
 
             // in-core
@@ -338,9 +338,9 @@ module Query =
                     if config.Verbose then printfn "[Generic ] NoNode"
                     ()
             
-                | OutOfCoreNode (id, load)   ->
-                    if config.Verbose then printfn "[Generic ] OutOfCoreNode %A" id
-                    yield! load() |> recurse
+                | OutOfCoreNode n           ->
+                    if config.Verbose then printfn "[Generic ] OutOfCoreNode %A" n.Id
+                    yield! n.Load() |> recurse
             
                 | LinkedNode n               ->
                     if config.Verbose then printfn "[Generic ] LinkedNode %A" id
@@ -494,7 +494,7 @@ module Query =
 
                 match root with
                 | NoNode                    -> ()
-                | OutOfCoreNode (n, load)   -> yield! load() |> recurse
+                | OutOfCoreNode n           -> yield! n.Load() |> recurse
                 | LinkedNode n              -> yield! n.Target |> recurse
                 | InMemoryInner n           -> for subnode in n.SubNodes do yield! subnode |> recurse
                 | InMemoryMerge n           ->
@@ -611,12 +611,12 @@ module Query =
     let rec Full (root : QNodeRef) : Result seq = seq {
         match root with
         | NoNode -> ()
-        | InMemoryInner n         -> for subnode in n.SubNodes do yield! Full subnode
-        | InMemoryNode  n         -> yield { Node = n; Selection = FullySelected }
-        | InMemoryMerge n         -> yield! Full n.First
-                                     yield! Full n.Second
-        | LinkedNode    n         -> yield! Full n.Target
-        | OutOfCoreNode (_, load) -> yield! Full (load())
+        | InMemoryInner n -> for subnode in n.SubNodes do yield! Full subnode
+        | InMemoryNode  n -> yield { Node = n; Selection = FullySelected }
+        | InMemoryMerge n -> yield! Full n.First
+                             yield! Full n.Second
+        | LinkedNode    n -> yield! Full n.Target
+        | OutOfCoreNode n -> yield! Full (n.Load())
     }
 
 module Sample =
@@ -721,9 +721,9 @@ module Sample =
                         let cells = ps |> Array.map n.GetSample
                         yield { Node = n; Cells = cells; Positions = ps }
 
-                | OutOfCoreNode (_,load) ->
+                | OutOfCoreNode n ->
                     
-                        let n = load()
+                        let n = n.Load()
                         yield! PositionsWithBounds config positions positionsBounds n
 
 

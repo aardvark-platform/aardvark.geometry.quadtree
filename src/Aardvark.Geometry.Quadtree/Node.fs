@@ -109,12 +109,16 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
     /// Returns 2.0 ^ SampleExponent.
     member this.SampleSize with get() : float = layers.SampleSize
 
+    /// True if there is a layer with a mask.
+    member this.HasMask with get() : bool = layers.HasMask
+
 and
     QInnerNode = {
         Id : Guid
         ExactBoundingBox : Box2d
         Cell : Cell2d
         SplitLimitExponent : int
+        HasMask : bool
         SubNodes : QNodeRef[]
         }
 
@@ -124,6 +128,7 @@ and
         ExactBoundingBox : Box2d
         Cell : Cell2d
         SplitLimitExponent : int
+        HasMask : bool
         Dominance : Dominance
         First : QNodeRef
         Second : QNodeRef
@@ -131,14 +136,22 @@ and
 and
     QLinkedNode = {
         Id : Guid
+        HasMask : bool
         Target : QNodeRef
+        }
+and
+
+    QOutOfCoreNode = {
+        Id : Guid
+        HasMask : bool
+        Load :  unit -> QNodeRef
         }
 and
 
     QNodeRef =
     | NoNode
     | InMemoryNode  of QNode
-    | OutOfCoreNode of Guid * (unit -> QNodeRef)
+    | OutOfCoreNode of QOutOfCoreNode
     | InMemoryInner of QInnerNode
     | InMemoryMerge of QMergeNode
     | LinkedNode    of QLinkedNode
@@ -147,80 +160,89 @@ and
         /// Forces property Id. Throws exception if NoNode.
         member this.Id with get() =
             match this with
-            | NoNode -> failwith "Id does not exist for NoNode. Error c48422a9-4df6-4d15-9dad-af075a1d52ac."
-            | InMemoryNode n -> n.Id
+            | NoNode          -> failwith "Id does not exist for NoNode. Error c48422a9-4df6-4d15-9dad-af075a1d52ac."
+            | InMemoryNode  n -> n.Id
             | InMemoryInner n -> n.Id
             | InMemoryMerge n -> n.Id
-            | OutOfCoreNode (_, load) -> load().Id
-            | LinkedNode n -> n.Id
+            | OutOfCoreNode n -> n.Load().Id
+            | LinkedNode    n -> n.Id
 
         /// Forces property Cell. Throws exception if NoNode.
         member this.Cell with get() =
             match this with
-            | NoNode -> failwith "Cell does not exist for NoNode. Error c48422a9-4df6-4d15-9dad-af075a1d52ac."
-            | InMemoryNode n -> n.Cell
+            | NoNode          -> failwith "Cell does not exist for NoNode. Error c48422a9-4df6-4d15-9dad-af075a1d52ac."
+            | InMemoryNode  n -> n.Cell
             | InMemoryInner n -> n.Cell
             | InMemoryMerge n -> n.Cell
-            | OutOfCoreNode (_, load) -> load().Cell
-            | LinkedNode n -> n.Target.Cell
+            | OutOfCoreNode n -> n.Load().Cell
+            | LinkedNode    n -> n.Target.Cell
 
          /// Returns node's exact bounding box, or invalid box for NoNode.
         member this.ExactBoundingBox with get() =
             match this with
-            | NoNode -> Box2d.Invalid
-            | InMemoryNode n -> n.ExactBoundingBox
+            | NoNode          -> Box2d.Invalid
+            | InMemoryNode  n -> n.ExactBoundingBox
             | InMemoryInner n -> n.ExactBoundingBox
             | InMemoryMerge n -> n.ExactBoundingBox
-            | OutOfCoreNode (_, load) -> load().ExactBoundingBox
-            | LinkedNode n -> n.Target.ExactBoundingBox
+            | OutOfCoreNode n -> n.Load().ExactBoundingBox
+            | LinkedNode    n -> n.Target.ExactBoundingBox
 
         /// Forces property SplitLimitExp. Throws exception if NoNode.
         member this.SplitLimitExponent with get() =
             match this with
-            | NoNode -> failwith "SplitLimitExp does not exist for NoNode. Error 4424a37e-dcd8-4ae0-975c-7ae6d926aaa8."
-            | InMemoryNode n -> n.SplitLimitExponent
+            | NoNode          -> failwith "SplitLimitExp does not exist for NoNode. Error 4424a37e-dcd8-4ae0-975c-7ae6d926aaa8."
+            | InMemoryNode  n -> n.SplitLimitExponent
             | InMemoryInner n -> n.SplitLimitExponent
             | InMemoryMerge n -> n.SplitLimitExponent
-            | OutOfCoreNode (_, load) -> load().SplitLimitExponent
-            | LinkedNode n -> n.Target.SplitLimitExponent
+            | OutOfCoreNode n -> n.Load().SplitLimitExponent
+            | LinkedNode    n -> n.Target.SplitLimitExponent
 
         member this.GetFirstNonEmptySubNode() : QNodeRef option =
             match this with
-            | NoNode -> None
+            | NoNode          -> None
             | InMemoryInner n -> n.SubNodes |> Array.tryFind (fun sn -> match sn with | NoNode -> false | _ -> true)
             | InMemoryMerge n -> Some n.First
-            | InMemoryNode n -> None
-            | OutOfCoreNode (_, load) -> load().GetFirstNonEmptySubNode()
-            | LinkedNode n -> n.Target.GetFirstNonEmptySubNode()
+            | InMemoryNode  _ -> None
+            | OutOfCoreNode n -> n.Load().GetFirstNonEmptySubNode()
+            | LinkedNode    n -> n.Target.GetFirstNonEmptySubNode()
 
         member this.ContainsLayer (semantic : Durable.Def) =
             match this with
-            | NoNode -> false
+            | NoNode          -> false
             | InMemoryInner _ -> match this.GetFirstNonEmptySubNode() with
                                  | Some n -> n.ContainsLayer(semantic)
                                  | None -> failwith "Invariant 0a85f195-7feb-4ecb-912d-7fd4e7024951."
             | InMemoryMerge _ -> false
-            | InMemoryNode n -> n.ContainsLayer semantic
-            | OutOfCoreNode (_, load) -> load().ContainsLayer semantic
-            | LinkedNode n -> n.Target.ContainsLayer semantic
+            | InMemoryNode  n -> n.ContainsLayer semantic
+            | OutOfCoreNode n -> n.Load().ContainsLayer semantic
+            | LinkedNode    n -> n.Target.ContainsLayer semantic
 
         member this.LayerSet with get() : LayerSet option =
             match this with
-            | NoNode -> None
+            | NoNode          -> None
             | InMemoryInner _ -> None
             | InMemoryMerge _ -> None
-            | InMemoryNode n -> Some(n.LayerSet)
-            | OutOfCoreNode (_, load) -> load().LayerSet
-            | LinkedNode n -> n.Target.LayerSet
+            | InMemoryNode  n -> Some(n.LayerSet)
+            | OutOfCoreNode n -> n.Load().LayerSet
+            | LinkedNode    n -> n.Target.LayerSet
 
         member this.IsLeafNode with get() =
             match this with
             | NoNode          -> false
             | InMemoryInner _ -> false
             | InMemoryMerge _ -> false
-            | InMemoryNode _  -> true
+            | InMemoryNode  _ -> true
             | OutOfCoreNode _ -> true
-            | LinkedNode n    -> n.Target.IsLeafNode
+            | LinkedNode    n -> n.Target.IsLeafNode
+
+        member this.HasMask with get() =
+            match this with
+            | NoNode          -> false
+            | InMemoryInner n -> n.HasMask
+            | InMemoryMerge n -> n.HasMask
+            | InMemoryNode  n -> n.HasMask
+            | OutOfCoreNode n -> n.HasMask
+            | LinkedNode    n -> n.Target.HasMask
 
         /// Replace all occurences of 'oldSemantic' with 'newSemantic'.
         /// Returns (true, <newUpdatedOctree>) if 'oldSemantic' exists and is replaced.
@@ -258,7 +280,7 @@ and
                 | Some qnode -> (true, InMemoryNode qnode)
                 | None       -> unchanged
 
-            | OutOfCoreNode (_, load) -> load() |> qnode
+            | OutOfCoreNode n         -> n.Load() |> qnode
 
             | LinkedNode n            -> n.Target.UpdateLayerSemantic (oldSemantic, newSemantic)
 
@@ -267,42 +289,42 @@ and
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _         -> sprintf "Layer not found. %A. Error 2c634f5f-d359-4523-b87a-a96d2522c018." def |> failwith
-            | InMemoryNode n          -> n.LayerSet.GetLayer def
-            | OutOfCoreNode (_, load) -> load().LayerSet.Value.GetLayer def
-            | LinkedNode n            -> n.Target.GetLayer def
+            | InMemoryMerge _ -> sprintf "Layer not found. %A. Error 2c634f5f-d359-4523-b87a-a96d2522c018." def |> failwith
+            | InMemoryNode n  -> n.LayerSet.GetLayer def
+            | OutOfCoreNode n -> n.Load().LayerSet.Value.GetLayer def
+            | LinkedNode n    -> n.Target.GetLayer def
 
         /// Throws if no such layer.
         member this.GetLayer<'a when 'a : equality> def = 
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _         -> sprintf "Layer not found. %A. Error f33f39a9-2394-473f-8dae-76bd8baaaafb." def |> failwith
-            | InMemoryNode n          -> n.LayerSet.GetLayer<'a> def
-            | OutOfCoreNode (_, load) -> load().LayerSet.Value.GetLayer<'a> def
-            | LinkedNode n            -> n.Target.GetLayer<'a> def
+            | InMemoryMerge _ -> sprintf "Layer not found. %A. Error f33f39a9-2394-473f-8dae-76bd8baaaafb." def |> failwith
+            | InMemoryNode n  -> n.LayerSet.GetLayer<'a> def
+            | OutOfCoreNode n -> n.Load().LayerSet.Value.GetLayer<'a> def
+            | LinkedNode n    -> n.Target.GetLayer<'a> def
     
         member this.TryGetLayer def =
             match this with
             | NoNode
             | InMemoryInner _ 
-            | InMemoryMerge _         -> None
-            | InMemoryNode n          -> n.LayerSet.TryGetLayer def
-            | OutOfCoreNode (_, load) -> match load().LayerSet with
-                                         | Some ls -> ls.TryGetLayer def
-                                         | None -> None
-            | LinkedNode n            -> n.Target.TryGetLayer def
+            | InMemoryMerge _ -> None
+            | InMemoryNode n  -> n.LayerSet.TryGetLayer def
+            | OutOfCoreNode n -> match n.Load().LayerSet with
+                                 | Some ls -> ls.TryGetLayer def
+                                 | None -> None
+            | LinkedNode n    -> n.Target.TryGetLayer def
 
         member this.TryGetLayer<'a when 'a : equality> def =
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _         -> None
-            | InMemoryNode n          -> n.LayerSet.TryGetLayer<'a> def
-            | OutOfCoreNode (_, load) -> match load().LayerSet with
-                                         | Some ls -> ls.TryGetLayer<'a> def
-                                         | None -> None
-            | LinkedNode n            -> n.Target.TryGetLayer<'a> def
+            | InMemoryMerge _ -> None
+            | InMemoryNode n  -> n.LayerSet.TryGetLayer<'a> def
+            | OutOfCoreNode n -> match n.Load().LayerSet with
+                                 | Some ls -> ls.TryGetLayer<'a> def
+                                 | None -> None
+            | LinkedNode n    -> n.Target.TryGetLayer<'a> def
 
 module QNode =
 
@@ -320,7 +342,7 @@ module QInnerNode =
         | Some qi ->
             let ns = Array.create 4 NoNode
             ns.[qi] <- n
-            { Id = Guid.NewGuid(); ExactBoundingBox = n.ExactBoundingBox; Cell = rc; SplitLimitExponent = n.SplitLimitExponent; SubNodes = ns }
+            { Id = Guid.NewGuid(); ExactBoundingBox = n.ExactBoundingBox; Cell = rc; SplitLimitExponent = n.SplitLimitExponent; HasMask = n.HasMask; SubNodes = ns }
 
     let ofSubNodes (ns : QNodeRef[]) : QInnerNode =
         invariant (ns.Length = 4) "acf0afb0-5d73-4827-acca-e1707ec6db5a"
@@ -336,7 +358,8 @@ module QInnerNode =
 
         let ebb = ns' |> Seq.map(fun n -> n.ExactBoundingBox) |> Box2d
 
-        { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rc; SplitLimitExponent = ns'.[0].SplitLimitExponent; SubNodes = ns }
+        let hasMask = ns |> Array.exists (fun n -> n.HasMask)
+        { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rc; SplitLimitExponent = ns'.[0].SplitLimitExponent; HasMask = hasMask; SubNodes = ns }
             
 
 module QMergeNode =
@@ -356,6 +379,7 @@ module QMergeNode =
         {
             Id = Guid.NewGuid()
             ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = first.SplitLimitExponent
+            HasMask = first.HasMask || second.HasMask
             Dominance = dom; First = first; Second = second
         }
 

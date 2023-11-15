@@ -917,7 +917,7 @@ let madorjan20210216() =
         printfn "key %A does not exist in store" id
     | Some _ ->
 
-        let root = OutOfCoreNode (id, fun () -> Quadtree.Load store id)
+        let root = OutOfCoreNode { Id = id; HasMask = false; Load = fun () -> Quadtree.Load store id }
         Quadtree.printStructure true root
 
         let q = Quadtree.Load store id
@@ -1011,8 +1011,8 @@ let madorjan20211103 () =
 let builderSketch () =
 
     // (1) load octree with many merges as test data
-    let store = @"W:\Datasets\Vgm\Data\2023-09-04_quadtree"
-    //let store = @"W:\Datasets\Vgm\Data\2023-11-10_quadtree"
+    //let store = @"W:\Datasets\Vgm\Data\2023-09-04_quadtree"
+    let store = @"W:\Datasets\Vgm\Data\2023-11-10_quadtree"
 
     let key = File.ReadAllText(Path.Combine(store, "key.txt")) |> Guid
     let options = Serialization.SerializationOptions.SimpleDiskStore store

@@ -25,7 +25,7 @@ module Quadtree =
     /// Otherwise node is returned.
     let EnsureInMemory (node : QNodeRef)  =
         match node with
-        | OutOfCoreNode (_, load) -> load()
+        | OutOfCoreNode n -> n.Load()
         | _ -> node
 
     /// Enumerate all nodes.
@@ -64,7 +64,7 @@ module Quadtree =
             match node with
             | NoNode          -> ()
             | InMemoryNode n  -> yield node
-            | OutOfCoreNode (_, load) -> if outOfCore then stack.Push (load()) else yield node
+            | OutOfCoreNode n -> if outOfCore then stack.Push (n.Load()) else yield node
             | InMemoryInner n -> for subNode in n.SubNodes do subNode |> stack.Push
             | InMemoryMerge n -> n.First |> stack.Push
                                  n.Second |> stack.Push
@@ -84,15 +84,15 @@ module Quadtree =
             let node = queue.Dequeue()
 
             match node with
-            | NoNode                    -> ()
-            | InMemoryNode _            -> yield node
-            | OutOfCoreNode (_, load)   -> if outOfCore then load() |> queue.Enqueue else yield node
-            | InMemoryInner n           -> yield node
-                                           for subNode in n.SubNodes do subNode |> queue.Enqueue
-            | InMemoryMerge n           -> yield node
-                                           n.First |> queue.Enqueue
-                                           n.Second |> queue.Enqueue
-            | LinkedNode n              -> n.Target |> queue.Enqueue
+            | NoNode          -> ()
+            | InMemoryNode _  -> yield node
+            | OutOfCoreNode n -> if outOfCore then n.Load() |> queue.Enqueue else yield node
+            | InMemoryInner n -> yield node
+                                 for subNode in n.SubNodes do subNode |> queue.Enqueue
+            | InMemoryMerge n -> yield node
+                                 n.First |> queue.Enqueue
+                                 n.Second |> queue.Enqueue
+            | LinkedNode n    -> n.Target |> queue.Enqueue
         }
 
     [<Obsolete("Use EnumerateNodesBreadthFirst instead.")>]
@@ -111,21 +111,21 @@ module Quadtree =
 
             //let recurse = tryCount outOfCore a b
             count <- count + match n with
-                             | NoNode                  -> 0
-                             | InMemoryNode _          -> weightLeaf
-                             | OutOfCoreNode (_, load) -> if outOfCore then 
-                                                              let loadedNode = load()
-                                                              loadedNode |> stack.Push 
-                                                              0 
-                                                          else 
-                                                              weightLeaf
-                             | InMemoryInner n         -> for x in n.SubNodes do x |> stack.Push
-                                                          weightInner
-                             | InMemoryMerge n         -> n.First  |> stack.Push
-                                                          n.Second |> stack.Push
-                                                          weightInner
-                             | LinkedNode n            -> n.Target |> stack.Push
-                                                          weightInner
+                             | NoNode          -> 0
+                             | InMemoryNode _  -> weightLeaf
+                             | OutOfCoreNode n -> if outOfCore then 
+                                                      let loadedNode = n.Load()
+                                                      loadedNode |> stack.Push 
+                                                      0 
+                                                  else 
+                                                      weightLeaf
+                             | InMemoryInner n -> for x in n.SubNodes do x |> stack.Push
+                                                  weightInner
+                             | InMemoryMerge n -> n.First  |> stack.Push
+                                                  n.Second |> stack.Push
+                                                  weightInner
+                             | LinkedNode n    -> n.Target |> stack.Push
+                                                  weightInner
 
         count
 
@@ -155,21 +155,21 @@ module Quadtree =
 
         let rec print indent (n : QNodeRef) =
             match n with
-            | NoNode                  -> printfn "%sNoNode" indent
-            | InMemoryNode n          -> printfn "%sInMemoryNode %A" indent n.Cell
-            | OutOfCoreNode (id,load) -> if outOfCore then
-                                            print indent (load())
-                                         else
-                                            printfn "%sOutOfCoreNode %A" indent id
-            | InMemoryInner n         -> printfn "%sInMemoryInner %A" indent n.Cell
-                                         for n in n.SubNodes do print (indent + "  ") n
-            | InMemoryMerge n         -> printfn "%sInMemoryMerge %A %A" indent n.Cell n.Id
-                                         printfn "%s  SECOND:" indent
-                                         print (indent + "  ") n.Second
-                                         printfn "%s  FIRST :" indent
-                                         print (indent + "  ") n.First
-            | LinkedNode n            -> printfn "%sLinkedNode %A" indent n.Target.Cell
-                                         print (indent + "  ") n.Target
+            | NoNode          -> printfn "%sNoNode" indent
+            | InMemoryNode n  -> printfn "%sInMemoryNode %A" indent n.Cell
+            | OutOfCoreNode n -> if outOfCore then
+                                    print indent (n.Load())
+                                 else
+                                    printfn "%sOutOfCoreNode %A" indent id
+            | InMemoryInner n -> printfn "%sInMemoryInner %A" indent n.Cell
+                                 for n in n.SubNodes do print (indent + "  ") n
+            | InMemoryMerge n -> printfn "%sInMemoryMerge %A %A" indent n.Cell n.Id
+                                 printfn "%s  SECOND:" indent
+                                 print (indent + "  ") n.Second
+                                 printfn "%s  FIRST :" indent
+                                 print (indent + "  ") n.First
+            | LinkedNode n    -> printfn "%sLinkedNode %A" indent n.Target.Cell
+                                 print (indent + "  ") n.Target
 
         print "" n
 
@@ -211,7 +211,8 @@ module Quadtree =
                 | NoNode            -> ()
                 | _                 -> failwith "Todo 6f5d63bc-ece6-49ef-b634-879f81a4fc36."
 
-            let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = config.SplitLimitPowerOfTwo; SubNodes = subNodes }
+            let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
+            let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = config.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
             result |> InMemoryInner
         
         else
@@ -246,7 +247,7 @@ module Quadtree =
         Merge.merge domination first second
 
     let Link (id : Guid) (target : QNodeRef) =
-        LinkedNode { Id = id; Target = target } 
+        LinkedNode { Id = id; HasMask = target.HasMask; Target = target } 
 
     /// Save quadtree. Returns id of root node, or Guid.Empty if empty quadtree.
     let Save (options : SerializationOptions) (qtree : QNodeRef) : Guid =

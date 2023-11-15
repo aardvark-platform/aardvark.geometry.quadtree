@@ -123,6 +123,7 @@ module Serialization =
         map.Add(kvp Defs.CellBounds n.Cell)
         map.Add(kvp Defs.SplitLimitExponent n.SplitLimitExponent)
         map.Add(kvp Defs.ExactBoundingBox n.ExactBoundingBox)
+        map.Add(kvp Defs.HasMask (if n.HasMask then 1 else 0))
 
         // collect subnode IDs 
         let ids = n.SubNodes |> Array.map (fun x -> match x with | NoNode -> Guid.Empty | _ -> x.Id)
@@ -136,16 +137,29 @@ module Serialization =
         let id   = map.Get(Defs.NodeId)              :?> Guid
         let cell = map.Get(Defs.CellBounds)          :?> Cell2d
         let sle  = map.Get(Defs.SplitLimitExponent)  :?> int
-        let ebb  = match map.TryGetValue(Defs.ExactBoundingBox) with
-                   | true,  x -> x :?> Box2d
-                   | false, _ -> Box2d.Invalid
+        
+        let ebb  = 
+            match map.TryGetValue(Defs.ExactBoundingBox) with
+            | true,  x -> x :?> Box2d
+            | false, _ -> Box2d.Invalid
+
+        let hasMask =
+            match map.TryGetValue(Defs.HasMask) with
+            | true,  x -> (x :?> int) <> 0 // 0 means false, everything else is true
+            | false, _ -> false
 
         let nsIds = map.Get(Defs.SubnodeIds) :?> Guid[]
-        let ns = nsIds |> Array.map (fun k -> if k = Guid.Empty then NoNode else  OutOfCoreNode (k, (fun () -> options.LoadNode k)))
+        let ns = nsIds |> Array.map (fun k -> 
+            if k = Guid.Empty then 
+                NoNode
+            else
+                let q = { Id = k; HasMask = hasMask; Load = (fun () -> options.LoadNode k) }
+                OutOfCoreNode q
+            )
                 
-        
+        let hasMask = ns |> Array.exists (fun n -> n.HasMask)
         InMemoryInner {
-            Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle;
+            Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle; HasMask = hasMask;
             SubNodes = ns
             }
 
@@ -165,6 +179,7 @@ module Serialization =
         map.Add(kvp Defs.CellBounds n.Cell)
         map.Add(kvp Defs.SplitLimitExponent n.SplitLimitExponent)
         map.Add(kvp Defs.ExactBoundingBox n.ExactBoundingBox)
+        map.Add(kvp Defs.HasMask (if n.HasMask then 1 else 0))
         map.Add(kvp Defs.Dominance (match n.Dominance with 
                                    | FirstDominates         -> Defs.DominanceFirst.Id
                                    | SecondDominates        -> Defs.DominanceSecond.Id
@@ -196,12 +211,22 @@ module Serialization =
         let domDef  = map.Get(Defs.Dominance) :?> Guid
         let dom = Map.find domDef def2dominance
 
+        let hasMask =
+            match map.TryGetValue(Defs.HasMask) with
+            | true,  x -> (x :?> int) <> 0 // 0 means false, everything else is true
+            | false, _ -> false
+
         let nsIds = map.Get(Defs.SubnodeIds) :?> Guid[]
-        let ns = nsIds |> Array.map (fun k -> if k = Guid.Empty then NoNode else OutOfCoreNode (k, (fun () -> options.LoadNode k)))
+        let ns = nsIds |> Array.map (fun k ->
+            if k = Guid.Empty then 
+                NoNode
+            else
+                OutOfCoreNode { Id = k; HasMask = hasMask; Load = (fun () -> options.LoadNode k) }
+            )
                 
-        
         InMemoryMerge {
             Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle;
+            HasMask = hasMask
             Dominance = dom; First = ns.[0]; Second = ns.[1]
             }
 
@@ -217,6 +242,7 @@ module Serialization =
         // node properties
         map.Add(kvp Defs.NodeId n.Id)
         map.Add(kvp Defs.TargetId n.Target.Id)
+        map.Add(kvp Defs.HasMask (if n.HasMask then 1 else 0))
         DurableCodec.Serialize(Defs.NodeLinked, map)
 
     let private decodeQLinkedNode(options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
@@ -224,9 +250,14 @@ module Serialization =
         let id   = map.Get(Defs.NodeId)              :?> Guid
         let targetId = map.Get(Defs.TargetId)        :?> Guid
         
-        let target = OutOfCoreNode (targetId, (fun () -> options.LoadNode targetId))
+        let hasMask =
+            match map.TryGetValue(Defs.HasMask) with
+            | true,  x -> (x :?> int) <> 0 // 0 means false, everything else is true
+            | false, _ -> false
 
-        LinkedNode { Id = id; Target = target }
+        let target = OutOfCoreNode { Id = targetId; HasMask = hasMask; Load = (fun () -> options.LoadNode targetId) }
+
+        LinkedNode { Id = id; HasMask = hasMask; Target = target }
 
     (*
         QNode
@@ -243,6 +274,7 @@ module Serialization =
         map.Add(kvp Defs.CellBounds n.Cell)
         map.Add(kvp Defs.SplitLimitExponent n.SplitLimitExponent)
         map.Add(kvp Defs.ExactBoundingBox n.ExactBoundingBox)
+        map.Add(kvp Defs.HasMask (if n.HasMask then 1 else 0))
                         
         // layers
         for layer in n.LayerSet.Layers do
@@ -337,15 +369,18 @@ module Serialization =
                             let tmp = options.LoadNode k
                             ebbFromOutOfCore <- Box2d(ebbFromOutOfCore, tmp.ExactBoundingBox)
                         
-                        OutOfCoreNode (k, (fun () -> options.LoadNode k))
+                        OutOfCoreNode { Id = k; HasMask = false; Load = (fun () -> options.LoadNode k) }
                     )
                 Some xs
 
         let ebb = if ebbFromOutOfCore.IsValid then ebbFromOutOfCore else ebbFromLayerSet
 
         match subNodes with
-        | Some ns -> InMemoryInner { Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle; SubNodes = ns }
-        | None    -> InMemoryNode(QNode(id, ebb, cell, sle, layerSet))
+        | Some ns -> 
+            let hasMask = ns |> Array.exists (fun n -> n.HasMask)
+            InMemoryInner { Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle; HasMask = hasMask; SubNodes = ns }
+        | None    -> 
+            InMemoryNode(QNode(id, ebb, cell, sle, layerSet))
                     
 
     (*
@@ -366,7 +401,7 @@ module Serialization =
 
         match root with
         | NoNode                -> Guid.Empty
-        | OutOfCoreNode (id, _) -> id
+        | OutOfCoreNode n       -> n.Id
         | InMemoryNode n        -> saveBuffer n.Id (fun () -> encodeQNode options n) Array.empty
         | InMemoryInner n       -> saveBuffer n.Id (fun () -> encodeQInnerNode options n) n.SubNodes
         | InMemoryMerge n       -> saveBuffer n.Id (fun () -> encodeQMergeNode options n) [| n.First; n.Second |]
@@ -403,11 +438,11 @@ module Serialization =
         let recurse = EnumerateKeys outOfCore
         match qtree with
         | NoNode -> ()
-        | InMemoryNode n          -> yield n.Id
-        | InMemoryInner n         -> yield n.Id; for x in n.SubNodes do yield! recurse  x
-        | InMemoryMerge n         -> yield n.Id; yield! recurse n.First; yield! recurse n.Second
-        | OutOfCoreNode (_, load) -> yield! load() |> recurse
-        | LinkedNode n            -> yield n.Id; yield! recurse n.Target
+        | InMemoryNode  n -> yield n.Id
+        | InMemoryInner n -> yield n.Id; for x in n.SubNodes do yield! recurse  x
+        | InMemoryMerge n -> yield n.Id; yield! recurse n.First; yield! recurse n.Second
+        | OutOfCoreNode n -> yield! n.Load() |> recurse
+        | LinkedNode    n -> yield n.Id; yield! recurse n.Target
 
         }
 

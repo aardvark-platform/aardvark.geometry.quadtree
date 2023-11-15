@@ -79,22 +79,14 @@ module Merge =
 
     let winner dom (first : QNodeRef) (second : QNodeRef) : QNodeRef option =
         
-        None
-
-        (*
-            removed optimization, because this no longer works when masks are involved
-
-            - adding mask info (e.g. HasMask for all nodes/subtrees) would break backwards compatibility in serialization
-            - we can add this back again if it turns out that this makes a huge difference
-              (and would then also need to add more metadata and upgrade serialization accordingly)
-        *)
-
-        //match dom, first.ExactBoundingBox, second.ExactBoundingBox with
-        //    | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
-        //    | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
-        //    | _ -> None
+        if first.HasMask || second.HasMask then
+            None
+        else
+            match dom, first.ExactBoundingBox, second.ExactBoundingBox with
+                | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
+                | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
+                | _ -> None
             
-
     let growParent (n : QNodeRef) : QNodeRef = QInnerNode.ofSubNode(n) |> InMemoryInner
 
     /// Immutable merge.
@@ -160,11 +152,11 @@ module Merge =
         match winner dom first second with
         | Some w -> w
         | None   -> match first, second with
-                    | NoNode,               b                   -> b
-                    | a,                    NoNode              -> a
+                    | NoNode,           b               -> b
+                    | a,                NoNode          -> a
                     
-                    | OutOfCoreNode (_,a),  OutOfCoreNode (_,b) -> merge dom (a()) (b())
-                    | OutOfCoreNode (_,a),  b                   -> merge dom (a()) (b  )
-                    | a,                    OutOfCoreNode (_,b) -> merge dom (a  ) (b())
+                    | OutOfCoreNode a,  OutOfCoreNode b -> merge dom (a.Load()) (b.Load())
+                    | OutOfCoreNode a,  b               -> merge dom (a.Load()) (b  )
+                    | a,                OutOfCoreNode b -> merge dom (a  ) (b.Load())
 
                     | _ -> mergeToCommonRoot dom first second

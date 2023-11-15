@@ -75,7 +75,8 @@ module Builder =
                     | _ -> build' sampleExponent subCell subPatches
                     )
 
-                let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = BuildConfig.Default.SplitLimitPowerOfTwo; SubNodes = subNodes }
+                let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
+                let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = BuildConfig.Default.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
                 result |> InMemoryInner
 
     /// Creates a quadtree from many small patches.

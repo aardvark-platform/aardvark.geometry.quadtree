@@ -3,7 +3,6 @@
 open Aardvark.Data
 open Aardvark.Base
 open System
-open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 
 #nowarn "44"
@@ -32,6 +31,7 @@ module Defs =
     let OriginalSampleExponent = def "16c41f1d-0c31-4ef8-b22b-36276d2f2e45" "Quadtree.OriginalSampleExponent" "Quadtree. Power-of-two original sample exponent. Int32." Durable.Primitives.Int32
     let Layers                 = def "c39a978b-00f5-485f-b0b3-d2cf9599016b" "Quadtree.Layers" "A quadtree node's layers. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let ExactBoundingBox       = def "abd1f1e6-7165-44d2-8019-fde4f59c9c9f" "Quadtree.ExactBoundingBox" "Quadtree. Exact bounds of original (most detailed) data. Box2d." Durable.Aardvark.Box2d
+    let HasMask                = def "fcfdf5b0-af9c-407b-9855-0a743edae77b" "Quadtree.HasMask" "Quadtree. 1 if subtree has any masks, otherwise 0." Durable.Primitives.Int32
     let SubnodeIds             = def "a2841629-e4e2-4b90-bdd1-7a1a5a41bded" "Quadtree.SubnodeIds" "Quadtree. Subnodes as array of guids. Array length is 4 for inner nodes (where Guid.Empty means no subnode) and no array for leaf nodes. Guid[]." Durable.Primitives.GuidArray
           
     let Dominance              = def "e782ace4-f2dd-4bc1-b8ad-5abad87f4ff1" "Quadtree.Dominance" "Quadtree. Dominance mode for quadtree merges. Guid." Durable.Primitives.GuidDef
