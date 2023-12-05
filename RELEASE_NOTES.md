@@ -1,3 +1,7 @@
+### 0.5.0
+- same as 0.4.4
+- see also new maintenance branch 4.2
+
 ### 0.4.4
 - Builder (creates quadtree from many small patches)
 
