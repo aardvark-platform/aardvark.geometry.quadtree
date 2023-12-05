@@ -5,6 +5,8 @@ open System.Diagnostics
 open System.IO
 open System.Globalization
 
+#nowarn "44"
+
 let example () =
 
     // raw height data (4x3 samples stored in a flat array)

@@ -1,3 +1,9 @@
+### 0.4.5
+- same as 0.4.2
+- unlisted and deprecated nuget packages 0.4.3 and 0.4.4
+- republished package 0.4.4 as 0.5.0
+- removed warnings
+
 ### 0.4.2
 - fix System.Collections.Immutable dependency (from 7 to 6)
 

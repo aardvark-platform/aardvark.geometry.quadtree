@@ -3,7 +3,6 @@
 open Aardvark.Data
 open Aardvark.Base
 open System
-open System.Runtime.InteropServices
 open System.Runtime.CompilerServices
 
 #nowarn "44"
