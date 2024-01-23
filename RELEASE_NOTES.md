@@ -1,3 +1,6 @@
+### 0.5.1
+- updated dependencies (System.Collections.Immutable lowest_matching: true)
+
 ### 0.5.0
 - same as 0.4.4
 - see also new maintenance branch 4.2

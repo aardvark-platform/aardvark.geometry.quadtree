@@ -4,10 +4,10 @@ storage: none
 framework: auto-detect
 
 nuget FSharp.Core                       >= 5.0.0 lowest_matching: true
-nuget System.Collections.Immutable      ~> 6.0
+nuget System.Collections.Immutable      >= 6.0.0 lowest_matching: true
 nuget Aardvark.Build                    ~> 1.0.18
 
-nuget Aardvark.Base                     ~> 5.2.5
+nuget Aardvark.Base                     ~> 5.2.28
 nuget Aardvark.Data.Durable             ~> 0.3.9
 nuget Aardvark.Data.Durable.Codec       ~> 0.3.9
 nuget Uncodium.SimpleStore              ~> 3.0.22
