@@ -1,3 +1,7 @@
+### 0.5.2
+- [builder] fixed root cell for case when data is smaller than split limit tile size
+- [materialize] fixed indexing for mask data
+
 ### 0.5.1
 - updated dependencies (System.Collections.Immutable lowest_matching: true)
 

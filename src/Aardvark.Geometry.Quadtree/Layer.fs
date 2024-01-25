@@ -97,7 +97,7 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
                         let newmask = Array.zeroCreate<byte> newArrayLength
                         for y = 0 to size.Y - 1 do
                             for x = 0 to size.X - 1 do
-                                newmask[i] <- mask[mapping.GetBufferIndex(x, y)]
+                                newmask[i] <- mask[mapping.GetBufferIndex(mapping.BufferOrigin.X + int64 x, mapping.BufferOrigin.Y + int64 y)]
                                 i <- i + 1
                         Some newmask
 

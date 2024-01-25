@@ -1040,6 +1040,10 @@ let builderSketch () =
         let countMergeNodes = newAndBetterTree |> Quadtree.CountMergeNodes true
         printfn "new quadtree has %d leaf nodes and %d merge nodes" countLeafNodes countMergeNodes
 
+        let options = SerializationOptions.NewInMemoryStore(verbose = true)
+        let id = newAndBetterTree |> Quadtree.Save options
+        printfn "saved quadtree id = %A" id
+
 
     
         
@@ -1143,8 +1147,124 @@ let builderSketch () =
 
     ()
 
+let builderTest_20240112 () =
+
+    let cpTree =
+
+        let createQuadTreePlanesZeroBase =
+
+            // define mapping of raw data to raster space
+            let hor0 = V4f(0.0, 0.0,0.0,0.0)
+            
+            let parameters = [|hor0; hor0; hor0; 
+                               hor0; hor0; hor0;
+                               hor0; hor0; hor0;
+                               hor0; hor0; hor0;
+                               hor0; hor0; hor0;|]
+            
+            let mapping = DataMapping(origin = Cell2d(0L, 0L, 0), size = V2i(3, 5))
+            
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+            
+            // build the quadtree (incl. levels-of-detail)        
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo = 10 } [| bilinParameters |]
+            
+            qtree
+
+        let createOneSubCell (level : int) (east:int64) (north:int64)= 
+            // define mapping of raw data to raster space
+            let elevation = -1.0*((float)level)
+            let hor1 = V4f(elevation, 0.0,0.0,0.0)
+            
+            let parameters = [|hor1;hor1;hor1;hor1|]
+
+            let mapping = DataMapping(origin = Cell2d(east, north, level), size = V2i(2, 2))
+
+            // a layer gives meaning to raw data
+            let bilinParameters = Layer(Defs.HeightsBilinear4f, parameters, mapping)
+            
+            // build the quadtree (incl. levels-of-detail)
+            
+            let qtree = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo = 10 } [| bilinParameters |]
+
+            qtree
+
+        let mainTree = createQuadTreePlanesZeroBase
+
+        let config = Query.Config.Default
+
+        let subTree2 = createOneSubCell -2 0L 0L
+        let subTree2_1 = createOneSubCell -2 2L 0L
+        let subTree2_2 = createOneSubCell -2 2L 2L
+        let subTree2_3 = createOneSubCell -2 0L 2L
+        let mutable newTree = Quadtree.Merge SecondDominates mainTree subTree2
+        newTree <- Quadtree.Merge SecondDominates newTree subTree2_1
+        newTree <- Quadtree.Merge SecondDominates newTree subTree2_2
+        newTree <- Quadtree.Merge SecondDominates newTree subTree2_3
+
+        let subTree3 = createOneSubCell -1 2L 6L
+        newTree <- Quadtree.Merge SecondDominates newTree subTree3
+
+        newTree
+
+
+    let createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (value : float32) =
+        let size = V2i(w, h)
+        let xs = Array.zeroCreate<float32> (w * h)
+        for y = 0 to size.Y - 1 do
+            for x = 0 to size.X - 1 do
+                let i = y * size.X + x
+                xs.[i] <- value
+
+        let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
+
+        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
+        Quadtree.Build config [| a |]
+
+    let sw = Stopwatch()
+
+    // (1) create 10x10 base grid with 1m tiles
+    //let store = @"W:\Datasets\Vgm\Data\2023-09-04_quadtree"
+    let baseGrid = createQuadtreeWithValue 0 0 10 10 0 8 42.0f
+
+    let singleTile = createQuadtreeWithValue 3 7 2 3 -2 8 101.0f
+
+    let originalQuadtree = Quadtree.Merge Dominance.MoreDetailedOrSecond baseGrid singleTile
+    
+    // (2) take all leaf nodes as test patches
+    // (these should be the original data that was merged together)
+    let patches = cpTree |> Quadtree.EnumerateLeafNodesInMemory |> List.ofSeq
+    
+    // stats
+    printfn "original quadtree has %d leaf nodes and %d merge nodes" patches.Length (Quadtree.CountMergeNodes true originalQuadtree)
+    let resolutions = patches |> List.groupBy (fun n -> n.SampleExponent) |> List.map (fun (k, v) -> k) |> List.sortDescending   
+    printfn "original quadtree resolution levels: %A" resolutions
+
+    // (3) create a new builder and add all patches
+    let builder = Builder()
+    for n in patches do builder.Add n
+    
+    builder.Print()
+
+    // (4) build new and better quadtree
+    match builder.Build() with
+    | None -> printfn "no quadtree"
+    | Some newAndBetterTree ->
+        let countLeafNodes = newAndBetterTree |> Quadtree.CountLeafNodes true
+        let countMergeNodes = newAndBetterTree |> Quadtree.CountMergeNodes true
+        printfn "new quadtree has %d leaf nodes and %d merge nodes" countLeafNodes countMergeNodes
+
+        let options = SerializationOptions.NewInMemoryStore(verbose = true)
+        let id = newAndBetterTree |> Quadtree.Save options
+        printfn "saved quadtree id = %A" id
+
+
+
 [<EntryPoint>]
 let main argv =
+
+    //builderTest_20240112 ()
 
     builderSketch ()
 
