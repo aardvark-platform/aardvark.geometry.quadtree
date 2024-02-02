@@ -3,6 +3,9 @@
 open Aardvark.Base
 open System
 open System.Collections.Generic
+open Serialization
+
+#nowarn "1337"
 
 module Builder =
 
@@ -77,7 +80,7 @@ module Builder =
                 if debugOutput then
                     printfn "[DEBUG] CREATED QNode with split limit = %d" qnode.SplitLimitExponent
 
-                let xs = qnode |> InMemoryNode |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.HeightsBilinear4f)) |> Array.ofSeq |> Array.collect id
+                //let xs = qnode |> InMemoryNode |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.HeightsBilinear4f)) |> Array.ofSeq |> Array.collect id
                 //for x in xs do printfn "%A" x
                 qnode |> InMemoryNode
 
@@ -108,6 +111,8 @@ module Builder =
                     )
 
                 let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
+                if debugOutput && hasMask then
+                    printfn "[DEBUG] has mask %A" rootCell
                 let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = BuildConfig.Default.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
                 result |> InMemoryInner
 
@@ -118,7 +123,6 @@ module Builder =
         let sampleExponent = (patches |> Array.distinctBy (fun x -> x.SampleExponent) |> Array.exactlyOne).SampleExponent
         build' sampleExponent rootCell patches
 
-
 /// Creates a quadtree from many small patches.
 type Builder () =
 
@@ -126,6 +130,12 @@ type Builder () =
     let patches = Dictionary<int, List<LayerSet>>()
     let mutable isEmpty = true
     let mutable layerCount = 0
+
+    static let ensureDir path =
+        let path = System.IO.Path.GetFullPath(path)
+        let dir = System.IO.DirectoryInfo(path)
+        if not dir.Exists then dir.Create()
+        path
 
     /// Add patch.
     member this.Add (patch : LayerSet) : unit = lock l (fun () ->
@@ -151,12 +161,30 @@ type Builder () =
         )
 
     /// Add patch.
+    member this.Add (patch : LayerSet option) : unit =
+        match patch with
+        | None -> ()
+        | Some patch -> this.Add(patch)
+
+    /// Add patch.
     member this.Add (patch : ILayer) : unit =
         this.Add(LayerSet([| patch |]))
 
     /// Add patch.
     member this.Add (patch : QNode) : unit =
         this.Add(patch.LayerSet)
+
+    /// Add all leaf nodes of given quadtree as patches.
+    member this.Add (root : QNodeRef) : unit =
+        root |> Quadtree.EnumerateLeafNodesInMemory |> this.AddRange
+
+    /// Add multiple patches.
+    member this.AddRange (patches : seq<QNode>) : unit =
+        for patch in patches do this.Add(patch)
+
+    /// Add multiple patches.
+    member this.AddRange (patches : seq<LayerSet>) : unit =
+        for patch in patches do this.Add(patch)
 
     /// Build a quadtree from all the patches that have been added to this builder.
     member this.Build () : QNodeRef option =
@@ -173,7 +201,11 @@ type Builder () =
             | Some state -> Quadtree.Merge Dominance.SecondDominates state item |> Some
             ) 
             None // initial state
-        
+      
+    /// Enumerate all patches.
+    member this.GetPatches () : seq<LayerSet> =
+        patches |> Seq.map (fun kv -> kv.Value) |> Seq.collect id
+
     member this.Print () : unit =
 
         printfn "Builder("
@@ -187,3 +219,56 @@ type Builder () =
 
         printfn "  )"
         ()
+
+    /// Save builder. Returns id of saved builder.
+    member this.Save (options : SerializationOptions) : Guid =
+        Defs.init ()
+        let patches = this.GetPatches() |> Array.ofSeq
+        Serialization.SavePatches options patches
+
+    /// Load builder with given id.
+    static member Load (options : SerializationOptions) (id : Guid) : Builder option =
+        Defs.init ()
+        match Serialization.LoadPatches options id with
+        | None -> None
+        | Some patches ->
+            let builder = Builder()
+            builder.AddRange(patches)
+            Some builder
+
+    /// Export builder to directory.
+    member this.Export (dir : string) : Guid =
+
+        let storeDir = ensureDir dir
+
+        let now = DateTimeOffset.Now
+        let fileNameKey = sprintf("builder.%04d%02d%02d%02d%02d%02d.%d.key.txt") now.Year now.Month now.Day now.Hour now.Minute now.Second now.Ticks
+
+        use store = new Uncodium.SimpleStore.SimpleDiskStore(System.IO.Path.Combine(storeDir, "store.dur"))
+        let options = SerializationOptions.SimpleStore(store)
+        let key = this.Save(options)
+
+        System.IO.File.WriteAllText(System.IO.Path.Combine(storeDir, fileNameKey), key.ToString())
+
+        key
+
+    /// Imports builder with given id from directory.
+    static member Import (dir : string, id : Guid) : Builder option =
+
+        let storeFileName =
+            if System.IO.File.Exists(dir) then
+                dir
+            else
+                if System.IO.Directory.Exists(dir) then
+                    System.IO.Path.Combine(dir, "store.dur")
+                else
+                    sprintf "Unknown path %s. Error 094f64b9-ba1e-4d9d-a5e1-bc471665f332." dir |> failwith
+
+        use store = new Uncodium.SimpleStore.SimpleDiskStore(storeFileName)
+        let options = SerializationOptions.SimpleStore(store)
+        match Serialization.LoadPatches options id with
+        | None -> None
+        | Some patches ->
+            let builder = Builder()
+            builder.AddRange(patches)
+            Some builder

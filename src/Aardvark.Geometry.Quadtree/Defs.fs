@@ -111,7 +111,9 @@ module Defs =
     let VolumesBilinear4d      = def "9aadc102-68b7-4e6f-ba22-bad1440e1bcf" "Quadtree.VolumesBilinear4d" "Quadtree. Volume value (height difference) per sample as bilinear params. volume(x,y) = A + B*x + C*y+ D*x*y, where x,y in range [-sample.Size/2, +sample.Size/2], (x=0,y=0) corresponds to center of sample (A), and A=v.X, B=v.Y, C=v.Z, D=v.W. V4d[]." Durable.Aardvark.V4dArray
     let VolumesBilinear4dLayer = def "fd547ab1-88e9-4fc2-9c7d-a67545bfd3d1" "Quadtree.VolumesBilinear4d.Layer" "Quadtree. VolumesBilinearParams4d layer. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
 
-    let Mask1b                 = def "6f33738c-eddc-411e-932f-326249d95f46" "Aardvark.Geometry.Quadtree.ByteMask" "UInt8[]." Durable.Primitives.UInt8Array
+    let Mask1b                 = def "6f33738c-eddc-411e-932f-326249d95f46" "Quadtree.ByteMask" "UInt8[]." Durable.Primitives.UInt8Array
+
+    let PatchIds               = def "3505d69b-79bf-449f-8740-13a0eda219b1" "Quadtree.PatchIds" "Guid[]." Durable.Primitives.GuidArray
 
     let private def2layer = Map.ofList [
         (Heights1f         , Heights1fLayer         )

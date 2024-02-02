@@ -262,7 +262,7 @@ module Serialization =
     (*
         QNode
 
-        durable definition c74fad23-1211-4073-94e5-54b778e0d295
+        durable definition c74fad23-1211-4073-94e5-54b778e0d295 (Quadtree.NodeLeaf)
     *)
 
     let private encodeQNode (options : SerializationOptions) (n : QNode) : byte[] =
@@ -381,7 +381,63 @@ module Serialization =
             InMemoryInner { Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle; HasMask = hasMask; SubNodes = ns }
         | None    -> 
             InMemoryNode(QNode(id, ebb, cell, sle, layerSet))
-                    
+            
+            
+    (*
+        LayerSet
+
+        durable definition c39a978b-00f5-485f-b0b3-d2cf9599016b (Quadtree.Layers)
+    *)
+
+    let private encodeLayerSet (options : SerializationOptions) (x : LayerSet) : byte[] =
+
+        let map = List<KeyValuePair<Durable.Def, obj>>()
+            
+        // layers
+        for layer in x.Layers do
+            let layerDef = Defs.GetLayerFromDef layer.Def
+            let dm = layer.Materialize().ToDurableMap ()
+            map.Add(kvp layerDef dm)
+        
+        DurableCodec.Serialize(Defs.Layers, map)
+
+    let private decodeLayerSet (options: SerializationOptions) (def : Durable.Def) (o : obj) =
+        
+        let map = o :?> ImmutableDictionary<Durable.Def, obj>
+        
+        let layers : ILayer[] =  
+            map 
+            |> Seq.choose (fun kv ->
+                match Defs.TryGetDefFromLayer kv.Key with
+                | Some def -> 
+                    let m = kv.Value :?> ImmutableDictionary<Durable.Def, obj>
+                    Layer.FromDurableMap def m |> Some
+                | None -> None
+                )
+            |> Seq.toArray
+
+        let layerSet = LayerSet(layers)
+
+        invariant (layers.Length > 0) "71249698-2b8f-4423-80d6-43122ac27f9c"
+
+        layerSet
+
+
+    (*
+        Patch IDs
+
+        durable definition 3505d69b-79bf-449f-8740-13a0eda219b1 (Quadtree.PatchIds)
+    *)
+
+    let private encodePatchIds (options : SerializationOptions) (ids : seq<Guid>) : byte[] =
+        DurableCodec.Serialize(Defs.PatchIds, ids |> Array.ofSeq)
+
+    let private decodePatchIds (options: SerializationOptions) (def : Durable.Def) (o : obj) : Guid[] =
+        
+        invariant (def = Defs.PatchIds) "c68e7236-21b4-4919-ba14-afa75e69d0cc"
+
+        let ids = o :?> Guid[]
+        ids
 
     (*
         save/encode
@@ -407,9 +463,25 @@ module Serialization =
         | InMemoryMerge n       -> saveBuffer n.Id (fun () -> encodeQMergeNode options n) [| n.First; n.Second |]
         | LinkedNode n          -> saveBuffer n.Id (fun () -> encodeQLinkedNode options n) [| n.Target |]
 
+    let SaveLayerSet (options: SerializationOptions) (layerSet : LayerSet) : Guid =
+        
+        let id = Guid.NewGuid()
+        let buffer = encodeLayerSet options layerSet
+        options.Save id buffer
+        id
+
+    let SavePatches (options: SerializationOptions) (patches : seq<LayerSet>) : Guid =
+        
+        let buffer = patches |> Seq.map(SaveLayerSet options) |> encodePatchIds options
+
+        let id = Guid.NewGuid()
+        options.Save id buffer
+
+        id
+
     
     (*
-        load
+        load/decode
     *)
 
     let private decoders : Map<Guid, Decoder> = Map.ofList <| [
@@ -432,6 +504,44 @@ module Serialization =
         | Some buffer ->
             let struct (def, o) = DurableCodec.Deserialize(buffer)
             decode options def o
+
+    let LoadLayerSet (options: SerializationOptions) (id : Guid) : LayerSet option =
+
+        match options.TryLoad id with
+        | None -> None
+        | Some buffer ->
+            let struct (def, o) = DurableCodec.Deserialize(buffer)
+            let map = o :?> ImmutableDictionary<Durable.Def, obj>
+            let layers = map |> Seq.map (fun kv -> Layer.FromDurableMap kv.Key map)
+            for kv in map do
+                let bar = Layer.FromDurableMap kv.Key map
+                ()
+
+            None
+
+    let LoadPatches (options: SerializationOptions) (id : Guid) : LayerSet[] option =
+
+        match options.TryLoad id with
+        | None -> None
+        | Some buffer ->
+            let struct (def, o) = DurableCodec.Deserialize(buffer)
+            let patchIds = decodePatchIds options def o
+
+            let layerSets = 
+                patchIds |> Array.map(fun patchId ->
+                    match options.TryLoad patchId with
+
+                    | None ->
+                        sprintf "Patch (id=%A) not found. Error 033031e0-03a5-4b3f-bf3c-88b7f4215373." patchId
+                        |> failwith
+
+                    | Some buffer ->
+                        let struct (def, o) = DurableCodec.Deserialize(buffer)
+                        let layerSet = decodeLayerSet options def o
+                        layerSet
+                    )
+
+            Some layerSets
 
     /// Enumerates node ids of given quadtree.
     let rec EnumerateKeys (outOfCore : bool) (qtree : QNodeRef) : Guid seq = seq {
