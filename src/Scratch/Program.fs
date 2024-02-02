@@ -1147,6 +1147,19 @@ let builderSketch () =
 
     ()
 
+let createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (value : float32) : QNodeRef =
+        let size = V2i(w, h)
+        let xs = Array.zeroCreate<float32> (w * h)
+        for y = 0 to size.Y - 1 do
+            for x = 0 to size.X - 1 do
+                let i = y * size.X + x
+                xs.[i] <- value
+
+        let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
+
+        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
+        Quadtree.Build config [| a |]
+
 let builderTest_20240112 () =
 
     let cpTree =
@@ -1209,28 +1222,18 @@ let builderTest_20240112 () =
         newTree
 
 
-    let createQuadtreeWithValue (ox : int) (oy : int) (w : int) (h : int) (e : int) (splitLimit : int) (value : float32) =
-        let size = V2i(w, h)
-        let xs = Array.zeroCreate<float32> (w * h)
-        for y = 0 to size.Y - 1 do
-            for x = 0 to size.X - 1 do
-                let i = y * size.X + x
-                xs.[i] <- value
-
-        let a = Layer(Defs.Heights1f, xs, DataMapping(V2l(ox, oy), size, exponent = e))
-
-        let config = { BuildConfig.Default with SplitLimitPowerOfTwo = int splitLimit }
-        Quadtree.Build config [| a |]
-
+    
     let sw = Stopwatch()
 
     // (1) create 10x10 base grid with 1m tiles
     //let store = @"W:\Datasets\Vgm\Data\2023-09-04_quadtree"
-    let baseGrid = createQuadtreeWithValue 0 0 10 10 0 8 42.0f
+    let baseGrid = createQuadtreeWithValue 0 0 2 2 0 8 42.0f
 
-    let singleTile = createQuadtreeWithValue 3 7 2 3 -2 8 101.0f
+    let singleTileA = createQuadtreeWithValue 0 0 1 1 -1 8 50.0f
+    let singleTileB = createQuadtreeWithValue 2 2 1 1 -1 8 52.0f
 
-    let originalQuadtree = Quadtree.Merge Dominance.MoreDetailedOrSecond baseGrid singleTile
+    let originalQuadtree = Quadtree.Merge Dominance.MoreDetailedOrSecond baseGrid singleTileA
+    let originalQuadtree = Quadtree.Merge Dominance.MoreDetailedOrSecond originalQuadtree singleTileB
     
     // (2) take all leaf nodes as test patches
     // (these should be the original data that was merged together)
@@ -1245,6 +1248,8 @@ let builderTest_20240112 () =
     let builder = Builder()
     for n in patches do builder.Add n
     
+    //builder.Export(Path.GetFullPath("20240202_buildertest")) |> ignore
+
     builder.Print()
 
     // (4) build new and better quadtree
@@ -1255,18 +1260,61 @@ let builderTest_20240112 () =
         let countMergeNodes = newAndBetterTree |> Quadtree.CountMergeNodes true
         printfn "new quadtree has %d leaf nodes and %d merge nodes" countLeafNodes countMergeNodes
 
-        let options = SerializationOptions.NewInMemoryStore(verbose = true)
+        let options = SerializationOptions.NewInMemoryStore(verbose = false)
         let id = newAndBetterTree |> Quadtree.Save options
         printfn "saved quadtree id = %A" id
 
+        let xs = 
+            Query.All Query.Config.Default originalQuadtree
+            |> Seq.collect (fun x -> x.GetSamples<float32>(Defs.Heights1f))
+            |> Array.ofSeq
 
+        for (c, h) in xs do
+            printfn "%5d %5d %5d %10.2f" c.X c.Y c.Exponent h
+
+        ()
+
+let buildSerializationTest_20240202 () =
+
+    let path = Path.GetFullPath("c:/tmp/20240202_quadtreetest")
+    
+    printfn "path = %s" path
+
+    let builder = Builder()
+
+    createQuadtreeWithValue 0 0 2 2 0 8 42.0f  |> builder.Add
+    createQuadtreeWithValue 0 0 1 1 -1 8 50.0f |> builder.Add
+    createQuadtreeWithValue 2 2 1 1 -1 8 52.0f |> builder.Add
+
+    let options = SerializationOptions.NewInMemoryStore(verbose = false)
+   
+    for i = 1 to 10 do
+        let idInMem = builder.Save options
+        let idFile = builder.Export(path)
+
+        printfn "saved builder to memory, id = %A" idInMem
+        printfn "saved builder to file  , id = %A" idFile
+
+        let builderReloadedInMem = Builder.Load options idInMem
+        match builderReloadedInMem with
+        | None   -> printfn "reloaded from memory = None"
+        | Some x -> printfn "reloaded from memory, %d patches" (x.GetPatches() |> Seq.length)
+       
+        let builderReloadedFile = Builder.Import(path, idFile)
+        match builderReloadedFile with
+        | None   -> printfn "reloaded from file = None"
+        | Some x -> printfn "reloaded from file, %d patches" (x.GetPatches() |> Seq.length)
+       
+    ()
 
 [<EntryPoint>]
 let main argv =
 
+    buildSerializationTest_20240202 ()
+
     //builderTest_20240112 ()
 
-    builderSketch ()
+    //builderSketch ()
 
     //madorjan20211103 ()
 
