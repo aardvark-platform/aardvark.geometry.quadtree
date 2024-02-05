@@ -255,6 +255,8 @@ type Builder () =
     /// Imports builder with given id from directory.
     static member Import (dir : string, id : Guid) : Builder option =
 
+        Defs.init ()
+
         let storeFileName =
             if System.IO.File.Exists(dir) then
                 dir
