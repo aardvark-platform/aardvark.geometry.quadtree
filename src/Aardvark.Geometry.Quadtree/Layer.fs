@@ -5,6 +5,7 @@ open Aardvark.Data
 open System
 open System.Collections.Immutable
 open System.Collections.Generic
+open System.Diagnostics
 
 #nowarn "44"
 
@@ -134,20 +135,29 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
         | Fail ->
             if inside () then
                 let i = mapping.GetBufferIndex s
-                data.[i]
+                match mask with
+                | None -> data[i]
+                | Some mask -> if mask[i] = 1uy then data[i] else failwith "Error 79671ba5-c509-4edd-ac4b-0f8d7b5e7222."
+
             else
                 failwith <| sprintf "Position %A outside of available data [%A-%A]." s this.SampleMin this.SampleMaxIncl
+
         | ClampToBorder value ->
             if inside () then
                 let i = mapping.GetBufferIndex s
-                data.[i]
+                match mask with
+                | None -> data[i]
+                | Some mask -> if mask[i] = 1uy then data[i] else failwith "Error 6befcffd-3f31-465b-b37a-43137339b6f8."
             else
                 value
+
         | ClampToEdge ->
             let x = if s.X < min.X then min.X elif s.X > maxIncl.X then maxIncl.X else s.X
             let y = if s.Y < min.Y then min.Y elif s.Y > maxIncl.Y then maxIncl.Y else s.Y
             let i = mapping.GetBufferIndex(x, y)
-            data.[i]
+            match mask with
+                | None -> data[i]
+                | Some mask -> if mask[i] = 1uy then data[i] else failwith "Error 472e5d8b-aa34-4ad9-a973-75d652a57f18."
 
     member this.GetSample (mode : BorderMode<'a>, globalPos : V2d) : 'a =
         let s = mapping.GetSampleCell globalPos
@@ -300,8 +310,6 @@ module Layer =
                     let i = finalMapping.GetBufferIndex c
                     let v = layer.GetSample(Fail, c)
                     
-                    //finalData.[i] <- v
-
                     match finalMask[i] with
                     | 255uy ->
                         finalData[i] <- v
@@ -342,6 +350,11 @@ module Layer =
             printfn "[DEBUG][Layer.mergeTyped] debugCountOccupied.Count = %d / %d ... %5.2f" coundOccupiedSamples finalMask.Length (float coundOccupiedSamples / float finalMask.Length)
 
         // rewrite mask (1 ... occupied, 0 ... undefined)
+
+        let countOccupied  = finalMask |> Array.filter (fun x -> x <> 255uy) |> Array.length
+        let countUndefined = finalMask |> Array.filter (fun x -> x = 255uy) |> Array.length
+        printfn "[OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
+
         for i = 0 to finalMask.Length-1 do
             finalMask[i] <- if finalMask[i] = 255uy then 0uy else 1uy
 

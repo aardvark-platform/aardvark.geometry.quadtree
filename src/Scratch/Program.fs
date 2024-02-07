@@ -1276,7 +1276,7 @@ let builderTest_20240112 () =
 
 let buildSerializationTest_20240202 () =
 
-    let path = Path.GetFullPath("c:/tmp/20240202_quadtreetest")
+    let path = Path.GetFullPath(@"c:\tmp\20240202_quadtreetest")
     
     printfn "path = %s" path
 
@@ -1307,10 +1307,63 @@ let buildSerializationTest_20240202 () =
        
     ()
 
+let cp_20240202_quadtreetest () =
+
+    let path = Path.GetFullPath(@"W:\Datasets\Vgm\Quadtree\20240202_quadtreetest")
+    
+    printfn "path = %s" path
+
+    let options = SerializationOptions.NewInMemoryStore(verbose = false)
+   
+    let idFile = Guid(File.ReadAllText(@"W:\Datasets\Vgm\Quadtree\20240202_quadtreetest\builder.20240202122614.638424735748032405.key.txt"))
+    let builderReloadedFile = Builder.Import(path, idFile)
+    match builderReloadedFile with
+    | None   -> printfn "reloaded from file = None"
+    | Some x ->
+        printfn "reloaded from file, %d patches" (x.GetPatches() |> Seq.length)
+
+        let samplesCount = 
+            x.GetPatches()
+            |> Seq.filter(fun patch -> patch.SampleExponent = -3)
+            |> Seq.sumBy(fun patch -> patch.SampleWindow.Area)
+        printfn("total samples count with e = -3: %d") samplesCount
+
+        match x.Build () with
+        | None -> failwith ""
+        | Some qtree ->
+            let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) (def : Aardvark.Data.Durable.Def) =
+                
+                let samples =
+                    resultChunk
+                    |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> def)
+                    //|> Seq.map (fun (cell,bilParamV) -> let bilParam = BilinearSurfaceParams.FromV4f bilParamV
+                    //                                    (bilParam, cell))
+                    |> Seq.toList
+            
+                //posAndParams |> Seq.filter (fun pos -> (fst pos).b0.IsNaN() |> not)
+                //             |> Seq.map (fun pos -> { originalCell = snd pos; surface = fst pos} )
+
+                //let mutable i = 0
+                //for s in samples do
+                //    i <- i + 1
+                //    printfn "%A" s
+
+                samples
+
+            let config = Query.Config.Default //{ Query.Config.Default with Verbose = true }
+            let resultCells = qtree |> Query.All config |> Seq.toArray
+            let samples = makeReturnValOfQueryResults resultCells Defs.HeightsBilinear4f
+
+            ()
+       
+    ()
+
 [<EntryPoint>]
 let main argv =
 
-    buildSerializationTest_20240202 ()
+    cp_20240202_quadtreetest ()
+
+    //buildSerializationTest_20240202 ()
 
     //builderTest_20240112 ()
 

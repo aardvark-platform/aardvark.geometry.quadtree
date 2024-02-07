@@ -4,7 +4,6 @@ open Aardvark.Base
 open Aardvark.Data
 open System
 open System.Collections.Generic
-open System.Threading
 open System.Diagnostics
 
 module Query =
@@ -77,7 +76,7 @@ module Query =
     let mergeDominatingT1 = Stopwatch()
 
     /// xs dominate always
-    let private mergeDominating (config : Config) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result seq =
+    let private mergeDominatingPerSample (config : Config) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result seq =
 
         if config.Verbose then 
             printfn "[mergeDominating] xs:"
@@ -93,7 +92,7 @@ module Query =
             let yebb = y.Node.ExactBoundingBox
             xs |> Array.filter(fun x -> x.Node.ExactBoundingBox.Intersects(yebb))
 
-        seq {
+        let resultSeq = seq {
 
             mergeDominatingT0.Start();
 
@@ -115,11 +114,17 @@ module Query =
                     let mutable result = List<Cell2d>(8192)
 
                     // all dominating sample cells intersecting dominated result
-                    let zcs = zs |> Array.collect(fun z -> z.GetSampleCells() |> Array.filter(fun zc -> zc.BoundingBox.Intersects(yebb))) |> Array.map(fun c -> c.BoundingBox)
+                    let zcs0 = zs |> Array.collect(fun z -> z.GetSampleCells())
+                    let zcs1 = zcs0 |> Seq.filter(fun zc -> zc.BoundingBox.Intersects(yebb)) |> Seq.toList
+                    let zcs = zcs1 |> Seq.map(fun c -> c.BoundingBox) |> Seq.toList |> List.toArray
 
                     // all sample cells of dominated result
                     let ycs = y.GetSampleCells ()
+
+                    let mutable i = 0
                     for yc in ycs do
+                        i <- i + 1
+                        //printfn "[resolve dominate results] %d/%d" i ycs.Length
                         let inline isDominatedCellYcFullyCovered (bb : Box2d) = 
                             zcs |> Array.exists(fun zc -> zc.Contains(bb))
                         let inline isDominatedCellYcInterferedWith (bb : Box2d) =
@@ -170,15 +175,18 @@ module Query =
             mergeDominatingT0.Stop()
         }
 
-    let private merge (config : Config) (dom : Dominance) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result list =
+        let result = resultSeq |> Seq.toArray
+        result
+
+    let private mergePerSample (config : Config) (dom : Dominance) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result list =
         match xs |> Seq.isEmpty, ys |> Seq.isEmpty with
         // both sequences contain values
         | false, false ->
             match dom with
             | FirstDominates
-            | MoreDetailedOrFirst  -> mergeDominating config xs ys isSampleInside |> Seq.toList
+            | MoreDetailedOrFirst  -> mergeDominatingPerSample config xs ys isSampleInside |> Seq.toList
             | SecondDominates
-            | MoreDetailedOrSecond -> mergeDominating config ys xs isSampleInside |> Seq.toList
+            | MoreDetailedOrSecond -> mergeDominatingPerSample config ys xs isSampleInside |> Seq.toList
         // xs contains values, ys is empty -> no need to merge, just return xs
         | false, true  -> xs
         // xs is empty -> no need to merge, just return ys
@@ -204,8 +212,8 @@ module Query =
             let xs = generic a |> Seq.toList
             let ys = generic b |> Seq.toList
             //printf "merge first (%d) + second (%d)  %A ... " xs.Length ys.Length a.Cell
-            let r = merge config dom xs ys isSampleInside
-            let foo = r |> List.collect (fun x -> x.GetSampleCells() |> Array.toList)
+            let r = mergePerSample config dom xs ys isSampleInside
+            //let foo = r |> List.collect (fun x -> x.GetSampleCells() |> Array.toList)
             //printfn "done %d" (r |> List.sumBy (fun x -> x.GetSampleCells().Length))
             r
 
@@ -394,8 +402,8 @@ module Query =
                             let result = { Node = n; Selection = FullySelected }
                             if config.Verbose then
                                 printfn "[Generic ] fully inside (%A)" root.Cell
-                                printfn "[Generic ] YIELD %A" result
-                                for c in result.GetSampleCells() do printfn "[Generic ]   Y %A" c
+                                printfn "[Generic ] YIELD %A" result.Node.Cell
+                                //for c in result.GetSampleCells() do printfn "[Generic ]   Ya %A" c
                             yield result
                         else
                             // partially inside
@@ -405,8 +413,8 @@ module Query =
                             if xs.Length > 0 then
                                 let result = { Node = n; Selection = CellsSelected xs }
                                 if config.Verbose then
-                                    printfn "[Generic ] YIELD %A" result
-                                    for c in result.GetSampleCells() do printfn "[Generic ]   Y %A" c
+                                    printfn "[Generic ] YIELD %A" result.Node.Cell
+                                    //for c in result.GetSampleCells() do printfn "[Generic ]   Yb %A" c
                                 yield result
                    
         }

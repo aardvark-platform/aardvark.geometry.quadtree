@@ -11,7 +11,7 @@ module Builder =
 
     let private debugOutput =
     #if DEBUG
-        true
+        false
     #else
         false
     #endif
@@ -86,7 +86,7 @@ module Builder =
 
             else
 
-                let bbQuadrants = rootCell.Children |> Array.map (fun subCell -> subCell.GetBoundsForExponent(sampleExponent))
+                //let bbQuadrants = rootCell.Children |> Array.map (fun subCell -> subCell.GetBoundsForExponent(sampleExponent))
  
                 let patchesPerQuadrant = 
                     rootCell.Children
@@ -108,6 +108,106 @@ module Builder =
                     match subPatches.Length with
                     | 0 -> NoNode
                     | _ -> build' sampleExponent subCell subPatches
+                    )
+
+                let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
+                if debugOutput && hasMask then
+                    printfn "[DEBUG] has mask %A" rootCell
+                let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = BuildConfig.Default.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
+                result |> InMemoryInner
+
+    let rec private build'' (minSampleExponent : int) (rootCell : Cell2d) (patches : LayerSet[]) =
+
+        if debugOutput then
+            printfn "[DEBUG] build' rootCell = %A, %d patches" rootCell patches.Length
+
+        for p in patches do
+            invariantm (p.SampleExponent >= minSampleExponent) 
+                (fun () -> sprintf "Patch sample exponent %d is smaller than specified minimum sample exponent %d." p.SampleExponent minSampleExponent)
+                "28d1fdd1-2da6-4329-a065-c134c1351ffc"
+
+        match patches.Length with
+
+        | 0 -> NoNode
+
+        | 1 ->
+            
+            let theSinglePatch = patches[0]
+
+            if debugOutput then
+                printfn "[DEBUG] SINGLE patch (%A)" theSinglePatch.SampleWindow
+
+            Quadtree.Build BuildConfig.Default theSinglePatch.Layers
+
+        | n -> // n patches
+        
+            let ebb = patches |> Seq.map (fun patch -> patch.BoundingBox) |> Box2d
+            
+            let rootBounds = getBoundsForExponent minSampleExponent rootCell
+            if rootBounds.Size.X <= 256 && rootBounds.Size.Y <= 256 then
+            
+                let bbWindow = patches |> Seq.map (fun patch -> patch.SampleWindow) |> Box2l
+                
+                if debugOutput then
+                    printfn "[DEBUG] MERGE %d patches; %A" n (bbWindow - rootBounds.Min)
+
+                //if debugOutput then
+                //    for patch in patches do
+                //        printfn "[DEBUG]    %A (exact %A)" (patch.SampleWindow - rootBounds.Min) (bbWindow - rootBounds.Min)
+
+                // adjust root cell for split limit
+                let requiredRootCellSplitLimit = minSampleExponent + BuildConfig.Default.SplitLimitPowerOfTwo
+
+                let mutable rootCell = rootCell
+
+                if requiredRootCellSplitLimit <> rootCell.Exponent then
+
+                    invariantm (rootCell.Exponent < requiredRootCellSplitLimit) 
+                        (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellSplitLimit %d." rootCell.Exponent requiredRootCellSplitLimit)
+                        "4911adf3-7b87-4234-9bcc-bc3076df846e"
+
+                    if debugOutput then
+                        printfn "[DEBUG] must adjust root cell %A exponent to %d" rootCell requiredRootCellSplitLimit
+
+                    while rootCell.Exponent < requiredRootCellSplitLimit do rootCell <- rootCell.Parent
+
+                    if debugOutput then
+                        printfn "[DEBUG] adjusted root cell is %A" rootCell
+
+                let merged = LayerSet.Merge patches
+                let qnode = QNode(Guid.NewGuid(), ebb, rootCell, BuildConfig.Default.SplitLimitPowerOfTwo, merged)
+                
+                if debugOutput then
+                    printfn "[DEBUG] CREATED QNode with split limit = %d" qnode.SplitLimitExponent
+
+                //let xs = qnode |> InMemoryNode |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.HeightsBilinear4f)) |> Array.ofSeq |> Array.collect id
+                //for x in xs do printfn "%A" x
+                qnode |> InMemoryNode
+
+            else
+
+                //let bbQuadrants = rootCell.Children |> Array.map (fun subCell -> subCell.GetBoundsForExponent(sampleExponent))
+ 
+                let patchesPerQuadrant = 
+                    rootCell.Children
+                    |> Array.map (fun subCell -> 
+                        let bbQuadrant = subCell.GetBoundsForExponent(minSampleExponent)
+                        let subPatches = patches |> Array.choose (fun b -> b.WithWindow bbQuadrant)
+                        (subCell, subPatches)
+                        )
+
+                
+                if debugOutput then
+                    printfn "[DEBUG] SPLIT %d patches" n
+
+                //for i in 0..3 do
+                //    let (subCell, subPatches) = patchesPerQuadrant[i]
+                //    printfn "%A%A[%d] size = %A, %d patches" rootCell ebb i bbWindow.Size subPatches.Length
+
+                let subNodes = patchesPerQuadrant |> Array.map (fun (subCell, subPatches) ->
+                    match subPatches.Length with
+                    | 0 -> NoNode
+                    | _ -> build'' minSampleExponent subCell subPatches
                     )
 
                 let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
@@ -188,6 +288,8 @@ type Builder () =
 
     /// Build a quadtree from all the patches that have been added to this builder.
     member this.Build () : QNodeRef option =
+    
+        let mutable mergesCount = 0
 
         patches 
         // (1) sort per-resolution patch lists from coarse to fine resolution ...
@@ -198,7 +300,10 @@ type Builder () =
         |> Seq.fold (fun state item -> 
             match state with
             | None -> Some item
-            | Some state -> Quadtree.Merge Dominance.SecondDominates state item |> Some
+            | Some state -> 
+                mergesCount <- mergesCount + 1
+                printfn "[Builder.Build()] mergesCount -> %d" mergesCount
+                Quadtree.Merge Dominance.SecondDominates state item |> Some
             ) 
             None // initial state
       
