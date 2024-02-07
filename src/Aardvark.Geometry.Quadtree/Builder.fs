@@ -4,6 +4,7 @@ open Aardvark.Base
 open System
 open System.Collections.Generic
 open Serialization
+open System.Diagnostics
 
 #nowarn "1337"
 
@@ -116,15 +117,12 @@ module Builder =
                 let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = BuildConfig.Default.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
                 result |> InMemoryInner
 
-    let rec private build'' (minSampleExponent : int) (rootCell : Cell2d) (patches : LayerSet[]) =
+    let rec private build'' (rootCell : Cell2d) (patches : LayerSet[]) =
 
         if debugOutput then
             printfn "[DEBUG] build' rootCell = %A, %d patches" rootCell patches.Length
 
-        for p in patches do
-            invariantm (p.SampleExponent >= minSampleExponent) 
-                (fun () -> sprintf "Patch sample exponent %d is smaller than specified minimum sample exponent %d." p.SampleExponent minSampleExponent)
-                "28d1fdd1-2da6-4329-a065-c134c1351ffc"
+        let minSampleExponent = patches |> Seq.map (fun p -> p.SampleExponent) |> Seq.min
 
         match patches.Length with
 
@@ -192,7 +190,13 @@ module Builder =
                     rootCell.Children
                     |> Array.map (fun subCell -> 
                         let bbQuadrant = subCell.GetBoundsForExponent(minSampleExponent)
-                        let subPatches = patches |> Array.choose (fun b -> b.WithWindow bbQuadrant)
+                        let subPatches =
+                            patches // TODO: ensure that bbQuadrant is in same resolution as patch ?!?
+                            |> Array.choose (fun patch ->
+                                if patch.SampleExponent <> minSampleExponent then Debugger.Break()
+                                patch.WithWindow bbQuadrant
+                                )
+
                         (subCell, subPatches)
                         )
 
@@ -207,7 +211,7 @@ module Builder =
                 let subNodes = patchesPerQuadrant |> Array.map (fun (subCell, subPatches) ->
                     match subPatches.Length with
                     | 0 -> NoNode
-                    | _ -> build'' minSampleExponent subCell subPatches
+                    | _ -> build'' subCell subPatches
                     )
 
                 let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
@@ -219,9 +223,12 @@ module Builder =
     /// Creates a quadtree from many small patches.
     let Build (patches : LayerSet seq) : QNodeRef =
         let patches = patches |> Array.ofSeq
-        let rootCell = patches |> Array.map (fun patch -> patch.BoundingBox) |> Box2d |> Cell2d
-        let sampleExponent = (patches |> Array.distinctBy (fun x -> x.SampleExponent) |> Array.exactlyOne).SampleExponent
-        build' sampleExponent rootCell patches
+        let rootCell = patches |> Seq.map (fun patch -> patch.BoundingBox) |> Box2d |> Cell2d
+
+        //let sampleExponent = (patches |> Array.distinctBy (fun x -> x.SampleExponent) |> Array.exactlyOne).SampleExponent
+        //build' sampleExponent rootCell patches
+
+        build'' rootCell patches
 
 /// Creates a quadtree from many small patches.
 type Builder () =
@@ -306,6 +313,15 @@ type Builder () =
                 Quadtree.Merge Dominance.SecondDominates state item |> Some
             ) 
             None // initial state
+
+    /// Build a quadtree from all the patches that have been added to this builder.
+    member this.Build2 () : QNodeRef option =
+    
+        let mutable mergesCount = 0
+
+        let allPatches = this.GetPatches()
+        Builder.Build allPatches |> Some
+
       
     /// Enumerate all patches.
     member this.GetPatches () : seq<LayerSet> =

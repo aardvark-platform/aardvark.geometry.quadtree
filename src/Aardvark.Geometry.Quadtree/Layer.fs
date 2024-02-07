@@ -12,6 +12,7 @@ open System.Diagnostics
 type ILayer =
     abstract member Def : Durable.Def
     abstract member Mapping : DataMapping
+    /// Returns this layer with new window w (Some), or None if new window is not inside the current layer window.
     abstract member WithWindow : Box2l -> ILayer option
     abstract member MapSingleCenteredSampleTo : Cell2d -> ILayer
     abstract member WithSemantic : Durable.Def -> ILayer
@@ -62,7 +63,8 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
         
         member this.Mapping with get() = mapping
         
-        member this.WithWindow (w : Box2l) =
+        /// Returns this layer with new window w (Some), or None if new window is not inside the current layer window.
+        member this.WithWindow (w : Box2l) : ILayer option =
             mapping.WithWindow(w) 
             |> Option.map (fun m -> Layer(def, data, m, mask) :> ILayer)
         

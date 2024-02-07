@@ -136,6 +136,7 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
         let max = Cell2d(window.Max, bufferOrigin.Exponent).BoundingBox.Min
         Box2d(min, max)
 
+    /// Returns this data mapping with new window (Some), or None if new window is not inside the current window.
     member this.WithWindow (newWindow : Box2l) =
         let o = window.Intersection(newWindow)
         if o.IsInvalid || o.Area = 0L then

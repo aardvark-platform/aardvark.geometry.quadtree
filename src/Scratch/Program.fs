@@ -1328,7 +1328,7 @@ let cp_20240202_quadtreetest () =
             |> Seq.sumBy(fun patch -> patch.SampleWindow.Area)
         printfn("total samples count with e = -3: %d") samplesCount
 
-        match x.Build () with
+        match x.Build2 () with
         | None -> failwith ""
         | Some qtree ->
             let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) (def : Aardvark.Data.Durable.Def) =
