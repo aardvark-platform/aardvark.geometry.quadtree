@@ -5,20 +5,30 @@ open Aardvark.Data
 open System
 open System.Collections.Immutable
 open System.Collections.Generic
-open System.Diagnostics
 
 #nowarn "44"
 
 type ILayer =
+
     abstract member Def : Durable.Def
+
     abstract member Mapping : DataMapping
+
     /// Returns this layer with new window w (Some), or None if new window is not inside the current layer window.
     abstract member WithWindow : Box2l -> ILayer option
+
     abstract member MapSingleCenteredSampleTo : Cell2d -> ILayer
+
     abstract member WithSemantic : Durable.Def -> ILayer
+
     abstract member Materialize : unit -> ILayer
+
     abstract member ToDurableMap : unit -> seq<KeyValuePair<Durable.Def, obj>>
+
     abstract member Mask : byte[] option
+
+    /// Resamples this layer to specified sample exponent.
+    abstract member Resample : int -> ILayer
 
 [<AutoOpen>]
 module ILayerExtensions =
@@ -77,36 +87,6 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
         member this.WithSemantic (newSemantic : Durable.Def) =
             Layer(newSemantic, data, mapping, mask) :> ILayer
 
-        member this.Materialize () =
-            if mapping.Window.Min = V2l.OO && mapping.WindowSize = mapping.BufferSize then
-                this :> ILayer
-            else
-                let size = V2i(mapping.WindowSize)
-                let newArrayLength = int mapping.Window.Area
-                let newdata = Array.zeroCreate<'a>   newArrayLength
-                let mutable i = 0
-                for y = 0 to size.Y - 1 do
-                    for x = 0 to size.X - 1 do
-                        let c = Cell2d(mapping.Window.Min.X + int64 x, mapping.Window.Min.Y + int64 y, mapping.BufferOrigin.Exponent)
-                        let s = this.GetSample(Fail, c)
-                        newdata[i] <- s
-                        i <- i + 1
-
-                let newmask = 
-                    match mask with
-                    | None -> None
-                    | Some mask ->
-                        let mutable i = 0
-                        let newmask = Array.zeroCreate<byte> newArrayLength
-                        for y = 0 to size.Y - 1 do
-                            for x = 0 to size.X - 1 do
-                                newmask[i] <- mask[mapping.GetBufferIndex(mapping.BufferOrigin.X + int64 x, mapping.BufferOrigin.Y + int64 y)]
-                                i <- i + 1
-                        Some newmask
-
-                let m = DataMapping(Cell2d(mapping.Window.Min, mapping.BufferOrigin.Exponent), size)
-                Layer<'a>(def, newdata, m, newmask) :> ILayer
-
         member this.ToDurableMap () = seq {
             yield kvp Defs.Layer.DefId def.Id
             yield kvp Defs.Layer.BufferOrigin mapping.BufferOrigin
@@ -115,6 +95,10 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
             yield kvp def data
             match mask with | Some x ->yield kvp Defs.Mask1b x | None -> ()
             }
+
+        member this.Materialize () = this.Materialize () :> ILayer
+
+        member this.Resample (e : int) = this.Resample(e) :> ILayer
 
     member this.Def with get() = def
     member this.Mapping with get() = mapping
@@ -164,6 +148,98 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
     member this.GetSample (mode : BorderMode<'a>, globalPos : V2d) : 'a =
         let s = mapping.GetSampleCell globalPos
         this.GetSample(mode, s)
+
+    member this.Materialize () : Layer<'a> =
+        if mapping.Window.Min = V2l.OO && mapping.WindowSize = mapping.BufferSize then
+            this
+        else
+            let size = V2i(mapping.WindowSize)
+            let newArrayLength = int mapping.Window.Area
+            let newdata = Array.zeroCreate<'a>   newArrayLength
+            let mutable i = 0
+            for y = 0 to size.Y - 1 do
+                for x = 0 to size.X - 1 do
+                    let c = Cell2d(mapping.Window.Min.X + int64 x, mapping.Window.Min.Y + int64 y, mapping.BufferOrigin.Exponent)
+                    let s = this.GetSample(Fail, c)
+                    newdata[i] <- s
+                    i <- i + 1
+
+            let newmask = 
+                match mask with
+                | None -> None
+                | Some mask ->
+                    let mutable i = 0
+                    let newmask = Array.zeroCreate<byte> newArrayLength
+                    for y = 0 to size.Y - 1 do
+                        for x = 0 to size.X - 1 do
+                            newmask[i] <- mask[mapping.GetBufferIndex(mapping.BufferOrigin.X + int64 x, mapping.BufferOrigin.Y + int64 y)]
+                            i <- i + 1
+                    Some newmask
+
+            let m = DataMapping(Cell2d(mapping.Window.Min, mapping.BufferOrigin.Exponent), size)
+            Layer<'a>(def, newdata, m, newmask)
+
+    member this.Resample (targetSampleExponent : int) =
+
+        if (targetSampleExponent = this.SampleExponent) then
+            // nothing to do, this layer already has desired sample exponent
+            this
+        else
+            if this.SampleExponent > targetSampleExponent then
+
+                if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
+                    failwith "Resampling of layer with centered cell origin is not supported. Error 4f3d2ef0-9d9e-499d-baef-eeaa12e9ade9."
+                    
+                if (this :> ILayer).Mask.IsSome then
+                    failwith "Resampling layer with mask is not supported. Error e29241e5-ef53-45fb-8aee-0f8116231e8f."
+
+                let mutable e = this.SampleExponent
+                let mutable w = this.SampleWindow
+
+                let mutable buffer = this.Materialize().Data
+
+                invariantm (int64 buffer.Length = this.SampleWindow.Area)
+                    (fun () -> sprintf "Expected materialized buffer of length %d, but found length %d." this.SampleWindow.Area buffer.Length)
+                    "7b2df0b0-4feb-4907-bd1e-ed68b93b62b3"
+
+                /// xs contains size.Y rows of size.X values (row major) 
+                let supersample (size : V2i) (xs : 'a[]) : 'a[] =
+                    let rs = Array.zeroCreate (xs.Length * 4)
+                    let mutable j = 0 // next index to write in rs array
+
+                    // write each input row twice to output buffer with each value written twice
+                    //
+                    // xs: a b c  ---> rs: a a b b c c
+                    //     d e f           a a b b c c
+                    //                     d d e e f f
+                    //                     d d e e f f
+
+                    let rowLength = size.X
+
+                    for y = 0 to size.Y - 1 do
+
+                        let yStart = y * rowLength
+                        let writeRow y =
+                            for i = yStart to yStart + rowLength - 1 do
+                                rs[j] <- xs[i]; j <- j + 1
+                                rs[j] <- xs[i]; j <- j + 1 // write i-th value twice
+                        
+                        writeRow y
+                        writeRow y // write y-th row twice
+
+                        ()
+
+                    rs
+
+                while e > targetSampleExponent do
+                    buffer <- supersample (V2i(w.Size)) buffer
+                    w <- Box2l(w.Min * 2L, w.Max * 2L)
+                    e <- e - 1
+
+                failwith "TODO supersample"
+            else
+                failwith "Subsampling layers not supported. Error 88e63cb7-7be7-4136-976f-d81bd12e3246."
+
 
 module Layer =
 
@@ -259,7 +335,6 @@ module Layer =
         | :? (C4f[])        -> Layer<C4f>    (def, data :?> C4f[]    , mapping, mask) :> ILayer
         | _ -> failwith <| sprintf "Unknown type %A. Invariant 4e797062-04a2-445f-9725-79f66823aff8." (data.GetType())
 
-
     let BoundingBox (layer : ILayer) = layer.Mapping.BoundingBox
 
     let Window (layer : ILayer) = layer.Mapping.Window
@@ -351,31 +426,51 @@ module Layer =
             printfn "[DEBUG][Layer.mergeTyped] debugCollisionSamples.Count = %d" debugCollisionSamples.Count
             printfn "[DEBUG][Layer.mergeTyped] debugCountOccupied.Count = %d / %d ... %5.2f" coundOccupiedSamples finalMask.Length (float coundOccupiedSamples / float finalMask.Length)
 
+            let countOccupied  = finalMask |> Array.filter (fun x -> x <> 255uy) |> Array.length
+            let countUndefined = finalMask |> Array.filter (fun x -> x = 255uy) |> Array.length
+            printfn "[DEBUG][Layer.mergeTyped][OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
+        
         // rewrite mask (1 ... occupied, 0 ... undefined)
-
-        let countOccupied  = finalMask |> Array.filter (fun x -> x <> 255uy) |> Array.length
-        let countUndefined = finalMask |> Array.filter (fun x -> x = 255uy) |> Array.length
-        printfn "[OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
-
         for i = 0 to finalMask.Length-1 do
             finalMask[i] <- if finalMask[i] = 255uy then 0uy else 1uy
 
         Layer(def, finalData, finalMapping, if coundOccupiedSamples > 0 then Some finalMask else None)
 
-    let private flattenTyped<'a when 'a : equality> (undefinedValue : 'a) (layers : Layer<'a>[]) : Layer<'a> =
-        let def = ensureSameDef layers
-        if verbose then
-            printfn "[Layer.flattenTyped] .... def = %s" def.Name
+    /// Input layers may have different resolutions (sample sizes).
+    /// The result layer will have the smallest sample size of all input layers.
+    /// Input layers will be "painted" into the result layer, potentially overdrawing previous layers.
+    /// The drawing order is by descending sample exponent (coarse to fine resultion).
+    /// Coarser input layers will be super-sampled to the result layer sample size.
+    /// Remaining holes (places where no input layers were "painted") are identified via the result layer's mask property.
+    let private flattenTyped<'a when 'a : equality> (verbose : bool) (undefinedValue : 'a) (layers : Layer<'a>[]) : Layer<'a> =
         
+        let def = ensureSameDef layers
+        let sampleSizeRange = new Range1i(layers |> Seq.map(fun x -> x.SampleExponent))
+
+        // order input layers by descending sample size (from coarse to fine)
+        let layersOrdered = layers |> Array.sortByDescending (fun x -> x.SampleExponent)
+
+        if verbose then
+            printfn "[Layer.flattenTyped] ******** BEGIN ******** %d layers; def = %s; sampleSizeRange = %A" layers.Length def.Name sampleSizeRange
+        
+        /// result sample exponent
+        let e = sampleSizeRange.Min
+        
+        
+        let mutable i = 0
+        for l in layersOrdered do
+
+            if verbose then
+                printfn "[Layer.flattenTyped] | layersOrdered[%d] : e=%d origin=%A size=%A" i l.SampleExponent l.SampleWindow.Min l.SampleWindow.Size
+
+            if l.SampleExponent <> e then
+                let resampledLayer = (l :> ILayer).Resample e
+                failwith "TODO"
+
+            i <- i + 1
+            
         failwith "TODO"
 
-        let e = layers.[0].SampleExponent
-        if not (layers |> Array.forall (fun l -> l.SampleExponent = e)) then 
-            failwith "Cannot flatten layers with different resolutions."
-
-        if verbose then
-            printfn "[Layer.flattenTyped] .... e = %d" e
-        
         let finalWindow = layers |> Seq.map (fun l -> l.SampleWindow) |> Box2l
         let finalOrigin = Cell2d(finalWindow.Min, e)
         let finalMapping = DataMapping(finalOrigin, V2i finalWindow.Size, finalWindow)
@@ -454,15 +549,14 @@ module Layer =
 
         Layer(def, finalData, finalMapping, if coundOccupiedSamples > 0 then Some finalMask else None)
 
-
     let private toTyped<'a when 'a : equality> (layers : ILayer[]) : Layer<'a>[] =
         layers |> Array.map (fun x -> x :?> Layer<'a>)
 
     let private mergeUntyped_<'a when 'a : equality> (undefinedValue : 'a) xs : ILayer =
         xs |> toTyped<'a> |> (mergeTyped undefinedValue) :> ILayer
    
-    let private flattenUntyped_<'a when 'a : equality> (undefinedValue : 'a) xs : ILayer =
-        xs |> toTyped<'a> |> (flattenTyped undefinedValue) :> ILayer
+    let private flattenUntyped_<'a when 'a : equality> verbose (undefinedValue : 'a) xs : ILayer =
+        xs |> toTyped<'a> |> (flattenTyped verbose undefinedValue) :> ILayer
     
     /// Merge layers of same type (def).
     let Merge (layers : ILayer seq) =
@@ -499,7 +593,7 @@ module Layer =
             Some mergedLayers
 
     /// Flatten layers of same type (def).
-    let Flatten (layers : ILayer seq) =
+    let Flatten (verbose : bool) (layers : ILayer seq) =
         let ls = layers |> Array.ofSeq
         match ls.Length with
         | 0 ->
@@ -514,20 +608,20 @@ module Layer =
             if verbose then printfn "[Layer.Flatten] %d layers" n
             let mergedLayers =
                 match ls.[0] with
-                | :? Layer<int>     -> ls |> flattenUntyped_<int>     Int32.MinValue
-                | :? Layer<int64>   -> ls |> flattenUntyped_<int64>   Int64.MinValue    
-                | :? Layer<float>   -> ls |> flattenUntyped_<float>   nan
-                | :? Layer<float32> -> ls |> flattenUntyped_<float32> nanf
-                | :? Layer<V2f>     -> ls |> flattenUntyped_<V2f>     V2f.NaN
-                | :? Layer<V2d>     -> ls |> flattenUntyped_<V2d>     V2d.NaN
-                | :? Layer<V3f>     -> ls |> flattenUntyped_<V3f>     V3f.NaN
-                | :? Layer<V3d>     -> ls |> flattenUntyped_<V3d>     V3d.NaN
-                | :? Layer<V4f>     -> ls |> flattenUntyped_<V4f>     V4f.NaN
-                | :? Layer<V4d>     -> ls |> flattenUntyped_<V4d>     V4d.NaN
-                | :? Layer<C3b>     -> ls |> flattenUntyped_<C3b>     (C3b(0, 0, 0))
-                | :? Layer<C4b>     -> ls |> flattenUntyped_<C4b>     (C4b(0, 0, 0, 0))
-                | :? Layer<C3f>     -> ls |> flattenUntyped_<C3f>     (C3f(0, 0, 0))
-                | :? Layer<C4f>     -> ls |> flattenUntyped_<C4f>     (C4f(0, 0, 0, 0))
+                | :? Layer<int>     -> ls |> flattenUntyped_<int>     verbose Int32.MinValue
+                | :? Layer<int64>   -> ls |> flattenUntyped_<int64>   verbose Int64.MinValue    
+                | :? Layer<float>   -> ls |> flattenUntyped_<float>   verbose nan
+                | :? Layer<float32> -> ls |> flattenUntyped_<float32> verbose nanf
+                | :? Layer<V2f>     -> ls |> flattenUntyped_<V2f>     verbose V2f.NaN
+                | :? Layer<V2d>     -> ls |> flattenUntyped_<V2d>     verbose V2d.NaN
+                | :? Layer<V3f>     -> ls |> flattenUntyped_<V3f>     verbose V3f.NaN
+                | :? Layer<V3d>     -> ls |> flattenUntyped_<V3d>     verbose V3d.NaN
+                | :? Layer<V4f>     -> ls |> flattenUntyped_<V4f>     verbose V4f.NaN
+                | :? Layer<V4d>     -> ls |> flattenUntyped_<V4d>     verbose V4d.NaN
+                | :? Layer<C3b>     -> ls |> flattenUntyped_<C3b>     verbose (C3b(0, 0, 0))
+                | :? Layer<C4b>     -> ls |> flattenUntyped_<C4b>     verbose (C4b(0, 0, 0, 0))
+                | :? Layer<C3f>     -> ls |> flattenUntyped_<C3f>     verbose (C3f(0, 0, 0))
+                | :? Layer<C4f>     -> ls |> flattenUntyped_<C4f>     verbose (C4f(0, 0, 0, 0))
                 | _ -> failwith <| sprintf "Unsupported layer type %A. Invariant 0d379726-27dd-4063-9175-8f13ac44ad83." ls.[0]
 
             Some mergedLayers
@@ -631,7 +725,7 @@ module LayerSet =
     /// Flattens multiple layer sets (different resolutions are allowed) down to a single layer set.
     /// Holes (which were not covered by any source layerset) are marked by an optional mask.
     /// All layer sets must have identical layers (same number, same semantics, same order).
-    let Flatten (layerSets : LayerSet seq) : LayerSet =
+    let Flatten (verbose : bool) (layerSets : LayerSet seq) : LayerSet =
 
         let layerSets = layerSets |> Array.ofSeq
         let layersPerLayerSet = layerSets[0].Layers.Length
@@ -642,7 +736,7 @@ module LayerSet =
             indices
             |> List.choose (fun i ->
                 // merge the i-th layers from all layer sets
-                layerSets |> Array.map (fun x -> x.Layers[i]) |> Layer.Flatten
+                layerSets |> Array.map (fun x -> x.Layers[i]) |> Layer.Flatten verbose
                 )
             |> Array.ofList
 

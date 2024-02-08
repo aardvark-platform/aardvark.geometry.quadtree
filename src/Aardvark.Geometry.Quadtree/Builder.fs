@@ -207,9 +207,7 @@ module Builder =
                     if config.Verbose then
                         printfn "[build''] | root cell %A already has requiredRootCellExponent %d" rootCell requiredRootCellExponent
 
-                let merged = LayerSet.Merge patches
-                
-                let flattended = LayerSet.Flatten patches
+                let flattended = LayerSet.Flatten config.Verbose patches
 
                 failwith "TODO"
 
