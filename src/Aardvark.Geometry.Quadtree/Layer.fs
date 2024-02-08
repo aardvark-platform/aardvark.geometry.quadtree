@@ -182,11 +182,15 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
     member this.Resample (targetSampleExponent : int) =
 
         if (targetSampleExponent = this.SampleExponent) then
+
             // nothing to do, this layer already has desired sample exponent
             this
-        else
-            if this.SampleExponent > targetSampleExponent then
 
+        else
+
+            // supersample
+            if this.SampleExponent > targetSampleExponent then
+                
                 if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
                     failwith "Resampling of layer with centered cell origin is not supported. Error 4f3d2ef0-9d9e-499d-baef-eeaa12e9ade9."
                     
@@ -236,8 +240,13 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
                     w <- Box2l(w.Min * 2L, w.Max * 2L)
                     e <- e - 1
 
-                failwith "TODO supersample"
-            else
+                let newMapping = DataMapping(origin = w.Min, size = V2i(w.Size), exponent = e)
+                let result = Layer<'a>(def = this.Def, data = buffer, mapping = newMapping)
+
+                result
+            
+            // subsample
+            else 
                 failwith "Subsampling layers not supported. Error 88e63cb7-7be7-4136-976f-d81bd12e3246."
 
 
