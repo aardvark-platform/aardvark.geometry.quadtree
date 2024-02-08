@@ -1033,7 +1033,7 @@ let builderSketch () =
     for n in patches do builder.Add n
     
     // (4) build new and better quadtree
-    match builder.Build() with
+    match builder.Build BuildConfig.Default with
     | None -> printfn "no quadtree"
     | Some newAndBetterTree ->
         let countLeafNodes = newAndBetterTree |> Quadtree.CountLeafNodes true
@@ -1253,7 +1253,7 @@ let builderTest_20240112 () =
     builder.Print()
 
     // (4) build new and better quadtree
-    match builder.Build() with
+    match builder.Build BuildConfig.Default with
     | None -> printfn "no quadtree"
     | Some newAndBetterTree ->
         let countLeafNodes = newAndBetterTree |> Quadtree.CountLeafNodes true
@@ -1328,7 +1328,8 @@ let cp_20240202_quadtreetest () =
             |> Seq.sumBy(fun patch -> patch.SampleWindow.Area)
         printfn("total samples count with e = -3: %d") samplesCount
 
-        match x.Build2 () with
+        let buildConfig = { BuildConfig.Default with Verbose = true }
+        match x.Build2 buildConfig with
         | None -> failwith ""
         | Some qtree ->
             let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) (def : Aardvark.Data.Durable.Def) =

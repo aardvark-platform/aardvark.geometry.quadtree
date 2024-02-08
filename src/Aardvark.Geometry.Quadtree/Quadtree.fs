@@ -15,9 +15,10 @@ open System.Collections.Generic
 type BuildConfig = {
     /// Node is split if width and/or height is greater than 2^SplitLimitPowerOfTwo.
     SplitLimitPowerOfTwo : int
+    Verbose : bool
 }
 with
-    static member Default = { SplitLimitPowerOfTwo = 8 }
+    static member Default = { SplitLimitPowerOfTwo = 8; Verbose = false }
 
 module Quadtree =
 
@@ -241,6 +242,11 @@ module Quadtree =
             rootCell <- rootCell.Parent
 
         build config rootCell layers
+
+    /// At least 1 layer is required, and
+    /// all layers must have the same sample exponent and sample window.
+    let Build' (config : BuildConfig) (layerSet : LayerSet) =
+        Build config layerSet.Layers
 
     /// Returns new merged quadtree. Immutable merge.
     let Merge (domination : Dominance) (first : QNodeRef) (second : QNodeRef) =

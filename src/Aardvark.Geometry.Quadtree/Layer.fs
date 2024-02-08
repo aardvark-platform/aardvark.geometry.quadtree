@@ -422,7 +422,7 @@ type LayerSet(layers : ILayer[]) =
     member this.SampleWindowAtChildLevel with get() = layers.[0].SampleWindowAtChildLevel
 
     /// Returns 2.0 ^ SampleExponent.
-    member this.SampleSize      with get() = 2.0 ** float(layers.[0].Mapping.BufferOrigin.Exponent)
+    member this.SampleSize      with get() = 2.0 ** float(this.SampleExponent)
 
     member this.TryGetLayer (semantic : Durable.Def) : ILayer option =
         layers |> Array.tryFind (fun x -> x.Def.Id = semantic.Id)

@@ -10,16 +10,9 @@ open System.Diagnostics
 
 module Builder =
 
-    let private debugOutput =
-    #if DEBUG
-        false
-    #else
-        false
-    #endif
+    let rec private build' (config : BuildConfig) (sampleExponent : int) (rootCell : Cell2d) (patches : LayerSet[]) =
 
-    let rec private build' (sampleExponent : int) (rootCell : Cell2d) (patches : LayerSet[]) =
-
-        if debugOutput then
+        if config.Verbose then
             printfn "[DEBUG] build' rootCell = %A, %d patches" rootCell patches.Length
 
         for p in patches do
@@ -35,7 +28,7 @@ module Builder =
             
             let theSinglePatch = patches[0]
 
-            if debugOutput then
+            if config.Verbose then
                 printfn "[DEBUG] SINGLE patch (%A)" theSinglePatch.SampleWindow
 
             Quadtree.Build BuildConfig.Default theSinglePatch.Layers
@@ -49,7 +42,7 @@ module Builder =
             
                 let bbWindow = patches |> Seq.map (fun patch -> patch.SampleWindow) |> Box2l
                 
-                if debugOutput then
+                if config.Verbose then
                     printfn "[DEBUG] MERGE %d patches; %A" n (bbWindow - rootBounds.Min)
 
                 //if debugOutput then
@@ -67,18 +60,18 @@ module Builder =
                         (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellSplitLimit %d." rootCell.Exponent requiredRootCellSplitLimit)
                         "4911adf3-7b87-4234-9bcc-bc3076df846e"
 
-                    if debugOutput then
+                    if config.Verbose then
                         printfn "[DEBUG] must adjust root cell %A exponent to %d" rootCell requiredRootCellSplitLimit
 
                     while rootCell.Exponent < requiredRootCellSplitLimit do rootCell <- rootCell.Parent
 
-                    if debugOutput then
+                    if config.Verbose then
                         printfn "[DEBUG] adjusted root cell is %A" rootCell
 
                 let merged = LayerSet.Merge patches
                 let qnode = QNode(Guid.NewGuid(), ebb, rootCell, BuildConfig.Default.SplitLimitPowerOfTwo, merged)
                 
-                if debugOutput then
+                if config.Verbose then
                     printfn "[DEBUG] CREATED QNode with split limit = %d" qnode.SplitLimitExponent
 
                 //let xs = qnode |> InMemoryNode |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.HeightsBilinear4f)) |> Array.ofSeq |> Array.collect id
@@ -98,7 +91,7 @@ module Builder =
                         )
 
                 
-                if debugOutput then
+                if config.Verbose then
                     printfn "[DEBUG] SPLIT %d patches" n
 
                 //for i in 0..3 do
@@ -108,53 +101,79 @@ module Builder =
                 let subNodes = patchesPerQuadrant |> Array.map (fun (subCell, subPatches) ->
                     match subPatches.Length with
                     | 0 -> NoNode
-                    | _ -> build' sampleExponent subCell subPatches
+                    | _ -> build' config sampleExponent subCell subPatches
                     )
 
                 let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
-                if debugOutput && hasMask then
+                if config.Verbose && hasMask then
                     printfn "[DEBUG] has mask %A" rootCell
                 let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = BuildConfig.Default.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
                 result |> InMemoryInner
 
-    let rec private build'' (rootCell : Cell2d) (patches : LayerSet[]) =
+    let rec private build'' (config : BuildConfig) (rootCell : Cell2d) (patches : LayerSet[]) =
 
-        if debugOutput then
+        if config.Verbose then
             printfn "[DEBUG] build' rootCell = %A, %d patches" rootCell patches.Length
 
         let minSampleExponent = patches |> Seq.map (fun p -> p.SampleExponent) |> Seq.min
 
         match patches.Length with
 
-        | 0 -> NoNode
+        | 0 -> 
+
+            if config.Verbose then
+                printfn "[DEBUG][build''] ZERO patches"
+
+            NoNode
 
         | 1 ->
             
+            if config.Verbose then
+                printfn "[DEBUG][build''] SINGLE patch (%A)" patches[0].SampleWindow
+
             let theSinglePatch = patches[0]
 
-            if debugOutput then
-                printfn "[DEBUG] SINGLE patch (%A)" theSinglePatch.SampleWindow
+            Quadtree.Build config theSinglePatch.Layers
 
-            Quadtree.Build BuildConfig.Default theSinglePatch.Layers
+        | 2 ->
+            
+            if config.Verbose then
+                printfn "[DEBUG][build''] TWO patches (%A, %A)" patches[0].SampleWindow patches[1].SampleWindow
+
+            let p0 = Quadtree.Build' config patches[0]
+            let p1 = Quadtree.Build' config patches[1]
+
+            Quadtree.Merge Dominance.MoreDetailedOrSecond p0 p1
 
         | n -> // n patches
         
+            if config.Verbose then
+                printfn "[DEBUG][build''] n=%d patches" patches.Length
+
             let ebb = patches |> Seq.map (fun patch -> patch.BoundingBox) |> Box2d
             
+            invariantm (config.SplitLimitPowerOfTwo >= 0) 
+                (fun () -> sprintf "Expected config.SplitLimitPowerOfTwo to be non-negative, but found %d." config.SplitLimitPowerOfTwo)
+                "95c43529-9649-42d6-9b47-c6f8fb6da301"
+
+            let tileSize = 2 <<< config.SplitLimitPowerOfTwo
             let rootBounds = getBoundsForExponent minSampleExponent rootCell
-            if rootBounds.Size.X <= 256 && rootBounds.Size.Y <= 256 then
+
+            if rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize then
             
+                if config.Verbose then
+                    printfn "[DEBUG][build''] MERGE %d patches; because reached split limit" n
+
+                failwith "TODO"
+
                 let bbWindow = patches |> Seq.map (fun patch -> patch.SampleWindow) |> Box2l
                 
-                if debugOutput then
-                    printfn "[DEBUG] MERGE %d patches; %A" n (bbWindow - rootBounds.Min)
-
                 //if debugOutput then
                 //    for patch in patches do
                 //        printfn "[DEBUG]    %A (exact %A)" (patch.SampleWindow - rootBounds.Min) (bbWindow - rootBounds.Min)
 
                 // adjust root cell for split limit
-                let requiredRootCellSplitLimit = minSampleExponent + BuildConfig.Default.SplitLimitPowerOfTwo
+                let requiredRootCellSplitLimit = minSampleExponent + config.SplitLimitPowerOfTwo
 
                 let mutable rootCell = rootCell
 
@@ -164,45 +183,47 @@ module Builder =
                         (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellSplitLimit %d." rootCell.Exponent requiredRootCellSplitLimit)
                         "4911adf3-7b87-4234-9bcc-bc3076df846e"
 
-                    if debugOutput then
-                        printfn "[DEBUG] must adjust root cell %A exponent to %d" rootCell requiredRootCellSplitLimit
+                    if config.Verbose then
+                        printfn "[DEBUG][build''] must adjust root cell %A exponent to %d" rootCell requiredRootCellSplitLimit
 
                     while rootCell.Exponent < requiredRootCellSplitLimit do rootCell <- rootCell.Parent
 
-                    if debugOutput then
-                        printfn "[DEBUG] adjusted root cell is %A" rootCell
+                    if config.Verbose then
+                        printfn "[DEBUG][build''] adjusted root cell is %A" rootCell
 
                 let merged = LayerSet.Merge patches
-                let qnode = QNode(Guid.NewGuid(), ebb, rootCell, BuildConfig.Default.SplitLimitPowerOfTwo, merged)
+                let qnode = QNode(Guid.NewGuid(), ebb, rootCell, config.SplitLimitPowerOfTwo, merged)
                 
-                if debugOutput then
-                    printfn "[DEBUG] CREATED QNode with split limit = %d" qnode.SplitLimitExponent
+                if config.Verbose then
+                    printfn "[DEBUG][build''] CREATED QNode with split limit = %d" qnode.SplitLimitExponent
 
                 //let xs = qnode |> InMemoryNode |> Query.All Query.Config.Default |> Seq.map (fun x -> x.GetSamples<V4f>(Defs.HeightsBilinear4f)) |> Array.ofSeq |> Array.collect id
                 //for x in xs do printfn "%A" x
                 qnode |> InMemoryNode
 
             else
-
+            
+                if config.Verbose then
+                    printfn "[DEBUG][build''] SPLIT %d patches into quadrants of %A ... " n rootCell
+                   
                 //let bbQuadrants = rootCell.Children |> Array.map (fun subCell -> subCell.GetBoundsForExponent(sampleExponent))
  
                 let patchesPerQuadrant = 
                     rootCell.Children
                     |> Array.map (fun subCell -> 
-                        let bbQuadrant = subCell.GetBoundsForExponent(minSampleExponent)
                         let subPatches =
                             patches // TODO: ensure that bbQuadrant is in same resolution as patch ?!?
                             |> Array.choose (fun patch ->
-                                if patch.SampleExponent <> minSampleExponent then Debugger.Break()
+                                let bbQuadrant = subCell.GetBoundsForExponent(patch.SampleExponent)
+                                //if patch.SampleExponent <> minSampleExponent then Debugger.Break()
                                 patch.WithWindow bbQuadrant
                                 )
 
                         (subCell, subPatches)
                         )
 
-                
-                if debugOutput then
-                    printfn "[DEBUG] SPLIT %d patches" n
+                if config.Verbose then
+                    printfn "[DEBUG][build''] SPLIT %d patches into quadrants of %A --> %A" n rootCell (patchesPerQuadrant |> Array.map(fun (_,xs) -> xs.Length))
 
                 //for i in 0..3 do
                 //    let (subCell, subPatches) = patchesPerQuadrant[i]
@@ -211,24 +232,20 @@ module Builder =
                 let subNodes = patchesPerQuadrant |> Array.map (fun (subCell, subPatches) ->
                     match subPatches.Length with
                     | 0 -> NoNode
-                    | _ -> build'' subCell subPatches
+                    | _ -> build'' config subCell subPatches
                     )
 
                 let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)
-                if debugOutput && hasMask then
-                    printfn "[DEBUG] has mask %A" rootCell
-                let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = BuildConfig.Default.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
+                if config.Verbose && hasMask then
+                    printfn "[DEBUG][build''] has mask %A" rootCell
+                let result = { Id = Guid.NewGuid(); ExactBoundingBox = ebb; Cell = rootCell; SplitLimitExponent = config.SplitLimitPowerOfTwo; HasMask = hasMask; SubNodes = subNodes }
                 result |> InMemoryInner
 
     /// Creates a quadtree from many small patches.
-    let Build (patches : LayerSet seq) : QNodeRef =
+    let Build (config : BuildConfig) (patches : LayerSet seq) : QNodeRef =
         let patches = patches |> Array.ofSeq
         let rootCell = patches |> Seq.map (fun patch -> patch.BoundingBox) |> Box2d |> Cell2d
-
-        //let sampleExponent = (patches |> Array.distinctBy (fun x -> x.SampleExponent) |> Array.exactlyOne).SampleExponent
-        //build' sampleExponent rootCell patches
-
-        build'' rootCell patches
+        build'' config rootCell patches
 
 /// Creates a quadtree from many small patches.
 type Builder () =
@@ -294,7 +311,7 @@ type Builder () =
         for patch in patches do this.Add(patch)
 
     /// Build a quadtree from all the patches that have been added to this builder.
-    member this.Build () : QNodeRef option =
+    member this.Build (config : BuildConfig) : QNodeRef option =
     
         let mutable mergesCount = 0
 
@@ -302,7 +319,7 @@ type Builder () =
         // (1) sort per-resolution patch lists from coarse to fine resolution ...
         |> Seq.sortByDescending (fun kv -> kv.Key) |> Seq.map (fun kv -> kv.Value)
         // (2) create a quadtree for each resolution ...
-        |> Seq.map Builder.Build
+        |> Seq.map (Builder.Build config)
         // (3) merge quadtrees with finer resolution always dominating ...
         |> Seq.fold (fun state item -> 
             match state with
@@ -315,14 +332,10 @@ type Builder () =
             None // initial state
 
     /// Build a quadtree from all the patches that have been added to this builder.
-    member this.Build2 () : QNodeRef option =
-    
-        let mutable mergesCount = 0
-
+    member this.Build2 (config : BuildConfig) : QNodeRef option =
         let allPatches = this.GetPatches()
-        Builder.Build allPatches |> Some
+        Builder.Build config allPatches |> Some
 
-      
     /// Enumerate all patches.
     member this.GetPatches () : seq<LayerSet> =
         patches |> Seq.map (fun kv -> kv.Value) |> Seq.collect id
