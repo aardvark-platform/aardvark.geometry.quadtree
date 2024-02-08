@@ -231,6 +231,56 @@ module Serialization =
             }
 
     (*
+        QMultiMergeNode
+
+        durable definition 26416ce5-891d-4e7e-b29b-1e23a6a99382
+    *)
+    
+    let private encodeQMultiMergeNode (options : SerializationOptions) (n : QMultiMergeNode) : byte[] =
+        let map = List<KeyValuePair<Durable.Def, obj>>()
+        
+        // node properties
+        map.Add(kvp Defs.NodeId n.Id)
+        map.Add(kvp Defs.CellBounds n.Cell)
+        map.Add(kvp Defs.SplitLimitExponent n.SplitLimitExponent)
+        map.Add(kvp Defs.ExactBoundingBox n.ExactBoundingBox)
+        map.Add(kvp Defs.HasMask (if n.HasMask then 1 else 0))
+
+        // collect subnode IDs
+        let ids = n.Nodes |> Array.map (fun n -> n.Id)
+        map.Add(kvp Defs.SubnodeIds ids)
+
+        DurableCodec.Serialize(Defs.NodeMerge, map)
+
+    let private decodeQMultiMergeNode(options: SerializationOptions) (def : Durable.Def) (o : obj) : QNodeRef =
+        let map  = o :?> ImmutableDictionary<Durable.Def, obj>
+        let id   = map.Get(Defs.NodeId)              :?> Guid
+        let cell = map.Get(Defs.CellBounds)          :?> Cell2d
+        let sle  = map.Get(Defs.SplitLimitExponent)  :?> int
+        let ebb  = match map.TryGetValue(Defs.ExactBoundingBox) with
+                   | true,  x -> x :?> Box2d
+                   | false, _ -> Box2d.Invalid
+
+        let hasMask =
+            match map.TryGetValue(Defs.HasMask) with
+            | true,  x -> (x :?> int) <> 0 // 0 means false, everything else is true
+            | false, _ -> false
+
+        let nsIds = map.Get(Defs.SubnodeIds) :?> Guid[]
+        let ns = nsIds |> Array.map (fun k ->
+            if k = Guid.Empty then 
+                NoNode
+            else
+                OutOfCoreNode { Id = k; HasMask = hasMask; Load = (fun () -> options.LoadNode k) }
+            )
+                
+        MultiMerge {
+            Id = id; ExactBoundingBox = ebb; Cell = cell; SplitLimitExponent = sle;
+            HasMask = hasMask
+            Nodes = ns
+            }
+
+    (*
         QLinkedNode
 
         durable definition 8628aab6-a416-42ab-9192-bae0d5590f4f
@@ -461,6 +511,7 @@ module Serialization =
         | InMemoryNode n        -> saveBuffer n.Id (fun () -> encodeQNode options n) Array.empty
         | InMemoryInner n       -> saveBuffer n.Id (fun () -> encodeQInnerNode options n) n.SubNodes
         | InMemoryMerge n       -> saveBuffer n.Id (fun () -> encodeQMergeNode options n) [| n.First; n.Second |]
+        | MultiMerge n          -> saveBuffer n.Id (fun () -> encodeQMultiMergeNode options n) n.Nodes
         | LinkedNode n          -> saveBuffer n.Id (fun () -> encodeQLinkedNode options n) [| n.Target |]
 
     let SaveLayerSet (options: SerializationOptions) (layerSet : LayerSet) : Guid =
@@ -551,6 +602,8 @@ module Serialization =
         | InMemoryNode  n -> yield n.Id
         | InMemoryInner n -> yield n.Id; for x in n.SubNodes do yield! recurse  x
         | InMemoryMerge n -> yield n.Id; yield! recurse n.First; yield! recurse n.Second
+        | MultiMerge    n -> yield n.Id;
+                             for x in n.Nodes do yield! recurse x
         | OutOfCoreNode n -> yield! n.Load() |> recurse
         | LinkedNode    n -> yield n.Id; yield! recurse n.Target
 

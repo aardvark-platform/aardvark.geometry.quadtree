@@ -276,13 +276,13 @@ module Layer =
     let private mergeTyped<'a when 'a : equality> (undefinedValue : 'a) (layers : Layer<'a>[]) : Layer<'a> =
         let def = ensureSameDef layers
         if verbose then
-            printfn "[Layer.Merge] .... def = %s" def.Name
+            printfn "[Layer.mergeTyped] .... def = %s" def.Name
         
         let e = layers.[0].SampleExponent
         if not (layers |> Array.forall (fun l -> l.SampleExponent = e)) then 
             failwith "Cannot merge layers with different resolutions."
         if verbose then
-            printfn "[Layer.Merge] .... e = %d" e
+            printfn "[Layer.mergeTyped] .... e = %d" e
         
         let finalWindow = layers |> Seq.map (fun l -> l.SampleWindow) |> Box2l
         let finalOrigin = Cell2d(finalWindow.Min, e)
@@ -291,11 +291,11 @@ module Layer =
         let finalMask = Array.create<byte> (int finalWindow.Size.X * int finalWindow.Size.Y) 255uy
 
         if verbose then
-            for l in layers do printfn "[Layer.Merge] .... [%A-%A]" l.SampleMin l.SampleMaxIncl
-            printfn "[Layer.Merge] .... final mapping"
-            printfn "[Layer.Merge] .... buffer origin: %A" finalOrigin
-            printfn "[Layer.Merge] .... buffer size  : %A" finalWindow.Size
-            printfn "[Layer.Merge] .... window: %A" finalWindow
+            for l in layers do printfn "[Layer.mergeTyped] .... [%A-%A]" l.SampleMin l.SampleMaxIncl
+            printfn "[Layer.mergeTyped] .... final mapping"
+            printfn "[Layer.mergeTyped] .... buffer origin: %A" finalOrigin
+            printfn "[Layer.mergeTyped] .... buffer size  : %A" finalWindow.Size
+            printfn "[Layer.mergeTyped] .... window: %A" finalWindow
         
         let mutable debugCountValues = 0
         let mutable debugCountCollisions = 0
@@ -362,11 +362,107 @@ module Layer =
 
         Layer(def, finalData, finalMapping, if coundOccupiedSamples > 0 then Some finalMask else None)
 
+    let private flattenTyped<'a when 'a : equality> (undefinedValue : 'a) (layers : Layer<'a>[]) : Layer<'a> =
+        let def = ensureSameDef layers
+        if verbose then
+            printfn "[Layer.flattenTyped] .... def = %s" def.Name
+        
+        failwith "TODO"
+
+        let e = layers.[0].SampleExponent
+        if not (layers |> Array.forall (fun l -> l.SampleExponent = e)) then 
+            failwith "Cannot flatten layers with different resolutions."
+
+        if verbose then
+            printfn "[Layer.flattenTyped] .... e = %d" e
+        
+        let finalWindow = layers |> Seq.map (fun l -> l.SampleWindow) |> Box2l
+        let finalOrigin = Cell2d(finalWindow.Min, e)
+        let finalMapping = DataMapping(finalOrigin, V2i finalWindow.Size, finalWindow)
+        let finalData = Array.zeroCreate<'a> (int finalWindow.Size.X * int finalWindow.Size.Y)
+        let finalMask = Array.create<byte> (int finalWindow.Size.X * int finalWindow.Size.Y) 255uy
+
+        if verbose then
+            for l in layers do printfn "[Layer.flattenTyped] .... [%A-%A]" l.SampleMin l.SampleMaxIncl
+            printfn "[Layer.flattenTyped] .... final mapping"
+            printfn "[Layer.flattenTyped] .... buffer origin: %A" finalOrigin
+            printfn "[Layer.flattenTyped] .... buffer size  : %A" finalWindow.Size
+            printfn "[Layer.flattenTyped] .... window: %A" finalWindow
+        
+        let mutable debugCountValues = 0
+        let mutable debugCountCollisions = 0
+        let debugCollisionSamples = HashSet<int>()
+
+        let mutable layerIndex = 0uy
+        for layer in layers do
+            let w = layer.Mapping.Window
+            let xMaxIncl = int w.SizeX - 1
+            let yMaxIncl = int w.SizeY - 1
+            for y = 0 to yMaxIncl do
+                for x = 0 to xMaxIncl do
+                    let c = Cell2d(w.Min.X + int64 x, w.Min.Y + int64 y, e)
+                    let i = finalMapping.GetBufferIndex c
+                    let v = layer.GetSample(Fail, c)
+                    
+                    match finalMask[i] with
+                    | 255uy ->
+                        finalData[i] <- v
+                        finalMask[i] <- layerIndex
+                        debugCountValues <- debugCountValues + 1
+                    | _     ->
+                        if v <> finalData[i] then
+                            if finalData[i] = undefinedValue then
+                                if v <> undefinedValue then
+                                    finalData[i] <- v
+                                    finalMask[i] <- layerIndex
+                                else
+                                    ()
+                            else
+                                if v <> undefinedValue then
+                                    debugCollisionSamples.Add(i) |> ignore
+                                    debugCountCollisions <- debugCountCollisions + 1
+                                    
+                                    if verbose then
+                                        printfn "[DEBUG][Layer.flattenTyped] COLLISION overwriting value %A from layer %d with value %A from layer %d" finalData[i] finalMask[i] v layerIndex
+
+                                else
+                                    ()
+
+                        
+
+
+            layerIndex <- layerIndex + 1uy
+
+        
+        // count occupied samples
+        let coundOccupiedSamples = finalMask |> Array.sumBy (fun x -> if x = 255uy then 1 else 0)
+
+        if verbose && debugCountCollisions > 0 then
+            printfn "[DEBUG][Layer.flattenTyped] debugCountValues = %d" debugCountValues
+            printfn "[DEBUG][Layer.flattenTyped] debugCountCollisions = %d" debugCountCollisions
+            printfn "[DEBUG][Layer.flattenTyped] debugCollisionSamples.Count = %d" debugCollisionSamples.Count
+            printfn "[DEBUG][Layer.flattenTyped] debugCountOccupied.Count = %d / %d ... %5.2f" coundOccupiedSamples finalMask.Length (float coundOccupiedSamples / float finalMask.Length)
+
+        // rewrite mask (1 ... occupied, 0 ... undefined)
+
+        let countOccupied  = finalMask |> Array.filter (fun x -> x <> 255uy) |> Array.length
+        let countUndefined = finalMask |> Array.filter (fun x -> x = 255uy) |> Array.length
+        printfn "[OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
+
+        for i = 0 to finalMask.Length-1 do
+            finalMask[i] <- if finalMask[i] = 255uy then 0uy else 1uy
+
+        Layer(def, finalData, finalMapping, if coundOccupiedSamples > 0 then Some finalMask else None)
+
+
     let private toTyped<'a when 'a : equality> (layers : ILayer[]) : Layer<'a>[] =
         layers |> Array.map (fun x -> x :?> Layer<'a>)
 
     let private mergeUntyped_<'a when 'a : equality> (undefinedValue : 'a) xs : ILayer =
         xs |> toTyped<'a> |> (mergeTyped undefinedValue) :> ILayer
+   
+    let private flattenUntyped_<'a when 'a : equality> (undefinedValue : 'a) xs : ILayer =
+        xs |> toTyped<'a> |> (flattenTyped undefinedValue) :> ILayer
     
     /// Merge layers of same type (def).
     let Merge (layers : ILayer seq) =
@@ -399,6 +495,40 @@ module Layer =
                 | :? Layer<C3f>     -> ls |> mergeUntyped_<C3f>     (C3f(0, 0, 0))
                 | :? Layer<C4f>     -> ls |> mergeUntyped_<C4f>     (C4f(0, 0, 0, 0))
                 | _ -> failwith <| sprintf "Unsupported layer type %A. Invariant bfb8d2ec-666d-4878-b612-f46f59dd5e82." ls.[0]
+
+            Some mergedLayers
+
+    /// Flatten layers of same type (def).
+    let Flatten (layers : ILayer seq) =
+        let ls = layers |> Array.ofSeq
+        match ls.Length with
+        | 0 ->
+            if verbose then printfn "[Layer.Flatten] 0 layers -> None"
+            None
+        | 1 ->
+            if verbose then printfn "[Layer.Flatten] 1 layer  -> Some ls.[0]"
+            Some (ls |> Array.exactlyOne)
+        | n ->
+            let distinctDefCount = ls |> Seq.distinctBy (fun l -> l.Def) |> Seq.length
+            if distinctDefCount <> 1 then failwith "Can only flatten layers of same type (def). Error 2611c741-c739-4480-8162-2a60d5d34a4f."
+            if verbose then printfn "[Layer.Flatten] %d layers" n
+            let mergedLayers =
+                match ls.[0] with
+                | :? Layer<int>     -> ls |> flattenUntyped_<int>     Int32.MinValue
+                | :? Layer<int64>   -> ls |> flattenUntyped_<int64>   Int64.MinValue    
+                | :? Layer<float>   -> ls |> flattenUntyped_<float>   nan
+                | :? Layer<float32> -> ls |> flattenUntyped_<float32> nanf
+                | :? Layer<V2f>     -> ls |> flattenUntyped_<V2f>     V2f.NaN
+                | :? Layer<V2d>     -> ls |> flattenUntyped_<V2d>     V2d.NaN
+                | :? Layer<V3f>     -> ls |> flattenUntyped_<V3f>     V3f.NaN
+                | :? Layer<V3d>     -> ls |> flattenUntyped_<V3d>     V3d.NaN
+                | :? Layer<V4f>     -> ls |> flattenUntyped_<V4f>     V4f.NaN
+                | :? Layer<V4d>     -> ls |> flattenUntyped_<V4d>     V4d.NaN
+                | :? Layer<C3b>     -> ls |> flattenUntyped_<C3b>     (C3b(0, 0, 0))
+                | :? Layer<C4b>     -> ls |> flattenUntyped_<C4b>     (C4b(0, 0, 0, 0))
+                | :? Layer<C3f>     -> ls |> flattenUntyped_<C3f>     (C3f(0, 0, 0))
+                | :? Layer<C4f>     -> ls |> flattenUntyped_<C4f>     (C4f(0, 0, 0, 0))
+                | _ -> failwith <| sprintf "Unsupported layer type %A. Invariant 0d379726-27dd-4063-9175-8f13ac44ad83." ls.[0]
 
             Some mergedLayers
 
@@ -477,8 +607,9 @@ type LayerSet(layers : ILayer[]) =
 
 module LayerSet =
 
-    /// Merges multiple layer sets.
+    /// Merges multiple layer sets with identical resolution.
     /// All layer sets must have identical layers (same number, same semantics, same order).
+    /// TODO: possibly obsolete and replaced by Flatten ?!
     let Merge (layerSets : LayerSet seq) : LayerSet =
 
         let layerSets = layerSets |> Array.ofSeq
@@ -491,6 +622,27 @@ module LayerSet =
             |> List.choose (fun i ->
                 // merge the i-th layers from all layer sets
                 layerSets |> Array.map (fun x -> x.Layers[i]) |> Layer.Merge
+                )
+            |> Array.ofList
+
+        let result = LayerSet layers
+        result
+
+    /// Flattens multiple layer sets (different resolutions are allowed) down to a single layer set.
+    /// Holes (which were not covered by any source layerset) are marked by an optional mask.
+    /// All layer sets must have identical layers (same number, same semantics, same order).
+    let Flatten (layerSets : LayerSet seq) : LayerSet =
+
+        let layerSets = layerSets |> Array.ofSeq
+        let layersPerLayerSet = layerSets[0].Layers.Length
+
+        let indices = [0..layersPerLayerSet-1]
+
+        let layers = 
+            indices
+            |> List.choose (fun i ->
+                // merge the i-th layers from all layer sets
+                layerSets |> Array.map (fun x -> x.Layers[i]) |> Layer.Flatten
                 )
             |> Array.ofList
 

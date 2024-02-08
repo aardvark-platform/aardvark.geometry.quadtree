@@ -22,6 +22,7 @@ module Defs =
     let NodeLeaf               = def "c74fad23-1211-4073-94e5-54b778e0d295" "Quadtree.NodeLeaf" "A quadtree leaf node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let NodeInner              = def "1f7baa27-5bcc-420f-89a3-714b65d93a2d" "Quadtree.NodeInner" "A quadtree inner node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let NodeMerge              = def "2d80c73e-ed3e-442a-a631-4f570ff838fd" "Quadtree.NodeMerge" "A quadtree merge node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
+    let NodeMultiMerge         = def "26416ce5-891d-4e7e-b29b-1e23a6a99382" "Quadtree.NodeMultiMerge" "A quadtree multi-merge node. DurableMapAligned16." Durable.Primitives.DurableMapAligned16
     let NodeLinked             = def "8628aab6-a416-42ab-9192-bae0d5590f4f" "Quadtree.LinkedNode" "A reference (link) to another quadtree node. DurableMapAligned16" Durable.Primitives.DurableMapAligned16
 
     let NodeId                 = def "e46c4163-dd28-43a4-8254-bc21dc3f766b" "Quadtree.NodeId" "Quadtree. Unique id of a node. Guid." Durable.Primitives.GuidDef

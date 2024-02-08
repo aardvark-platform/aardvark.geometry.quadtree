@@ -111,11 +111,15 @@ module Builder =
                 result |> InMemoryInner
 
     let rec private build'' (config : BuildConfig) (rootCell : Cell2d) (patches : LayerSet[]) =
+    
+        let minSampleExponent = patches |> Seq.map (fun p -> p.SampleExponent) |> Seq.min
 
         if config.Verbose then
-            printfn "[build''] rootCell = %A, %d patches" rootCell patches.Length
-
-        let minSampleExponent = patches |> Seq.map (fun p -> p.SampleExponent) |> Seq.min
+            printfn "[build''] ******** BEGIN ******** %d patches; rootCell = %A; minSampleExponent = %d " patches.Length rootCell minSampleExponent
+            let mutable i = 0
+            for patch in patches do
+                printfn "[build''] | patches[%d] : e=%d origin=%A size=%A" i patch.SampleExponent patch.SampleWindow.Min patch.SampleWindow.Size
+                i <- i + 1
 
         match patches.Length with
 
@@ -156,7 +160,7 @@ module Builder =
                 (fun () -> sprintf "Expected config.SplitLimitPowerOfTwo to be non-negative, but found %d." config.SplitLimitPowerOfTwo)
                 "95c43529-9649-42d6-9b47-c6f8fb6da301"
 
-            let tileSize = 2 <<< config.SplitLimitPowerOfTwo
+            let tileSize = 1 <<< config.SplitLimitPowerOfTwo
             let rootBounds = getBoundsForExponent minSampleExponent rootCell
 
             if rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize then
@@ -167,41 +171,49 @@ module Builder =
                 //    -> resulting layer has finest resolution of all patches
                 //    -> coarser layers will be subsampled
                 //    -> a mask indicates non-defined samples
-
+                
                 if config.Verbose then
                     printfn "[build''] MERGE %d patches; because reached split limit" n
-                    for patch in patches do
-                        printfn "[build''] | e=%d origin=%A size=%A" patch.SampleExponent patch.SampleWindow.Min patch.SampleWindow.Size
 
-                failwith "TODO"
-
-                let bbWindow = patches |> Seq.map (fun patch -> patch.SampleWindow) |> Box2l
-                
                 //if debugOutput then
+                //    let bbWindow = patches |> Seq.map (fun patch -> patch.SampleWindow) |> Box2l
                 //    for patch in patches do
                 //        printfn "[DEBUG]    %A (exact %A)" (patch.SampleWindow - rootBounds.Min) (bbWindow - rootBounds.Min)
 
                 // adjust root cell for split limit
-                let requiredRootCellSplitLimit = minSampleExponent + config.SplitLimitPowerOfTwo
-
+                let requiredRootCellExponent = minSampleExponent + config.SplitLimitPowerOfTwo
+                
+                if config.Verbose then
+                    printfn "[build''] | requiredRootCellExponent %d = minSampleExponent %d + config.SplitLimitPowerOfTwo %d" requiredRootCellExponent minSampleExponent config.SplitLimitPowerOfTwo
+                    
                 let mutable rootCell = rootCell
+                
+                if requiredRootCellExponent <> rootCell.Exponent then
 
-                if requiredRootCellSplitLimit <> rootCell.Exponent then
-
-                    invariantm (rootCell.Exponent < requiredRootCellSplitLimit) 
-                        (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellSplitLimit %d." rootCell.Exponent requiredRootCellSplitLimit)
+                    invariantm (rootCell.Exponent < requiredRootCellExponent) 
+                        (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellExponent %d." rootCell.Exponent requiredRootCellExponent)
                         "4911adf3-7b87-4234-9bcc-bc3076df846e"
 
                     if config.Verbose then
-                        printfn "[build''] must adjust root cell %A exponent to %d" rootCell requiredRootCellSplitLimit
+                        printfn "[build''] | must adjust root cell %A exponent to %d ..." rootCell requiredRootCellExponent
 
-                    while rootCell.Exponent < requiredRootCellSplitLimit do rootCell <- rootCell.Parent
+                    while rootCell.Exponent < requiredRootCellExponent do rootCell <- rootCell.Parent
 
                     if config.Verbose then
-                        printfn "[build''] adjusted root cell is %A" rootCell
+                        printfn "[build''] | adjusted root cell is %A" rootCell
+
+                else
+
+                    if config.Verbose then
+                        printfn "[build''] | root cell %A already has requiredRootCellExponent %d" rootCell requiredRootCellExponent
 
                 let merged = LayerSet.Merge patches
-                let qnode = QNode(Guid.NewGuid(), ebb, rootCell, config.SplitLimitPowerOfTwo, merged)
+                
+                let flattended = LayerSet.Flatten patches
+
+                failwith "TODO"
+
+                let qnode = QNode(Guid.NewGuid(), ebb, rootCell, config.SplitLimitPowerOfTwo, flattended)
                 
                 if config.Verbose then
                     printfn "[build''] CREATED QNode with split limit = %d" qnode.SplitLimitExponent
