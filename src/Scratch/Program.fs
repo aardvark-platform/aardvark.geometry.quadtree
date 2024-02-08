@@ -1359,8 +1359,33 @@ let cp_20240202_quadtreetest () =
        
     ()
 
+let test_20240208 () =
+
+    let a = createQuadtreeWithValue 0 0 1 1  0 0 10.0f
+    let b = createQuadtreeWithValue 0 0 1 1 -1 0 20.0f
+    let m = Quadtree.Merge SecondDominates a b
+    
+    //Assert.True(Quadtree.CountLeafs true a = 1)
+    //Assert.True(Quadtree.CountLeafs true b = 2)
+    //Assert.True(Quadtree.CountLeafs true m = 3)
+    //Assert.True(m.Cell = Cell2d(0,0,1))
+
+    let xs = Query.All Query.Config.Default m |> Seq.collect(fun x -> x.GetSamples<float32> Defs.Heights1f) |> Seq.toArray
+    let check (x : int) (y : int) (e : int) value =
+        let cell = Cell2d(x, y, e)
+        let r = xs |> Array.filter(fun (c, v) -> c = cell && v = value) |> Array.tryExactlyOne |> Option.isSome
+        if not r then failwith "FAILED"
+
+    check 1 0 -1   20.0f
+    check 2 0 -1   20.0f
+    check 0 0 -1   10.0f
+    check 0 1 -1   10.0f
+    check 1 1 -1   10.0f
+
 [<EntryPoint>]
 let main argv =
+ 
+    //test_20240208 ()
 
     cp_20240202_quadtreetest ()
 

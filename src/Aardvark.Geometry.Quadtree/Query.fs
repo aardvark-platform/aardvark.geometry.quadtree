@@ -367,14 +367,9 @@ module Query =
                 | InMemoryMerge n           ->
                     if config.Verbose then printfn "[Generic ] InMemoryMerge %A" n.Cell
                     if n.First.ExactBoundingBox.Intersects(n.Second.ExactBoundingBox) then
-
+                        // first and second do overlap, so merge/resolve the samples of both
                         let r = merge' config isNodeFullyInside isNodeFullyOutside isSampleInside n.Dominance n.First n.Second (Generic config isNodeFullyInside isNodeFullyOutside isSampleInside) |> Seq.toList
                         if r.Length > 0 then yield! r
-
-                        //let xs = (n.First |> recurse) |> Seq.toList
-                        //let ys = (n.Second |> recurse)  |> Seq.toList
-                        //if config.Verbose then printfn "[Generic ]     merge first + second  %A" n.Cell
-                        //yield! merge config n.Dominance xs ys
                     else
                         // first and second do not interfere, so simply return all samples of both
                         if config.Verbose then printfn "[Generic ]     yield first  %A" n.Cell
@@ -383,6 +378,8 @@ module Query =
                         if config.Verbose then printfn "[Generic ]     yield second %A" n.Cell
                         let r2 = n.Second |> recurse |> Seq.toList
                         if r2.Length > 0 then yield! r2
+
+                | MultiMerge n              -> failwith "TODO 53cbaacb-02b1-4012-afff-c874d0e105e4"
 
                 | InMemoryNode n            ->
 
@@ -526,6 +523,8 @@ module Query =
                         let r2 = n.Second |> recurse |> Seq.toList
                         if r2.Length > 0 then yield! r2
 
+                | MultiMerge n              -> failwith "TODO c475a1e4-d61a-421f-88a2-6dae48952e7d"
+
                 | InMemoryNode n            ->
 
                     invariantm (n.Cell.Exponent >= config.MinExponent)
@@ -618,11 +617,12 @@ module Query =
     /// including samples from inner cells.
     let rec Full (root : QNodeRef) : Result seq = seq {
         match root with
-        | NoNode -> ()
+        | NoNode          -> ()
         | InMemoryInner n -> for subnode in n.SubNodes do yield! Full subnode
         | InMemoryNode  n -> yield { Node = n; Selection = FullySelected }
         | InMemoryMerge n -> yield! Full n.First
                              yield! Full n.Second
+        | MultiMerge    _ -> failwith "TODO 0470fae0-1232-4167-9c1f-74002c9afd41"
         | LinkedNode    n -> yield! Full n.Target
         | OutOfCoreNode n -> yield! Full (n.Load())
     }
@@ -716,6 +716,8 @@ module Sample =
                                             { Node = n; Cells = cs; Positions = ps }
                                             )
                         yield! gs
+
+                | MultiMerge n -> failwith "TODO 7aab61ac-faf3-42a8-8f11-9f9080d8a6a8"
 
                 | InMemoryNode n ->
 
