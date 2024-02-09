@@ -166,7 +166,7 @@ and
     | OutOfCoreNode of QOutOfCoreNode
     | InMemoryInner of QInnerNode
     | InMemoryMerge of QMergeNode
-    | MultiMerge    of QMultiMergeNode
+    //| MultiMerge    of QMultiMergeNode
     | LinkedNode    of QLinkedNode
     with
 
@@ -177,7 +177,7 @@ and
             | InMemoryNode  n -> n.Id
             | InMemoryInner n -> n.Id
             | InMemoryMerge n -> n.Id
-            | MultiMerge    n -> n.Id
+            //| MultiMerge    n -> n.Id
             | OutOfCoreNode n -> n.Load().Id
             | LinkedNode    n -> n.Id
 
@@ -188,7 +188,7 @@ and
             | InMemoryNode  n -> n.Cell
             | InMemoryInner n -> n.Cell
             | InMemoryMerge n -> n.Cell
-            | MultiMerge    n -> n.Cell
+            //| MultiMerge    n -> n.Cell
             | OutOfCoreNode n -> n.Load().Cell
             | LinkedNode    n -> n.Target.Cell
 
@@ -199,7 +199,7 @@ and
             | InMemoryNode  n -> n.ExactBoundingBox
             | InMemoryInner n -> n.ExactBoundingBox
             | InMemoryMerge n -> n.ExactBoundingBox
-            | MultiMerge    n -> n.ExactBoundingBox
+            //| MultiMerge    n -> n.ExactBoundingBox
             | OutOfCoreNode n -> n.Load().ExactBoundingBox
             | LinkedNode    n -> n.Target.ExactBoundingBox
 
@@ -210,7 +210,7 @@ and
             | InMemoryNode  n -> n.SplitLimitExponent
             | InMemoryInner n -> n.SplitLimitExponent
             | InMemoryMerge n -> n.SplitLimitExponent
-            | MultiMerge    n -> n.SplitLimitExponent
+            //| MultiMerge    n -> n.SplitLimitExponent
             | OutOfCoreNode n -> n.Load().SplitLimitExponent
             | LinkedNode    n -> n.Target.SplitLimitExponent
 
@@ -220,7 +220,7 @@ and
             | InMemoryNode  _ -> None
             | InMemoryInner n -> n.SubNodes |> Array.tryFind (fun sn -> match sn with | NoNode -> false | _ -> true)
             | InMemoryMerge n -> Some n.First
-            | MultiMerge    n -> Some n.Nodes[0]
+            //| MultiMerge    n -> Some n.Nodes[0]
             | OutOfCoreNode n -> n.Load().GetFirstNonEmptySubNode()
             | LinkedNode    n -> n.Target.GetFirstNonEmptySubNode()
 
@@ -232,7 +232,7 @@ and
                                  | Some n -> n.ContainsLayer(semantic)
                                  | None -> failwith "Invariant 0a85f195-7feb-4ecb-912d-7fd4e7024951."
             | InMemoryMerge _ -> false
-            | MultiMerge    _ -> false
+            //| MultiMerge    _ -> false
             | OutOfCoreNode n -> n.Load().ContainsLayer semantic
             | LinkedNode    n -> n.Target.ContainsLayer semantic
 
@@ -242,7 +242,7 @@ and
             | InMemoryNode  n -> Some(n.LayerSet)
             | InMemoryInner _ -> None
             | InMemoryMerge _ -> None
-            | MultiMerge    _ -> None
+            //| MultiMerge    _ -> None
             | OutOfCoreNode n -> n.Load().LayerSet
             | LinkedNode    n -> n.Target.LayerSet
 
@@ -252,7 +252,7 @@ and
             | InMemoryNode  _ -> true
             | InMemoryInner _ -> false
             | InMemoryMerge _ -> false
-            | MultiMerge    _ -> false
+            //| MultiMerge    _ -> false
             | OutOfCoreNode _ -> true
             | LinkedNode    n -> n.Target.IsLeafNode
 
@@ -262,7 +262,7 @@ and
             | InMemoryNode  n -> n.HasMask
             | InMemoryInner n -> n.HasMask
             | InMemoryMerge n -> n.HasMask
-            | MultiMerge    n -> n.HasMask
+            //| MultiMerge    n -> n.HasMask
             | OutOfCoreNode n -> n.HasMask
             | LinkedNode    n -> n.Target.HasMask
 
@@ -297,14 +297,14 @@ and
                     let updatedNode = { n with First = q1; Second = q2 }
                     (true, InMemoryMerge updatedNode)
 
-            | MultiMerge n            ->
-                let ns = n.Nodes |> Array.map (fun x -> x.UpdateLayerSemantic(oldSemantic, newSemantic))
-                let isNotChanged = ns |> Array.forall (fun (x, _) -> x = false)
-                if isNotChanged then
-                    unchanged
-                else
-                    let updatedNode = { n with Nodes = ns |> Array.map snd }
-                    (true, MultiMerge updatedNode)
+            //| MultiMerge n            ->
+            //    let ns = n.Nodes |> Array.map (fun x -> x.UpdateLayerSemantic(oldSemantic, newSemantic))
+            //    let isNotChanged = ns |> Array.forall (fun (x, _) -> x = false)
+            //    if isNotChanged then
+            //        unchanged
+            //    else
+            //        let updatedNode = { n with Nodes = ns |> Array.map snd }
+            //        (true, MultiMerge updatedNode)
                     
             | InMemoryNode  n         ->
                 match n.UpdateLayerSemantic(oldSemantic, newSemantic) with
@@ -320,8 +320,8 @@ and
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _ 
-            | MultiMerge    _ -> sprintf "Layer not found. %A. Error 2c634f5f-d359-4523-b87a-a96d2522c018." def |> failwith
+            //| MultiMerge _ 
+            | InMemoryMerge _ -> sprintf "Layer not found. %A. Error 2c634f5f-d359-4523-b87a-a96d2522c018." def |> failwith
             | InMemoryNode  n -> n.LayerSet.GetLayer def
             | OutOfCoreNode n -> n.Load().LayerSet.Value.GetLayer def
             | LinkedNode    n -> n.Target.GetLayer def
@@ -331,8 +331,8 @@ and
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _ 
-            | MultiMerge    _ -> sprintf "Layer not found. %A. Error f33f39a9-2394-473f-8dae-76bd8baaaafb." def |> failwith
+            //| MultiMerge    _ 
+            | InMemoryMerge _ -> sprintf "Layer not found. %A. Error f33f39a9-2394-473f-8dae-76bd8baaaafb." def |> failwith
             | InMemoryNode  n -> n.LayerSet.GetLayer<'a> def
             | OutOfCoreNode n -> n.Load().LayerSet.Value.GetLayer<'a> def
             | LinkedNode    n -> n.Target.GetLayer<'a> def
@@ -341,8 +341,8 @@ and
             match this with
             | NoNode
             | InMemoryInner _ 
-            | InMemoryMerge _
-            | MultiMerge    _ -> None
+            //| MultiMerge    _ 
+            | InMemoryMerge _ -> None
             | InMemoryNode  n -> n.LayerSet.TryGetLayer def
             | OutOfCoreNode n -> match n.Load().LayerSet with
                                  | Some ls -> ls.TryGetLayer def
@@ -353,8 +353,8 @@ and
             match this with
             | NoNode
             | InMemoryInner _
-            | InMemoryMerge _ 
-            | MultiMerge    _ -> None
+            //| MultiMerge    _ 
+            | InMemoryMerge _ -> None
             | InMemoryNode  n -> n.LayerSet.TryGetLayer<'a> def
             | OutOfCoreNode n -> match n.Load().LayerSet with
                                  | Some ls -> ls.TryGetLayer<'a> def

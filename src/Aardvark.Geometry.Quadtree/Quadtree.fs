@@ -48,7 +48,7 @@ module Quadtree =
             | InMemoryInner n -> for subNode in n.SubNodes do subNode |> stack.Push
             | InMemoryMerge n -> n.First |> stack.Push
                                  n.Second |> stack.Push
-            | MultiMerge    n -> for x in n.Nodes do stack.Push x
+            //| MultiMerge    n -> for x in n.Nodes do stack.Push x
             | LinkedNode    n -> n.Target |> stack.Push
         }
 
@@ -71,7 +71,7 @@ module Quadtree =
             | InMemoryMerge n -> n.First |> stack.Push
                                  n.Second |> stack.Push
                                  yield node
-            | MultiMerge    n -> for x in n.Nodes do stack.Push x
+            //| MultiMerge    n -> for x in n.Nodes do stack.Push x
                                  yield node
             | LinkedNode    n -> n.Target |> stack.Push
         }
@@ -96,8 +96,8 @@ module Quadtree =
             | InMemoryMerge n -> yield node
                                  n.First |> queue.Enqueue
                                  n.Second |> queue.Enqueue
-            | MultiMerge    n -> yield node
-                                 for x in n.Nodes do queue.Enqueue x
+            //| MultiMerge    n -> yield node
+            //                     for x in n.Nodes do queue.Enqueue x
             | LinkedNode    n -> n.Target |> queue.Enqueue
         }
 
@@ -130,8 +130,8 @@ module Quadtree =
                              | InMemoryMerge n -> n.First  |> stack.Push
                                                   n.Second |> stack.Push
                                                   weightInner
-                             | MultiMerge    n -> for x in n.Nodes do stack.Push x
-                                                  weightInner
+                             //| MultiMerge    n -> for x in n.Nodes do stack.Push x
+                             //                     weightInner
                              | LinkedNode    n -> n.Target |> stack.Push
                                                   weightInner
 
@@ -176,12 +176,12 @@ module Quadtree =
                                  print (indent + "  ") n.Second
                                  printfn "%s  FIRST :" indent
                                  print (indent + "  ") n.First
-            | MultiMerge    n -> printfn "%sMultiMerge %A %A" indent n.Cell n.Id
-                                 let mutable i = 0
-                                 for x in n.Nodes do
-                                     printfn "%s  Nodes[%d]:" indent i
-                                     print (indent + "  ") x
-                                     i <- i + 1
+            //| MultiMerge    n -> printfn "%sMultiMerge %A %A" indent n.Cell n.Id
+            //                     let mutable i = 0
+            //                     for x in n.Nodes do
+            //                         printfn "%s  Nodes[%d]:" indent i
+            //                         print (indent + "  ") x
+            //                         i <- i + 1
             | LinkedNode    n -> printfn "%sLinkedNode %A" indent n.Target.Cell
                                  print (indent + "  ") n.Target
 

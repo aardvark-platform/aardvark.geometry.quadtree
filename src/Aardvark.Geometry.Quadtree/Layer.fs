@@ -543,9 +543,9 @@ module Layer =
             printfn "[Layer.flattenTyped] debugCollisionSamples.Count = %d" debugCollisionSamples.Count
             printfn "[Layer.flattenTyped] debugCountOccupied.Count = %d / %d ... %5.2f" coundOccupiedSamples finalMask.Length (float coundOccupiedSamples / float finalMask.Length)
 
-        let countOccupied  = finalMask |> Array.filter (fun x -> x <> 255uy) |> Array.length
-        let countUndefined = finalMask |> Array.filter (fun x -> x = 255uy) |> Array.length
-        printfn "[Layer.flattenTyped][OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
+            let countOccupied  = finalMask |> Array.filter (fun x -> x <> 255uy) |> Array.length
+            let countUndefined = finalMask |> Array.filter (fun x -> x = 255uy) |> Array.length
+            printfn "[Layer.flattenTyped][OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
         
         // rewrite mask (1 ... occupied, 0 ... undefined)
         for i = 0 to finalMask.Length-1 do

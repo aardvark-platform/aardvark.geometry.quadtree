@@ -1322,14 +1322,27 @@ let cp_20240202_quadtreetest () =
     | Some x ->
         printfn "reloaded from file, %d patches" (x.GetPatches() |> Seq.length)
 
-        let samplesCount = 
+        let sampleCounts = 
             x.GetPatches()
-            |> Seq.filter(fun patch -> patch.SampleExponent = -3)
-            |> Seq.sumBy(fun patch -> patch.SampleWindow.Area)
-        printfn("total samples count with e = -3: %d") samplesCount
+            |> Seq.groupBy(fun patch -> patch.SampleExponent)
+            |> Seq.map(fun (k, g) -> 
+                let samples = g |> Seq.collect(fun lset -> 
+                    let layer = (lset.GetLayer Defs.HeightsBilinear4f) :?> Layer<V4f>
+                    layer.SampleWindow.GetAllSamples(k) |> Array.map (fun s -> layer.GetSample(BorderMode.Fail, s))
+                    )
+                let sampleCountNan = samples |> Seq.filter (fun x -> x.IsNaN) |> Seq.length
+                (k, g |> Seq.sumBy(fun patch -> patch.SampleWindow.Area), sampleCountNan)
+                )
+        for (e, sampleCount, sampleCountNan) in sampleCounts do
+            printfn("total samples count with e = %d: %d; count NaN = %d") e sampleCount sampleCountNan
 
-        let buildConfig = { BuildConfig.Default with Verbose = true }
-        match x.Build2 buildConfig with
+        let sw = Stopwatch.StartNew()
+        let buildConfig = { BuildConfig.Default with Verbose = false }
+        let maybeQuadtree = x.Build2 buildConfig
+        sw.Stop()
+        printfn "[TIMING] build: %A" sw.Elapsed
+
+        match maybeQuadtree with
         | None -> failwith ""
         | Some qtree ->
             let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) (def : Aardvark.Data.Durable.Def) =
@@ -1351,17 +1364,25 @@ let cp_20240202_quadtreetest () =
 
                 samples
 
+            let sw = Stopwatch.StartNew()
             let config = Query.Config.Default //{ Query.Config.Default with Verbose = true }
             let resultCells = qtree |> Query.All config |> Seq.toArray
             let samples = makeReturnValOfQueryResults resultCells Defs.HeightsBilinear4f
             let samplesLength = samples.Length
+            sw.Stop()
+            printfn "[TIMING] query all samples: %A" sw.Elapsed
 
             Quadtree.PrintStructure true qtree
 
             printfn("SAMPLES: count=%d") samplesLength
-            let gs = samples |> List.groupBy (fun (c, v) -> c.Exponent) |> List.map (fun (e, xs) -> (e, xs.Length))
-            for (e, c) in gs do
-                printfn("    e=%d; count=%d") e c
+            let gs = samples 
+                     |> List.groupBy (fun (c, v) -> c.Exponent)
+                     |> List.map (fun (e, xs) ->
+                        let countNaN = xs |> Seq.filter(fun (_, x) -> x.IsNaN) |> Seq.length
+                        (e, xs.Length, countNaN)
+                        )
+            for (e, c, cNaN) in gs do
+                printfn("    e=%d; count=%d; count NaN=%d") e c cNaN
 
             ()
        

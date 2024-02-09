@@ -379,7 +379,7 @@ module Query =
                         let r2 = n.Second |> recurse |> Seq.toList
                         if r2.Length > 0 then yield! r2
 
-                | MultiMerge n              -> failwith "TODO 53cbaacb-02b1-4012-afff-c874d0e105e4"
+                //| MultiMerge n              -> failwith "TODO 53cbaacb-02b1-4012-afff-c874d0e105e4"
 
                 | InMemoryNode n            ->
 
@@ -523,7 +523,7 @@ module Query =
                         let r2 = n.Second |> recurse |> Seq.toList
                         if r2.Length > 0 then yield! r2
 
-                | MultiMerge n              -> failwith "TODO c475a1e4-d61a-421f-88a2-6dae48952e7d"
+                //| MultiMerge n              -> failwith "TODO c475a1e4-d61a-421f-88a2-6dae48952e7d"
 
                 | InMemoryNode n            ->
 
@@ -622,7 +622,7 @@ module Query =
         | InMemoryNode  n -> yield { Node = n; Selection = FullySelected }
         | InMemoryMerge n -> yield! Full n.First
                              yield! Full n.Second
-        | MultiMerge    _ -> failwith "TODO 0470fae0-1232-4167-9c1f-74002c9afd41"
+        //| MultiMerge    _ -> failwith "TODO 0470fae0-1232-4167-9c1f-74002c9afd41"
         | LinkedNode    n -> yield! Full n.Target
         | OutOfCoreNode n -> yield! Full (n.Load())
     }
@@ -717,7 +717,7 @@ module Sample =
                                             )
                         yield! gs
 
-                | MultiMerge n -> failwith "TODO 7aab61ac-faf3-42a8-8f11-9f9080d8a6a8"
+                //| MultiMerge n -> failwith "TODO 7aab61ac-faf3-42a8-8f11-9f9080d8a6a8"
 
                 | InMemoryNode n ->
 
@@ -750,8 +750,6 @@ module Sample =
         else
             Seq.empty
             
-                
-
     /// Returns sample at given position, or None if there is no sample.
     let Position (config : Query.Config) (position : V2d) (root : QNodeRef) : SampleResult option =
         let result = Positions config [| position |] root |> Seq.toArray
