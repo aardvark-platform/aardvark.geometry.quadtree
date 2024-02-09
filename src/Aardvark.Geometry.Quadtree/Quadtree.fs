@@ -164,7 +164,7 @@ module Quadtree =
         let rec print indent (n : QNodeRef) =
             match n with
             | NoNode          -> printfn "%sNoNode" indent
-            | InMemoryNode  n -> printfn "%sInMemoryNode %A" indent n.Cell
+            | InMemoryNode  n -> printfn "%sInMemoryNode %A; w=%A; wsize=%A; buffer=%A" indent n.Cell n.LayerSet.Mapping.Window n.LayerSet.Mapping.WindowSize n.LayerSet.Mapping.BufferSize
             | OutOfCoreNode n -> if outOfCore then
                                     print indent (n.Load())
                                  else

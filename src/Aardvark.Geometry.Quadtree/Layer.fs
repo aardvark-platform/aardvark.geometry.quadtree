@@ -465,29 +465,25 @@ module Layer =
         /// result sample exponent
         let e = sampleSizeRange.Min
         
-        
-        let mutable i = 0
-        for l in layersOrdered do
+        for i=0 to layersOrdered.Length-1 do
+
+            let l = layersOrdered[i]
 
             if verbose then
                 printfn "[Layer.flattenTyped] | layersOrdered[%d] : e=%d origin=%A size=%A" i l.SampleExponent l.SampleWindow.Min l.SampleWindow.Size
 
             if l.SampleExponent <> e then
-                let resampledLayer = (l :> ILayer).Resample e
-                failwith "TODO"
-
-            i <- i + 1
+                let resampledLayer = l.Resample e
+                layersOrdered[i] <- resampledLayer
             
-        failwith "TODO"
-
-        let finalWindow = layers |> Seq.map (fun l -> l.SampleWindow) |> Box2l
+        let finalWindow = layersOrdered |> Seq.map (fun l -> l.SampleWindow) |> Box2l
         let finalOrigin = Cell2d(finalWindow.Min, e)
         let finalMapping = DataMapping(finalOrigin, V2i finalWindow.Size, finalWindow)
         let finalData = Array.zeroCreate<'a> (int finalWindow.Size.X * int finalWindow.Size.Y)
         let finalMask = Array.create<byte> (int finalWindow.Size.X * int finalWindow.Size.Y) 255uy
 
         if verbose then
-            for l in layers do printfn "[Layer.flattenTyped] .... [%A-%A]" l.SampleMin l.SampleMaxIncl
+            for l in layersOrdered do printfn "[Layer.flattenTyped] .... [%A-%A]" l.SampleMin l.SampleMaxIncl
             printfn "[Layer.flattenTyped] .... final mapping"
             printfn "[Layer.flattenTyped] .... buffer origin: %A" finalOrigin
             printfn "[Layer.flattenTyped] .... buffer size  : %A" finalWindow.Size
@@ -498,7 +494,7 @@ module Layer =
         let debugCollisionSamples = HashSet<int>()
 
         let mutable layerIndex = 0uy
-        for layer in layers do
+        for layer in layersOrdered do
             let w = layer.Mapping.Window
             let xMaxIncl = int w.SizeX - 1
             let yMaxIncl = int w.SizeY - 1
@@ -526,8 +522,8 @@ module Layer =
                                     debugCollisionSamples.Add(i) |> ignore
                                     debugCountCollisions <- debugCountCollisions + 1
                                     
-                                    if verbose then
-                                        printfn "[DEBUG][Layer.flattenTyped] COLLISION overwriting value %A from layer %d with value %A from layer %d" finalData[i] finalMask[i] v layerIndex
+                                    //if verbose then
+                                    //    printfn "[Layer.flattenTyped] COLLISION overwriting value %A from layer %d with value %A from layer %d" finalData[i] finalMask[i] v layerIndex
 
                                 else
                                     ()
@@ -542,17 +538,16 @@ module Layer =
         let coundOccupiedSamples = finalMask |> Array.sumBy (fun x -> if x = 255uy then 1 else 0)
 
         if verbose && debugCountCollisions > 0 then
-            printfn "[DEBUG][Layer.flattenTyped] debugCountValues = %d" debugCountValues
-            printfn "[DEBUG][Layer.flattenTyped] debugCountCollisions = %d" debugCountCollisions
-            printfn "[DEBUG][Layer.flattenTyped] debugCollisionSamples.Count = %d" debugCollisionSamples.Count
-            printfn "[DEBUG][Layer.flattenTyped] debugCountOccupied.Count = %d / %d ... %5.2f" coundOccupiedSamples finalMask.Length (float coundOccupiedSamples / float finalMask.Length)
-
-        // rewrite mask (1 ... occupied, 0 ... undefined)
+            printfn "[Layer.flattenTyped] debugCountValues = %d" debugCountValues
+            printfn "[Layer.flattenTyped] debugCountCollisions = %d" debugCountCollisions
+            printfn "[Layer.flattenTyped] debugCollisionSamples.Count = %d" debugCollisionSamples.Count
+            printfn "[Layer.flattenTyped] debugCountOccupied.Count = %d / %d ... %5.2f" coundOccupiedSamples finalMask.Length (float coundOccupiedSamples / float finalMask.Length)
 
         let countOccupied  = finalMask |> Array.filter (fun x -> x <> 255uy) |> Array.length
         let countUndefined = finalMask |> Array.filter (fun x -> x = 255uy) |> Array.length
-        printfn "[OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
-
+        printfn "[Layer.flattenTyped][OCCUPANCY][e = %d][%A][%A] countOccupied = %d, countUndefined = %d" e finalWindow finalWindow.Size countOccupied countUndefined
+        
+        // rewrite mask (1 ... occupied, 0 ... undefined)
         for i = 0 to finalMask.Length-1 do
             finalMask[i] <- if finalMask[i] = 255uy then 0uy else 1uy
 

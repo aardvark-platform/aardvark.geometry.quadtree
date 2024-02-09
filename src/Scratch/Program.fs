@@ -1354,6 +1354,14 @@ let cp_20240202_quadtreetest () =
             let config = Query.Config.Default //{ Query.Config.Default with Verbose = true }
             let resultCells = qtree |> Query.All config |> Seq.toArray
             let samples = makeReturnValOfQueryResults resultCells Defs.HeightsBilinear4f
+            let samplesLength = samples.Length
+
+            Quadtree.PrintStructure true qtree
+
+            printfn("SAMPLES: count=%d") samplesLength
+            let gs = samples |> List.groupBy (fun (c, v) -> c.Exponent) |> List.map (fun (e, xs) -> (e, xs.Length))
+            for (e, c) in gs do
+                printfn("    e=%d; count=%d") e c
 
             ()
        

@@ -209,8 +209,6 @@ module Builder =
 
                 let flattended = LayerSet.Flatten config.Verbose patches
 
-                failwith "TODO"
-
                 let qnode = QNode(Guid.NewGuid(), ebb, rootCell, config.SplitLimitPowerOfTwo, flattended)
                 
                 if config.Verbose then
