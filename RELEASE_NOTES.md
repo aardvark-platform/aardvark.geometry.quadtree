@@ -1,3 +1,6 @@
+### 0.5.5
+- [builder] flatten layer fix
+
 ### 0.5.4
 - [builder] builder now flattens multiple layer sets into one (at split limit tile size)
   - this fixes a previous sampling problem with layers having masks

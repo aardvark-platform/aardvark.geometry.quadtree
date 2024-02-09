@@ -519,17 +519,23 @@ module Layer =
                                     ()
                             else
                                 if v <> undefinedValue then
-                                    debugCollisionSamples.Add(i) |> ignore
+                                    //debugCollisionSamples.Add(i) |> ignore
                                     debugCountCollisions <- debugCountCollisions + 1
                                     
                                     //if verbose then
                                     //    printfn "[Layer.flattenTyped] COLLISION overwriting value %A from layer %d with value %A from layer %d" finalData[i] finalMask[i] v layerIndex
 
+                                    //printfn "[Layer.flattenTyped] .... overwrite sample %A; %A <- %A" c finalData[i] v
+
+                                    finalData[i] <- v
+                                    finalMask[i] <- layerIndex
+                                    
                                 else
                                     ()
 
                         
-
+            
+            //printfn "[Layer.flattenTyped] .... overwrite sample count: %d" debugCountCollisions
 
             layerIndex <- layerIndex + 1uy
 
