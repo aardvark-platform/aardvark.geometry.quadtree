@@ -163,7 +163,27 @@ module Builder =
             let tileSize = 1 <<< config.SplitLimitPowerOfTwo
             let rootBounds = getBoundsForExponent minSampleExponent rootCell
 
-            if rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize then
+            
+            let patchesPerQuadrant = 
+                rootCell.Children
+                |> Array.map (fun subCell -> 
+                    let subPatches =
+                        patches
+                        |> Array.choose (fun patch ->
+                            let bbQuadrant = subCell.GetBoundsForExponent(patch.SampleExponent)
+                            let r = patch.WithWindow bbQuadrant
+                            //if config.Verbose && r.IsSome then
+                            //    printfn "[build''] | subCell=%A patch.Window=%A bbQuadrant=%A" subCell patch.SampleWindow r.Value.SampleWindow
+                            r
+                            )
+                    (subCell, subPatches)
+                    )
+
+            let patchesPerQuadrantCounts = patchesPerQuadrant |> Array.map (fun (_, ps) -> ps.Length)
+            let canMakeProgress = patchesPerQuadrantCounts |> Array.forall (fun count -> count < n)
+
+            //if rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize then
+            if rootCell.Exponent = minSampleExponent (*&& rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize*) then
             
                 // current tile size has reached the split limit:
                 // 1. sort all patches from fine to coarse (from small to large sample exponents)
@@ -235,8 +255,8 @@ module Builder =
                             |> Array.choose (fun patch ->
                                 let bbQuadrant = subCell.GetBoundsForExponent(patch.SampleExponent)
                                 let r = patch.WithWindow bbQuadrant
-                                if config.Verbose && r.IsSome then
-                                    printfn "[build''] | subCell=%A patch.Window=%A bbQuadrant=%A" subCell patch.SampleWindow r.Value.SampleWindow
+                                //if config.Verbose && r.IsSome then
+                                //    printfn "[build''] | subCell=%A patch.Window=%A bbQuadrant=%A" subCell patch.SampleWindow r.Value.SampleWindow
                                 r
                                 )
                         (subCell, subPatches)
@@ -252,7 +272,12 @@ module Builder =
                 let subNodes = patchesPerQuadrant |> Array.map (fun (subCell, subPatches) ->
                     match subPatches.Length with
                     | 0 -> NoNode
-                    | _ -> build'' config subCell subPatches
+                    | _ ->
+
+                        let subnode = build'' config subCell subPatches
+                        match subnode with
+                        | NoNode -> failwith "AAAARGH"
+                        | _ -> subnode
                     )
 
                 let hasMask = subNodes |> Array.exists (fun n -> n.HasMask)

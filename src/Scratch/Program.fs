@@ -1337,7 +1337,7 @@ let cp_20240202_quadtreetest () =
             printfn("total samples count with e = %d: %d; count NaN = %d") e sampleCount sampleCountNan
 
         let sw = Stopwatch.StartNew()
-        let buildConfig = { BuildConfig.Default with Verbose = false }
+        let buildConfig = { BuildConfig.Default with Verbose = false; SplitLimitPowerOfTwo = 8 }
         let maybeQuadtree = x.Build2 buildConfig
         sw.Stop()
         printfn "[TIMING] build: %A" sw.Elapsed
@@ -1372,7 +1372,26 @@ let cp_20240202_quadtreetest () =
             sw.Stop()
             printfn "[TIMING] query all samples: %A" sw.Elapsed
 
-            Quadtree.PrintStructure true qtree
+
+            do
+
+                let sw = Stopwatch.StartNew()
+                let options = SerializationOptions.NewInMemoryStore(verbose = false)
+                let id = qtree |> Quadtree.Save options
+                sw.Stop()
+                printfn "[TIMING] save octree to store  : %A" sw.Elapsed
+
+                let sw = Stopwatch.StartNew()
+                let qtreeReloaded = Quadtree.Load options id
+                sw.Stop()
+                printfn "[TIMING] load octree from store: %A" sw.Elapsed
+              
+
+                printfn "quadtree (original) has a total of %d nodes" (Quadtree.CountNodes true qtree)
+                printfn "quadtree (reloaded) has a total of %d nodes" (Quadtree.CountNodes true qtreeReloaded)
+                ()
+
+            //Quadtree.PrintStructure true qtree
 
             printfn("SAMPLES: count=%d") samplesLength
             let gs = samples 

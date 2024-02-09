@@ -1,3 +1,6 @@
+### 0.5.6
+- [builder] quadtree build fix (experimental)
+
 ### 0.5.5
 - [builder] flatten layer fix
 

@@ -170,6 +170,9 @@ module Query =
                 else
                     // dominated sample IS NOT interfered with -> return
                     if config.Verbose then printfn "[mergeDominating] YIELD non-dominating sample: %A" (y.GetSampleCells())
+
+                    //match y.Node with | NoNode -> failwith "Invariant 5e786252-dbfe-4ff2-9e6c-0d59460f7ac9" | _ -> ()
+
                     yield y
 
             mergeDominatingT0.Stop()
@@ -280,9 +283,15 @@ module Query =
                         for i = 0 to 3 do
                             let aSub = a.SubNodes.[i]
                             let bSub = b.SubNodes.[i]
-                            if config.Verbose then printfn "[QUADRANTS %d] %A %A" i aSub.ExactBoundingBox bSub.ExactBoundingBox
-                            let r = recurse aSub bSub |> Seq.toList
-                            if r.Length > 0 then yield! r
+
+                            match aSub, bSub with
+                            | NoNode, NoNode -> ()
+                            | NoNode, _      -> failwith "Invariant 8f6fbd3d-658e-422b-9643-c4916f48c208."
+                            | _     , NoNode -> failwith "Invariant 43f654ad-a1cc-490a-9902-b0b218da6a95."
+                            | _              ->
+                                if config.Verbose then printfn "[QUADRANTS %d] %A %A" i aSub.ExactBoundingBox bSub.ExactBoundingBox
+                                let r = recurse aSub bSub |> Seq.toList
+                                if r.Length > 0 then yield! r
             
                     | InMemoryInner a, InMemoryNode b ->
                         if firstContainsSecond then
