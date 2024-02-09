@@ -1,3 +1,8 @@
+### 0.5.4
+- [builder] builder now flattens multiple layer sets into one (at split limit tile size)
+  - this fixes a previous sampling problem with layers having masks
+  - this also massively improves performance for querying/sampling
+
 ### 0.5.3
 - [builder] save/load, export/import
 
