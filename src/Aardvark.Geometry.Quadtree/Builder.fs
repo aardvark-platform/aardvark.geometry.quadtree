@@ -112,6 +112,7 @@ module Builder =
 
     let rec private build'' (config : BuildConfig) (rootCell : Cell2d) (patches : LayerSet[]) =
     
+        // sample size (sample exponent) of highest-resolution patch
         let minSampleExponent = patches |> Seq.map (fun p -> p.SampleExponent) |> Seq.min
 
         if config.Verbose then
@@ -125,6 +126,8 @@ module Builder =
 
         | 0 -> 
 
+            //printfn "[00000] %d" rootCell.Exponent
+
             if config.Verbose then
                 printfn "[build''] ZERO patches"
 
@@ -132,6 +135,8 @@ module Builder =
 
         | 1 ->
             
+            //printfn "[11111] %d" rootCell.Exponent
+
             if config.Verbose then
                 printfn "[build''] SINGLE patch (%A)" patches[0].SampleWindow
 
@@ -141,6 +146,8 @@ module Builder =
 
         | 2 ->
             
+            //printfn "[22222] %d" rootCell.Exponent
+
             if config.Verbose then
                 printfn "[build''] TWO patches (%A, %A)" patches[0].SampleWindow patches[1].SampleWindow
 
@@ -151,6 +158,8 @@ module Builder =
 
         | n -> // n patches
         
+            //printfn "[nnnnn] %d" rootCell.Exponent
+
             if config.Verbose then
                 printfn "[build''] MULTIPLE patches (n=%d)" patches.Length
 
@@ -160,30 +169,41 @@ module Builder =
                 (fun () -> sprintf "Expected config.SplitLimitPowerOfTwo to be non-negative, but found %d." config.SplitLimitPowerOfTwo)
                 "95c43529-9649-42d6-9b47-c6f8fb6da301"
 
-            let tileSize = 1 <<< config.SplitLimitPowerOfTwo
+            let mutable forceFlatten = false
+            //let tileSize = 1 <<< config.SplitLimitPowerOfTwo
+
+            // bounds of root cell at level of highest-resolution patch
             let rootBounds = getBoundsForExponent minSampleExponent rootCell
 
-            
-            let patchesPerQuadrant = 
-                rootCell.Children
-                |> Array.map (fun subCell -> 
-                    let subPatches =
-                        patches
-                        |> Array.choose (fun patch ->
-                            let bbQuadrant = subCell.GetBoundsForExponent(patch.SampleExponent)
-                            let r = patch.WithWindow bbQuadrant
-                            //if config.Verbose && r.IsSome then
-                            //    printfn "[build''] | subCell=%A patch.Window=%A bbQuadrant=%A" subCell patch.SampleWindow r.Value.SampleWindow
-                            r
-                            )
-                    (subCell, subPatches)
-                    )
+            // if all remaining patches have the same resolution, then we can flatten all layers
+            // (because there can be no troubles with overlapping samples of different sizes)
+            if (patches |> Seq.distinctBy (fun p -> p.SampleExponent) |> Seq.tryExactlyOne).IsSome then
+                forceFlatten <- true
 
-            let patchesPerQuadrantCounts = patchesPerQuadrant |> Array.map (fun (_, ps) -> ps.Length)
-            let canMakeProgress = patchesPerQuadrantCounts |> Array.forall (fun count -> count < n)
+            let patchesWithMinExp = patches |> Array.filter (fun p -> p.SampleExponent = minSampleExponent)
+            if patchesWithMinExp |> Array.exists (fun p -> p.SampleWindow.Contains(rootBounds)) then
+                forceFlatten <- true
+
+            //let patchesPerQuadrant = 
+            //    rootCell.Children
+            //    |> Array.map (fun subCell -> 
+            //        let subPatches =
+            //            patches
+            //            |> Array.choose (fun patch ->
+            //                let bbQuadrant = subCell.GetBoundsForExponent(patch.SampleExponent)
+            //                let r = patch.WithWindow bbQuadrant
+            //                //if config.Verbose && r.IsSome then
+            //                //    printfn "[build''] | subCell=%A patch.Window=%A bbQuadrant=%A" subCell patch.SampleWindow r.Value.SampleWindow
+            //                r
+            //                )
+            //        (subCell, subPatches)
+            //        )
+
+            //let patchesPerQuadrantCounts = patchesPerQuadrant |> Array.map (fun (_, ps) -> ps.Length)
+            //let canMakeProgress = patchesPerQuadrantCounts |> Array.forall (fun count -> count < n)
 
             //if rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize then
-            if rootCell.Exponent = minSampleExponent (*&& rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize*) then
+            if rootCell.Exponent = minSampleExponent || forceFlatten (*&& rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize*) then
             
                 // current tile size has reached the split limit:
                 // 1. sort all patches from fine to coarse (from small to large sample exponents)
