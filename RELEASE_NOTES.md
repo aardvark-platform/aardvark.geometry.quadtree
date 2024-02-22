@@ -1,3 +1,6 @@
+### 0.5.7
+- fix Sample.PositionsWithBounds (dict trygetvalue fails when key does not exist, probably due to uninitialized tuple)
+
 ### 0.5.6
 - [builder] quadtree build fix (experimental)
 
