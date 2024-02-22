@@ -698,8 +698,12 @@ module Sample =
                                 for i = 0 to r.Positions.Length - 1 do
                                     let p = r.Positions.[i]
                                     let c = r.Cells.[i]
-                                    let (found, (n0, c0)) = result.TryGetValue(p)
-                                    if found then
+                                    
+                                    
+                                    //let (found, (n0, c0)) = result.TryGetValue(p)  // this somehow throws a nullreferenceexception when key does not exist 
+                                    //if found then                                  // (probably the compiler generates some code which accesses the out param tuple which is not initialized ...)
+                                    if (result.ContainsKey(p)) then
+                                        let (n0, c0) = result[p]
                                         if c.Exponent < c0.Exponent then result.[p] <- (r.Node, c)
                                     else
                                         result.[p] <- (r.Node, c)
