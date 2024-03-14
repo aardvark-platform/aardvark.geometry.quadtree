@@ -1464,10 +1464,46 @@ let cp_20240219_quadtreetest () =
        
     ()
 
+let cp_20240311_quadtree_exception () =
+
+    let path = @"W:\Datasets\Vgm\Quadtree\20240311_exception";
+
+    printfn "path = %s" path
+
+    let options = SerializationOptions.NewInMemoryStore(verbose = false)
+
+    let idFile = Guid(File.ReadAllText(@"W:\Datasets\Vgm\Quadtree\20240311_exception\builder.20240311093003.638457462036830406.key.txt"))
+    let builderReloadedFile = Builder.Import(path, idFile)
+    match builderReloadedFile with
+    | None   -> printfn "reloaded from file = None"
+    | Some x ->
+        printfn "reloaded from file, %d patches" (x.GetPatches() |> Seq.length)
+
+        let sw = Stopwatch.StartNew()
+        let buildConfig = { BuildConfig.Default with Verbose = false; SplitLimitPowerOfTwo = 8 }
+        let maybeQuadtree = x.Build2 buildConfig
+        sw.Stop()
+        printfn "[TIMING] build: %A" sw.Elapsed
+
+        match maybeQuadtree with
+        | None -> failwith ""
+        | Some qtree ->
+            
+            let pos = V2d(66077.6476628291, 270082.243676802)
+            match Sample.Position Query.Config.Default pos qtree with
+            | None -> failwith "foo"
+            | Some x -> printfn "sample is: %A" x
+
+            ()
+       
+    ()
+
 [<EntryPoint>]
 let main argv =
  
-    cp_20240219_quadtreetest ()
+    cp_20240311_quadtree_exception ()
+
+    //cp_20240219_quadtreetest ()
 
     //test_20240208 ()
 
