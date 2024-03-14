@@ -58,7 +58,7 @@ module Builder =
 
                     invariantm (rootCell.Exponent < requiredRootCellSplitLimit) 
                         (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellSplitLimit %d." rootCell.Exponent requiredRootCellSplitLimit)
-                        "4911adf3-7b87-4234-9bcc-bc3076df846e"
+                        "7c86e0cc-950f-470f-a1c5-7cbcff1173d4"
 
                     if config.Verbose then
                         printfn "[build'] must adjust root cell %A exponent to %d" rootCell requiredRootCellSplitLimit
@@ -331,7 +331,7 @@ type Builder () =
 
         if isEmpty then
             layerCount <- patch.Layers.Length
-            isEmpty <- true
+            isEmpty <- false
 
         invariantm 
             (patch.Layers.Length = layerCount)
@@ -374,12 +374,12 @@ type Builder () =
     /// Add multiple patches.
     member this.AddRange (patches : seq<LayerSet>) : unit =
         for patch in patches do this.Add(patch)
-
+       
     /// Build a quadtree from all the patches that have been added to this builder.
     member this.Build (config : BuildConfig) : QNodeRef option =
     
         let mutable mergesCount = 0
-
+        
         patches 
         // (1) sort per-resolution patch lists from coarse to fine resolution ...
         |> Seq.sortByDescending (fun kv -> kv.Key) |> Seq.map (fun kv -> kv.Value)
@@ -395,7 +395,7 @@ type Builder () =
                 Quadtree.Merge Dominance.SecondDominates state item |> Some
             ) 
             None // initial state
-
+    
     /// Build a quadtree from all the patches that have been added to this builder.
     member this.Build2 (config : BuildConfig) : QNodeRef option =
         let allPatches = this.GetPatches()
