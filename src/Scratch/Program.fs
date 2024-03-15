@@ -1480,21 +1480,42 @@ let cp_20240311_quadtree_exception () =
         printfn "reloaded from file, %d patches" (x.GetPatches() |> Seq.length)
 
         let sw = Stopwatch.StartNew()
-        let buildConfig = { BuildConfig.Default with Verbose = false; SplitLimitPowerOfTwo = 8 }
+        let buildConfig = { BuildConfig.Default with Verbose = true; SplitLimitPowerOfTwo = 8 }
         let maybeQuadtree = x.Build2 buildConfig
         sw.Stop()
         printfn "[TIMING] build: %A" sw.Elapsed
 
         match maybeQuadtree with
-        | None -> failwith ""
+        | None -> failwith "build failed"
         | Some qtree ->
             
-            let pos = V2d(66077.6476628291, 270082.243676802)
-            match Sample.Position Query.Config.Default pos qtree with
-            | None -> failwith "foo"
-            | Some x -> printfn "sample is: %A" x
+            let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) (def : Aardvark.Data.Durable.Def) =
+                
+                let samples =
+                    resultChunk
+                    |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> def)
+                    |> Seq.toList
 
-            ()
+                samples
+
+            let sw = Stopwatch.StartNew()
+            let config = Query.Config.Default //{ Query.Config.Default with Verbose = true }
+            let resultCells = qtree |> Query.All config |> Seq.toArray
+            let samples = makeReturnValOfQueryResults resultCells Defs.HeightsBilinear4f
+            let samplesLength = samples.Length
+            sw.Stop()
+            printfn "[TIMING] query all samples: %A" sw.Elapsed
+
+            printfn("SAMPLES: count=%d") samplesLength
+            let gs = samples 
+                     |> List.groupBy (fun (c, v) -> c.Exponent)
+                     |> List.map (fun (e, xs) ->
+                        let countNaN = xs |> Seq.filter(fun (_, x) -> x.IsNaN) |> Seq.length
+                        (e, xs.Length, countNaN)
+                        )
+            for (e, c, cNaN) in gs do
+                printfn("    e=%d; count=%d; count NaN=%d") e c cNaN
+            
        
     ()
 

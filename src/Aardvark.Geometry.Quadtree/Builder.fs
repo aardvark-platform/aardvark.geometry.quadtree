@@ -126,8 +126,6 @@ module Builder =
 
         | 0 -> 
 
-            //printfn "[00000] %d" rootCell.Exponent
-
             if config.Verbose then
                 printfn "[build''] ZERO patches"
 
@@ -135,8 +133,6 @@ module Builder =
 
         | 1 ->
             
-            //printfn "[11111] %d" rootCell.Exponent
-
             if config.Verbose then
                 printfn "[build''] SINGLE patch (%A)" patches[0].SampleWindow
 
@@ -146,8 +142,6 @@ module Builder =
 
         | 2 ->
             
-            //printfn "[22222] %d" rootCell.Exponent
-
             if config.Verbose then
                 printfn "[build''] TWO patches (%A, %A)" patches[0].SampleWindow patches[1].SampleWindow
 
@@ -158,52 +152,37 @@ module Builder =
 
         | n -> // n patches
         
-            //printfn "[nnnnn] %d" rootCell.Exponent
-
             if config.Verbose then
                 printfn "[build''] MULTIPLE patches (n=%d)" patches.Length
 
-            let ebb = patches |> Seq.map (fun patch -> patch.BoundingBox) |> Box2d
-            
             invariantm (config.SplitLimitPowerOfTwo >= 0) 
                 (fun () -> sprintf "Expected config.SplitLimitPowerOfTwo to be non-negative, but found %d." config.SplitLimitPowerOfTwo)
                 "95c43529-9649-42d6-9b47-c6f8fb6da301"
-
-            let mutable forceFlatten = false
-            //let tileSize = 1 <<< config.SplitLimitPowerOfTwo
-
-            // bounds of root cell at level of highest-resolution patch
+                
+            // exact bounding box in global space
+            let ebb = patches |> Seq.map (fun patch -> patch.BoundingBox) |> Box2d
+            
+            // bounds of root cell in sample space (at sample level of highest-resolution patch)
             let rootBounds = getBoundsForExponent minSampleExponent rootCell
 
             // if all remaining patches have the same resolution, then we can flatten all layers
             // (because there can be no troubles with overlapping samples of different sizes)
-            if (patches |> Seq.distinctBy (fun p -> p.SampleExponent) |> Seq.tryExactlyOne).IsSome then
-                forceFlatten <- true
+            let allRemainingPatchesHaveSameResolution = 
+                (patches |> Seq.distinctBy (fun p -> p.SampleExponent) |> Seq.tryExactlyOne).IsSome
+
+            if config.Verbose then
+                if allRemainingPatchesHaveSameResolution then
+                    printfn "[build''] FLATTEN all %d patches, because they have same resolution" patches.Length
+                else
+                    printfn "[build''] DO NOT FLATTEN %d patches, because different resolutions" patches.Length
+
 
             let patchesWithMinExp = patches |> Array.filter (fun p -> p.SampleExponent = minSampleExponent)
-            if patchesWithMinExp |> Array.exists (fun p -> p.SampleWindow.Contains(rootBounds)) then
-                forceFlatten <- true
+            let forceFlatten = patchesWithMinExp |> Array.exists (fun p -> p.SampleWindow.Contains(rootBounds))
 
-            //let patchesPerQuadrant = 
-            //    rootCell.Children
-            //    |> Array.map (fun subCell -> 
-            //        let subPatches =
-            //            patches
-            //            |> Array.choose (fun patch ->
-            //                let bbQuadrant = subCell.GetBoundsForExponent(patch.SampleExponent)
-            //                let r = patch.WithWindow bbQuadrant
-            //                //if config.Verbose && r.IsSome then
-            //                //    printfn "[build''] | subCell=%A patch.Window=%A bbQuadrant=%A" subCell patch.SampleWindow r.Value.SampleWindow
-            //                r
-            //                )
-            //        (subCell, subPatches)
-            //        )
+            let stopRecursion = rootCell.Exponent = minSampleExponent || forceFlatten || (allRemainingPatchesHaveSameResolution && rootCell.Exponent < minSampleExponent + config.SplitLimitPowerOfTwo)
 
-            //let patchesPerQuadrantCounts = patchesPerQuadrant |> Array.map (fun (_, ps) -> ps.Length)
-            //let canMakeProgress = patchesPerQuadrantCounts |> Array.forall (fun count -> count < n)
-
-            //if rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize then
-            if rootCell.Exponent = minSampleExponent || forceFlatten (*&& rootBounds.Size.X <= tileSize && rootBounds.Size.Y <= tileSize*) then
+            if stopRecursion then
             
                 // current tile size has reached the split limit:
                 // 1. sort all patches from fine to coarse (from small to large sample exponents)
@@ -213,7 +192,10 @@ module Builder =
                 //    -> a mask indicates non-defined samples
                 
                 if config.Verbose then
-                    printfn "[build''] MERGE %d patches; because reached split limit" n
+                    if forceFlatten then
+                        printfn "[build''] MERGE %d patches (forceFlatten = true)" n
+                    else
+                        printfn "[build''] MERGE %d patches; because reached split limit" n
 
                 //if debugOutput then
                 //    let bbWindow = patches |> Seq.map (fun patch -> patch.SampleWindow) |> Box2l
@@ -228,24 +210,25 @@ module Builder =
                     
                 let mutable rootCell = rootCell
                 
-                if requiredRootCellExponent <> rootCell.Exponent then
+                if not forceFlatten then
+                    if requiredRootCellExponent <> rootCell.Exponent then
 
-                    invariantm (rootCell.Exponent < requiredRootCellExponent) 
-                        (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellExponent %d." rootCell.Exponent requiredRootCellExponent)
-                        "4911adf3-7b87-4234-9bcc-bc3076df846e"
+                        invariantm (rootCell.Exponent < requiredRootCellExponent) 
+                            (fun () -> sprintf "Expected root cell exponent %d to be smaller than requiredRootCellExponent %d." rootCell.Exponent requiredRootCellExponent)
+                            "4911adf3-7b87-4234-9bcc-bc3076df846e"
 
-                    if config.Verbose then
-                        printfn "[build''] | must adjust root cell %A exponent to %d ..." rootCell requiredRootCellExponent
+                        if config.Verbose then
+                            printfn "[build''] | must adjust root cell %A exponent to %d ..." rootCell requiredRootCellExponent
 
-                    while rootCell.Exponent < requiredRootCellExponent do rootCell <- rootCell.Parent
+                        while rootCell.Exponent < requiredRootCellExponent do rootCell <- rootCell.Parent
 
-                    if config.Verbose then
-                        printfn "[build''] | adjusted root cell is %A" rootCell
+                        if config.Verbose then
+                            printfn "[build''] | adjusted root cell is %A" rootCell
 
-                else
+                    else
 
-                    if config.Verbose then
-                        printfn "[build''] | root cell %A already has requiredRootCellExponent %d" rootCell requiredRootCellExponent
+                        if config.Verbose then
+                            printfn "[build''] | root cell %A already has requiredRootCellExponent %d" rootCell requiredRootCellExponent
 
                 let flattended = LayerSet.Flatten config.Verbose patches
 
