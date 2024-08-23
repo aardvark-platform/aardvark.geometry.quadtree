@@ -1519,10 +1519,68 @@ let cp_20240311_quadtree_exception () =
        
     ()
 
+let cp_20240821_query_quadtreetest () =
+
+    let path = @"W:\Datasets\Vgm\Quadtree\20240821_query_quadtreetest";
+
+    printfn "path = %s" path
+
+    let options = SerializationOptions.NewInMemoryStore(verbose = false)
+
+    let idFile = Guid(File.ReadAllText(@"W:\Datasets\Vgm\Quadtree\20240821_query_quadtreetest\builder.20240821101057.638598318576754995.key.txt"))
+    let builderReloadedFile = Builder.Import(path, idFile)
+    match builderReloadedFile with
+    | None   -> printfn "reloaded from file = None"
+    | Some x ->
+        printfn "reloaded from file, %d patches" (x.GetPatches() |> Seq.length)
+
+        let sw = Stopwatch.StartNew()
+        let buildConfig = { BuildConfig.Default with Verbose = false; SplitLimitPowerOfTwo = 8 }
+        let maybeQuadtree = x.Build2 buildConfig
+        sw.Stop()
+        printfn "[TIMING] build: %A" sw.Elapsed
+
+        match maybeQuadtree with
+        | None -> failwith "build failed"
+        | Some qtree ->
+            
+            let makeReturnValOfQueryResults (resultChunk : seq<Query.Result>) (def : Aardvark.Data.Durable.Def) =
+                
+                let samples =
+                    resultChunk
+                    |> Seq.collect (fun chunk -> chunk.GetSamples<V4f> def)
+                    |> Seq.toList
+
+                samples
+
+            let sw = Stopwatch.StartNew()
+            let config = Query.Config.Default //{ Query.Config.Default with Verbose = true }
+            let resultCells = qtree |> Query.All config |> Seq.toArray
+            let samples = makeReturnValOfQueryResults resultCells Defs.HeightsBilinear4f
+            let samplesLength = samples.Length
+            sw.Stop()
+            printfn "[TIMING] query all samples: %A" sw.Elapsed
+
+            printfn("SAMPLES: count=%d") samplesLength
+            let gs = samples 
+                     |> List.groupBy (fun (c, v) -> c.Exponent)
+                     |> List.map (fun (e, xs) ->
+                        let countNaN = xs |> Seq.filter(fun (_, x) -> x.IsNaN) |> Seq.length
+                        (e, xs.Length, countNaN)
+                        )
+            for (e, c, cNaN) in gs do
+                //printfn("    e=%d; count=%d; count NaN=%d") e c cNaN
+                ()
+            
+       
+    ()
+
 [<EntryPoint>]
 let main argv =
  
-    cp_20240311_quadtree_exception ()
+    cp_20240821_query_quadtreetest ()
+
+    //cp_20240311_quadtree_exception ()
 
     //cp_20240219_quadtreetest ()
 

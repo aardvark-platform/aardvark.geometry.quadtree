@@ -1,3 +1,6 @@
+### 0.5.9
+- fixed special case in query merge code
+
 ### 0.5.8
 - [builder] add build logic for yet more cases
 

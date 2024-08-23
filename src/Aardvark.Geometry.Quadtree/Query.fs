@@ -286,8 +286,14 @@ module Query =
 
                             match aSub, bSub with
                             | NoNode, NoNode -> ()
-                            | NoNode, _      -> failwith "Invariant 8f6fbd3d-658e-422b-9643-c4916f48c208."
-                            | _     , NoNode -> failwith "Invariant 43f654ad-a1cc-490a-9902-b0b218da6a95."
+                            | NoNode, _      -> 
+                                if config.Verbose then printfn "[QUADRANTS %d] NoNode %A" i bSub.ExactBoundingBox
+                                let r = generic bSub |> Seq.toList
+                                if r.Length > 0 then yield! r
+                            | _     , NoNode ->
+                                if config.Verbose then printfn "[QUADRANTS %d] %A NoNode" i aSub.ExactBoundingBox
+                                let r = generic aSub |> Seq.toList
+                                if r.Length > 0 then yield! r
                             | _              ->
                                 if config.Verbose then printfn "[QUADRANTS %d] %A %A" i aSub.ExactBoundingBox bSub.ExactBoundingBox
                                 let r = recurse aSub bSub |> Seq.toList
