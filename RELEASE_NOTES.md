@@ -1,3 +1,6 @@
+### 0.6.0
+- updated dependencies
+
 ### 0.5.9
 - fixed special case in query merge code
 
