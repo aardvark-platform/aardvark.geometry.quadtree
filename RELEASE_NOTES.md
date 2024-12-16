@@ -1,3 +1,7 @@
+### 0.6.1
+- update dependencies
+- fix Sample.Position
+
 ### 0.6.0
 - updated dependencies
 
