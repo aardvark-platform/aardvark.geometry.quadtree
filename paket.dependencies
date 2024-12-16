@@ -3,16 +3,16 @@ source https://api.nuget.org/v3/index.json
 storage: none
 framework: auto-detect
 
-nuget FSharp.Core                       >= 5.0.0 lowest_matching: true
-nuget System.Collections.Immutable      >= 6.0.0 lowest_matching: true
-nuget Aardvark.Build                    ~> 1.0.18
+nuget FSharp.Core                       >= 8.0.0 lowest_matching: true
+nuget System.Collections.Immutable      >= 8.0.0 lowest_matching: true
+nuget Aardvark.Build                    ~> 2.0.3
 
-nuget Aardvark.Base                     ~> 5.3.0
+nuget Aardvark.Base                     ~> 5.3.4
 nuget Aardvark.Data.Durable             ~> 0.4.4
 nuget Aardvark.Data.Durable.Codec       ~> 0.4.4
-nuget Uncodium.SimpleStore              ~> 3.0.22
+nuget Uncodium.SimpleStore              ~> 3.0.30
 
-nuget xunit                             ~> 2.4.2
-nuget xunit.runner.visualstudio         ~> 2.4.5
-nuget coverlet.collector                ~> 3.2.0
-nuget Microsoft.NET.Test.Sdk            ~> 17.4.1
+nuget xunit                             ~> 2.9.2
+nuget xunit.runner.visualstudio         ~> 2.8.2
+nuget coverlet.collector                ~> 6.0.2
+nuget Microsoft.NET.Test.Sdk            ~> 17.12.0
