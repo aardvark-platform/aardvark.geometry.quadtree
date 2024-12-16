@@ -1575,10 +1575,50 @@ let cp_20240821_query_quadtreetest () =
        
     ()
 
+let bug_20241210 () =
+
+    let path = @"W:\Datasets\Vgm\Data\2024-12-10_bugreport\quadtree";
+
+    printfn "path = %s" path
+
+    let options = SerializationOptions.NewInMemoryStore(verbose = false)
+
+    let idFile = Guid(File.ReadAllText(@"W:\Datasets\Vgm\Data\2024-12-10_bugreport\quadtree\builder.20241211102935.638695097756085960.key.txt"))
+    let builderReloadedFile = Builder.Import(path, idFile)
+    match builderReloadedFile with
+    | None   -> printfn "reloaded from file = None"
+    | Some x ->
+        printfn "reloaded from file, %d patches" (x.GetPatches() |> Seq.length)
+
+        let sw = Stopwatch.StartNew()
+        let buildConfig = { BuildConfig.Default with Verbose = false; SplitLimitPowerOfTwo = 8 }
+        let maybeQuadtree = x.Build2 buildConfig
+        sw.Stop()
+        printfn "[TIMING] build: %A" sw.Elapsed
+
+        match maybeQuadtree with
+        | None -> failwith "build failed"
+        | Some qtree ->
+            
+            let maybeResult = qtree |> Sample.Position Query.Config.Default (V2d(72461.87, 266019.70)) 
+
+            match maybeResult with
+            | None -> failwith "query failed"
+            | Some result ->
+                
+                printfn "%A" result
+
+            ()
+            
+       
+    ()
+
 [<EntryPoint>]
 let main argv =
  
-    cp_20240821_query_quadtreetest ()
+    bug_20241210 ()
+
+    //cp_20240821_query_quadtreetest ()
 
     //cp_20240311_quadtree_exception ()
 

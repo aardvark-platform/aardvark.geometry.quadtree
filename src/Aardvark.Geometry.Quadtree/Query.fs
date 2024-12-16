@@ -680,7 +680,9 @@ module Sample =
                         let gs = positions |> Array.groupBy getQuadrant
                         for (qi, ps) in gs do
                             if ps.Length > 0 then
-                                yield! PositionsWithBounds config ps (Box2d(ps)) (n.SubNodes.[qi])
+                                match n.SubNodes.[qi] with
+                                | NoNode  -> ()
+                                | subnode -> yield! PositionsWithBounds config ps (Box2d(ps)) subnode
 
                 | LinkedNode n -> yield! PositionsWithBounds config positions positionsBounds n.Target
 
