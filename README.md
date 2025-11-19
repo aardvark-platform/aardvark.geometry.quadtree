@@ -1,6 +1,7 @@
-[![windows](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/windows.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/windows.yml)
-[![linux](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/linux.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/linux.yml)
-[![macos](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/macos.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/macos.yml)
+[![Build](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/build.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/build.yml)
+[![Publish](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/publish.yml/badge.svg)](https://github.com/aardvark-platform/aardvark.geometry.quadtree/actions/workflows/publish.yml)
+[![Nuget](https://img.shields.io/nuget/vpre/aardvark.geometry.quadtree)](https://www.nuget.org/packages/aardvark.geometry.quadtree/)
+[![Downloads](https://img.shields.io/nuget/dt/aardvark.geometry.quadtree)](https://www.nuget.org/packages/aardvark.geometry.quadtree/)
 
 # Overview
 This library provides tools for out-of-core processing of unbounded multi-layer raster data.
