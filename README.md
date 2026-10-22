@@ -197,17 +197,20 @@ Quadtree.Merge (d : Dominance) (first : QNodeRef) (second : QNodeRef) : QNodeRef
 
 The `dominance` parameter is used to control which samples will be used in overlapping areas, where both the first and second quadtree contain samples:
 
-Dominance               | Description
------------------------ | -----------
-`MoreDetailedDominates` | Finer resolution wins. If the same, than it is undefined if  data from the first or second quadtree is used.   
-`FirstDominates`        | First quadtree always wins.
-`SecondDominates`       | Second quadtree always wins.
+Dominance              | Description
+---------------------- | -----------
+`MoreDetailedOrFirst`  | Finer resolution wins. If the same, first quadtree wins.
+`MoreDetailedOrSecond` | Finer resolution wins. If the same, second quadtree wins.
+`FirstDominates`       | First quadtree always wins.
+`SecondDominates`      | Second quadtree always wins.
+
+Samples masked out by a layer's mask (holes) never win.
 
 ```fsharp
 let firstQuadtree = ...
 let secondQuadtree = ...
 
-let mergedQuadtree = Quadtree.Merge MoreDetailedDominates firstQuadtree secondQuadtree
+let mergedQuadtree = Quadtree.Merge MoreDetailedOrSecond firstQuadtree secondQuadtree
 ```
 
 

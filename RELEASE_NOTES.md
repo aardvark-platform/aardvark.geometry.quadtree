@@ -1,3 +1,14 @@
+### 0.6.2
+- update Aardvark.Base 5.3.28 (works with any Aardvark.Base 5.3.x)
+- root and node cells are derived from sample cells instead of Cell2d(Box2d), independent of Aardvark.Base box semantics (#5)
+- no superfluous levels for data ending on a cell boundary; query and sample results are unchanged, tree structure (root cell, node count) changes for such data
+- fix MoreDetailedOrFirst/MoreDetailedOrSecond merges of trees with different cells or resolutions (duplicate or wrong samples, invariant a2175093)
+- fix merges dropping data inside gaps or masked holes of the dominating quadtree
+- queries skip masked samples
+- fix saving layers with masks (Layer.Materialize)
+- fix Builder creating child nodes with wrong cells at the split limit
+- tests run in CI and before publishing
+
 ### 0.6.1
 - update dependencies
 - fix Sample.Position
