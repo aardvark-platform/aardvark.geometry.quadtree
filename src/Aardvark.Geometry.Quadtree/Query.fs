@@ -181,15 +181,23 @@ module Query =
         let result = resultSeq |> Seq.toArray
         result
 
+    /// Finer samples dominate coarser samples, xs dominate ys at equal resolution.
+    let private mergeMoreDetailedPerSample (config : Config) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result list =
+        (xs |> List.map (fun r -> ((r.Node.SampleExponent, 0), r))) @ (ys |> List.map (fun r -> ((r.Node.SampleExponent, 1), r)))
+        |> List.groupBy fst
+        |> List.sortBy fst
+        |> List.map (snd >> List.map snd)
+        |> List.reduce (fun dominating dominated -> mergeDominatingPerSample config dominating dominated isSampleInside |> Seq.toList)
+
     let private mergePerSample (config : Config) (dom : Dominance) (xs : Result list) (ys : Result list) (isSampleInside : Cell2d -> bool) : Result list =
         match xs |> Seq.isEmpty, ys |> Seq.isEmpty with
         // both sequences contain values
         | false, false ->
             match dom with
-            | FirstDominates
-            | MoreDetailedOrFirst  -> mergeDominatingPerSample config xs ys isSampleInside |> Seq.toList
-            | SecondDominates
-            | MoreDetailedOrSecond -> mergeDominatingPerSample config ys xs isSampleInside |> Seq.toList
+            | FirstDominates       -> mergeDominatingPerSample config xs ys isSampleInside |> Seq.toList
+            | SecondDominates      -> mergeDominatingPerSample config ys xs isSampleInside |> Seq.toList
+            | MoreDetailedOrFirst  -> mergeMoreDetailedPerSample config xs ys isSampleInside
+            | MoreDetailedOrSecond -> mergeMoreDetailedPerSample config ys xs isSampleInside
         // xs contains values, ys is empty -> no need to merge, just return xs
         | false, true  -> xs
         // xs is empty -> no need to merge, just return ys
@@ -279,7 +287,7 @@ module Query =
                     if config.Verbose then printfn "[merge'] MoreDetailedOrFirst"
 
                     match first, second with
-                    | InMemoryInner a, InMemoryInner b ->
+                    | InMemoryInner a, InMemoryInner b when a.Cell = b.Cell ->
                         for i = 0 to 3 do
                             let aSub = a.SubNodes.[i]
                             let bSub = b.SubNodes.[i]
@@ -298,30 +306,8 @@ module Query =
                                 if config.Verbose then printfn "[QUADRANTS %d] %A %A" i aSub.ExactBoundingBox bSub.ExactBoundingBox
                                 let r = recurse aSub bSub |> Seq.toList
                                 if r.Length > 0 then yield! r
-            
-                    | InMemoryInner a, InMemoryNode b ->
-                        if firstContainsSecond then
-                            // mode is MoreDetailedOrFirst:
-                            // first is definitely more detailed than second (it has subnodes, but second does not)
-                            // and first completely overlaps second (so there is no rest from second visible outside bounds of first)
-                            // -> therefore we can safely ignore second
-                            if config.Verbose then printfn "[merge'] MoreDetailedOrFirst -> firstContainsSecond -> FIRST ONLY"
-                            let r = generic first |> Seq.toList
-                            if r.Length > 0 then yield! r
-
-                        else
-                            if config.Verbose then 
-                                printfn "[merge'][FIRST  %A] %A" first.Cell first.ExactBoundingBox
-                                Quadtree.PrintStructure true first
-                                printfn "[merge'][SECOND %A] %A" second.Cell second.ExactBoundingBox
-                                Quadtree.PrintStructure true second
-
-                            let r = perSampleMerge first second
-                            if r.Length > 0 then yield! r
-                            ()
 
                     | _ ->
-                        //failwith "Falling back to per-sample merge."
                         let r = perSampleMerge first second
                         if r.Length > 0 then yield! r
 
