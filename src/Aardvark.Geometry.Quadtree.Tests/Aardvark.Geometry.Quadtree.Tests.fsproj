@@ -22,6 +22,7 @@
     <Compile Include="DataMappingTests.fs" />
     <Compile Include="LayerTests.fs" />
     <Compile Include="QuadtreeTests.fs" />
+    <Compile Include="BuilderTests.fs" />
     <Compile Include="MergeTests.fs" />
     <Compile Include="MergeOracleTests.fs" />
     <Compile Include="StructureTests.fs" />

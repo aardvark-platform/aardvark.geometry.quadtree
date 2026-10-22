@@ -180,7 +180,7 @@ module Builder =
             let patchesWithMinExp = patches |> Array.filter (fun p -> p.SampleExponent = minSampleExponent)
             let forceFlatten = patchesWithMinExp |> Array.exists (fun p -> p.SampleWindow.Contains(rootBounds))
 
-            let stopRecursion = rootCell.Exponent = minSampleExponent || forceFlatten || (allRemainingPatchesHaveSameResolution && rootCell.Exponent < minSampleExponent + config.SplitLimitPowerOfTwo)
+            let stopRecursion = rootCell.Exponent = minSampleExponent || forceFlatten || (allRemainingPatchesHaveSameResolution && rootCell.Exponent <= minSampleExponent + config.SplitLimitPowerOfTwo)
 
             if stopRecursion then
             
