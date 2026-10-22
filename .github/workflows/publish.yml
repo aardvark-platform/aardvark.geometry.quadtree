@@ -30,6 +30,9 @@ jobs:
       - name: Restore
         run: dotnet paket restore
 
+      - name: Test
+        run: dotnet test src\Aardvark.Geometry.Quadtree.sln
+
       - name: Pack
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
