@@ -154,27 +154,10 @@ type Layer<'a when 'a : equality>(def : Durable.Def, data : 'a[], mapping : Data
             this
         else
             let size = V2i(mapping.WindowSize)
-            let newArrayLength = int mapping.Window.Area
-            let newdata = Array.zeroCreate<'a>   newArrayLength
-            let mutable i = 0
-            for y = 0 to size.Y - 1 do
-                for x = 0 to size.X - 1 do
-                    let c = Cell2d(mapping.Window.Min.X + int64 x, mapping.Window.Min.Y + int64 y, mapping.BufferOrigin.Exponent)
-                    let s = this.GetSample(Fail, c)
-                    newdata[i] <- s
-                    i <- i + 1
-
-            let newmask = 
-                match mask with
-                | None -> None
-                | Some mask ->
-                    let mutable i = 0
-                    let newmask = Array.zeroCreate<byte> newArrayLength
-                    for y = 0 to size.Y - 1 do
-                        for x = 0 to size.X - 1 do
-                            newmask[i] <- mask[mapping.GetBufferIndex(mapping.BufferOrigin.X + int64 x, mapping.BufferOrigin.Y + int64 y)]
-                            i <- i + 1
-                    Some newmask
+            let bufferIndex i = mapping.GetBufferIndex(mapping.Window.Min.X + int64 (i % size.X), mapping.Window.Min.Y + int64 (i / size.X))
+            let copy (xs : 'b[]) = Array.init (int mapping.Window.Area) (fun i -> xs[bufferIndex i])
+            let newdata = copy data
+            let newmask = mask |> Option.map copy
 
             let m = DataMapping(Cell2d(mapping.Window.Min, mapping.BufferOrigin.Exponent), size)
             Layer<'a>(def, newdata, m, newmask)
@@ -709,6 +692,16 @@ type LayerSet(layers : ILayer[]) =
 
     /// True, if at least one layer has a mask.
     member this.HasMask with get () = this.Layers |> Array.exists (fun x -> x.Mask.IsSome)
+
+    /// True, if no layer masks out the sample containing given cell (cell exponent <= sample exponent).
+    member this.IsSampleDefined (c : Cell2d) : bool =
+        let mutable s = c
+        while s.Exponent < this.SampleExponent do s <- s.Parent
+        layers |> Array.forall (fun l ->
+            match l.Mask with
+            | None -> true
+            | Some mask -> mask.[l.Mapping.GetBufferIndex s] = 1uy
+            )
 
 module LayerSet =
 

@@ -77,15 +77,28 @@ with
 
 module Merge =
 
+    /// True if the samples of n cover its exact bounding box without gaps or holes.
+    /// Subnodes are disjoint quadrants inside the parent's bounding box,
+    /// so they cover it iff their areas sum up to the parent's area.
+    /// Out-of-core nodes are not loaded and conservatively treated as not covering.
+    let rec private isDense (n : QNodeRef) =
+        match n with
+        | InMemoryNode x -> not x.HasMask
+        | InMemoryInner x ->
+            let subs = x.SubNodes |> Array.filter (function NoNode -> false | _ -> true)
+            not x.HasMask
+            && subs |> Array.forall isDense
+            && (subs |> Array.sumBy (fun s -> s.ExactBoundingBox.Area)) = x.ExactBoundingBox.Area
+        | LinkedNode x -> isDense x.Target
+        | NoNode | InMemoryMerge _ | OutOfCoreNode _ -> false
+
+    /// Dominating node, if it completely covers the other node.
     let winner dom (first : QNodeRef) (second : QNodeRef) : QNodeRef option =
-        
-        if first.HasMask || second.HasMask then
-            None
-        else
-            match dom, first.ExactBoundingBox, second.ExactBoundingBox with
-                | FirstDominates,  bb1, bb2 when bb1.Contains(bb2) -> Some first
-                | SecondDominates, bb1, bb2 when bb2.Contains(bb1) -> Some second
-                | _ -> None
+        let covers (a : QNodeRef) (b : QNodeRef) = a.ExactBoundingBox.Contains(b.ExactBoundingBox) && isDense a
+        match dom with
+        | FirstDominates  when covers first second -> Some first
+        | SecondDominates when covers second first -> Some second
+        | _ -> None
             
     let growParent (n : QNodeRef) : QNodeRef = QInnerNode.ofSubNode(n) |> InMemoryInner
 

@@ -52,14 +52,17 @@ module Query =
         Selection : NodeSelection
     }
     with
+        /// Selected sample cells, without samples masked out by the node's layers.
         member this.GetSampleCells () : Cell2d[] =
-            match this.Selection with
-            | NotSelected -> Array.empty
-            | CellsSelected cells -> cells
-            | SubCellsSelected cells -> cells
-            | WindowSelected window -> this.Node.GetAllSamplesInsideWindow(window)
-            | SubtractionSelected second -> this.Node.LayerSet.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.LayerSet.SampleExponent)
-            | FullySelected -> this.Node.GetAllSamples()
+            let cells =
+                match this.Selection with
+                | NotSelected -> Array.empty
+                | CellsSelected cells -> cells
+                | SubCellsSelected cells -> cells
+                | WindowSelected window -> this.Node.GetAllSamplesInsideWindow(window)
+                | SubtractionSelected second -> this.Node.LayerSet.SampleWindow.GetAllSamplesFromFirstMinusSecond(second, this.Node.LayerSet.SampleExponent)
+                | FullySelected -> this.Node.GetAllSamples()
+            if this.Node.HasMask then cells |> Array.filter this.Node.LayerSet.IsSampleDefined else cells
         
         member this.GetSamples<'a when 'a : equality>(def : Durable.Def) : (Cell2d*'a)[] =
             let layer = this.Node.GetLayer<'a>(def)
@@ -228,9 +231,6 @@ module Query =
             //printfn "done %d" (r |> List.sumBy (fun x -> x.GetSampleCells().Length))
             r
 
-        let firstIsFullyOutside = isNodeFullyOutside first
-        let secondIsFullyOutside = isNodeFullyOutside second
-
         match isNodeFullyOutside first, isNodeFullyOutside second with
         
         | true, true ->
@@ -267,26 +267,20 @@ module Query =
             // in-core
             | first, second ->
 
-                let ebb1 = first.ExactBoundingBox
-                let ebb2 = second.ExactBoundingBox
-                let firstContainsSecond = ebb1.Contains(ebb2)
-
                 match dom with
 
-                | FirstDominates       ->
-                    if firstContainsSecond then
-                        if config.Verbose then printfn "[merge'] FirstDominates (firstContainsSecond)"
-                        let r = generic first |> Seq.toList
-                        if r.Length > 0 then yield! r
-                    else
-                        if config.Verbose then printfn "[merge'] FirstDominates (not firstContainsSecond)"
-                        let r = perSampleMerge first second
-                        if r.Length > 0 then yield! r
-
+                | FirstDominates
                 | MoreDetailedOrFirst  ->
-                    if config.Verbose then printfn "[merge'] MoreDetailedOrFirst"
+                    if config.Verbose then printfn "[merge'] %A" dom
 
                     match first, second with
+
+                    // only a leaf without mask is guaranteed to cover its exact bounding box
+                    | InMemoryNode a, _ when dom = FirstDominates && not a.HasMask && a.ExactBoundingBox.Contains(second.ExactBoundingBox) ->
+                        if config.Verbose then printfn "[merge'] first covers second"
+                        let r = generic first |> Seq.toList
+                        if r.Length > 0 then yield! r
+
                     | InMemoryInner a, InMemoryInner b when a.Cell = b.Cell ->
                         for i = 0 to 3 do
                             let aSub = a.SubNodes.[i]
@@ -728,15 +722,15 @@ module Sample =
 
                 | InMemoryNode n ->
 
-                    if nodebb.ContainsMaxExclusive positionsBounds then
-                        // fully inside
-                        let cells = positions |> Array.map n.GetSample
-                        yield { Node = n; Cells = cells; Positions = positions }
-                    else
-                        // partially inside (some positions have no samples)
-                        let ps = positions |> Array.filter nodebb.ContainsMaxExclusive
-                        let cells = ps |> Array.map n.GetSample
-                        yield { Node = n; Cells = cells; Positions = ps }
+                    // positions outside of node bounds or on masked out samples have no samples
+                    let ps =
+                        if nodebb.ContainsMaxExclusive positionsBounds then positions
+                        else positions |> Array.filter nodebb.ContainsMaxExclusive
+                    let ps =
+                        if n.HasMask then ps |> Array.filter (n.GetSample >> n.LayerSet.IsSampleDefined)
+                        else ps
+                    if ps.Length > 0 then
+                        yield { Node = n; Cells = ps |> Array.map n.GetSample; Positions = ps }
 
                 | OutOfCoreNode n ->
                     
