@@ -249,8 +249,7 @@ module Quadtree =
         let sampleExponent = layers.[0].SampleExponent
         let minRootExponent = sampleExponent + config.SplitLimitPowerOfTwo
 
-        let globalBounds = layers |> Array.map Layer.BoundingBox |> Box2d
-        let mutable rootCell = Cell2d(globalBounds)
+        let mutable rootCell = layers.[0].CellBounds
         while rootCell.Exponent < minRootExponent do
             rootCell <- rootCell.Parent
 

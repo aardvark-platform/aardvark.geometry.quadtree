@@ -284,16 +284,15 @@ module StructureTests =
      ************************************************************************************)
 
     [<Fact>]
-    let ``leaf non-centered 1`` () =
- 
-        Assert.ThrowsAny<Exception>(fun () ->
-            createQuadtree { Origin = Cell2d(0); Size = (1,1); Split = 8; Data = [|
-                1.0
-            |]} |> ignore
-            )
+    let ``leaf centered single sample`` () =
+
+        let q = createQuadtree { Origin = Cell2d(0); Size = (1,1); Split = 8; Data = [| 1.0 |] }
+        Assert.True(q.Cell = Cell2d(8))
+        Assert.True(q.IsLeafNode)
+        Assert.True((getAllSamples q = [| (Cell2d(0), 1.0) |]))
 
     [<Fact>]
-    let ``leaf non-centered 2`` () =
+    let ``leaf non-centered`` () =
 
         createQuadtree { Origin = Cell2d(0,0,0); Size = (2,2); Split = 8; Data = [|
             1.0;  2.0; 

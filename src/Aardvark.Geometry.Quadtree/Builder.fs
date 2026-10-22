@@ -292,7 +292,7 @@ module Builder =
     /// Creates a quadtree from many small patches.
     let Build (config : BuildConfig) (patches : LayerSet seq) : QNodeRef =
         let patches = patches |> Array.ofSeq
-        let rootCell = patches |> Seq.map (fun patch -> patch.BoundingBox) |> Box2d |> Cell2d
+        let rootCell = patches |> Array.map (fun patch -> patch.CellBounds) |> Cell2d
         build'' config rootCell patches
 
 /// Creates a quadtree from many small patches.
@@ -397,7 +397,7 @@ type Builder () =
 
         let bbGlobal = Box2d(ps |> Seq.map (fun p -> p.BoundingBox))
         printfn "  global bb        = %A" bbGlobal
-        printfn "  global root cell = %A" (Cell2d bbGlobal)
+        printfn "  global root cell = %A" (ps |> Seq.map (fun p -> p.CellBounds) |> Array.ofSeq |> Cell2d)
 
         printfn "  )"
         ()

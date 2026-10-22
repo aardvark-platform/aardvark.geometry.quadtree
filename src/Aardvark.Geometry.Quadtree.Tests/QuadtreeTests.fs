@@ -80,9 +80,56 @@ module QuadtreeTests =
         Assert.True((countInner = 1))
         Assert.True((countLeafs = 4))
 
+    [<Fact>]
+    let ``Build_Centered_RootCell`` () =
+        Assert.True((createQuadtree -2 -2 4 4 0 2).Cell = Cell2d(2))
+        Assert.True((createQuadtree -2 -2 4 4 0 1).Cell = Cell2d(2))
+        Assert.True((createQuadtree -1 -1 2 2 0 0).Cell = Cell2d(1))
 
+    [<Fact>]
+    let ``Build_MaxOnCellBoundary_RootCell`` () =
+        let q = createQuadtree 0 0 4 4 0 2
+        Assert.True(q.Cell = Cell2d(0L, 0L, 2))
+        Assert.True(Quadtree.CountNodes true q = 1)
 
+    /// Smallest cell with exponent >= minExponent containing all samples of window [min, max) at sample exponent e.
+    /// Brute force with integer arithmetic only, independent of Cell2d(Box2d) and Cell2d.GetCommonRoot.
+    let private expectedRootCell (min : V2l) (max : V2l) (e : int) (minExponent : int) =
+        let rec find k =
+            let s = k - e
+            let x = min.X >>> s
+            let y = min.Y >>> s
+            if x = ((max.X - 1L) >>> s) && y = ((max.Y - 1L) >>> s) then
+                Cell2d(x, y, k)
+            elif s >= 1 && (let h = 1L <<< (s - 1) in -h <= min.X && -h <= min.Y && max.X <= h && max.Y <= h) then
+                Cell2d(k)
+            else
+                find (k + 1)
+        find minExponent
 
+    [<Fact>]
+    let ``Build_RootCell_IsSmallestCellContainingAllSamples`` () =
+        let r = System.Random(5)
+        for _ in 1 .. 2000 do
+            let ox = r.Next(-40, 41)
+            let oy = r.Next(-40, 41)
+            let w = r.Next(1, 41)
+            let h = r.Next(1, 41)
+            let e = r.Next(-2, 3)
+            let split = r.Next(0, 4)
+            let min = V2l(ox, oy)
+            let max = V2l(ox + w, oy + h)
+            let layer = Layer(Defs.Heights1f, Array.zeroCreate<float32> (w * h), DataMapping(min, V2i(w, h), exponent = e))
+            let q = Quadtree.Build { BuildConfig.Default with SplitLimitPowerOfTwo = split } [| layer |]
+            let case = sprintf "window %A..%A, e = %d, split = %d" min max e split
+            Assert.True(layer.CellBounds = expectedRootCell min max e e, sprintf "CellBounds %A for %s" layer.CellBounds case)
+            Assert.True(q.Cell = expectedRootCell min max e (e + split), sprintf "root %A for %s" q.Cell case)
+
+    [<Fact>]
+    let ``QNode_FromLayerSet_MaxOnCellBoundary`` () =
+        let layer = Layer(Defs.Heights1f, Array.zeroCreate<float32> 16, DataMapping(V2l(-2, -2), V2i(4, 4), exponent = 0))
+        let n = QNode(2, LayerSet([| layer |]))
+        Assert.True(n.Cell = Cell2d(2))
 
     [<Fact>]
     let ``Build_Heights1f`` () =
@@ -397,13 +444,8 @@ module QuadtreeTests =
         let heightsLayer = Layer(Defs.HeightsBilinear4f, heights, mapping) :> ILayer
         let config = { BuildConfig.Default with SplitLimitPowerOfTwo = 2 }
         let qTree = Quadtree.Build config [| heightsLayer |]
-        
-        //// before log2int/Cell2d fixes
-        //Assert.True(qTree.Cell.BoundingBox = Box2d(0.0, 0.0, 4.0, 4.0))
-        //Assert.True(qTree.LayerSet.IsSome)
 
-        // after log2int/Cell2d fixes
-        Assert.True(qTree.Cell.BoundingBox = Box2d(0.0, 0.0, 8.0, 8.0))
-        Assert.True(qTree.LayerSet.IsNone)
+        Assert.True(qTree.Cell.BoundingBox = Box2d(0.0, 0.0, 4.0, 4.0))
+        Assert.True(qTree.LayerSet.IsSome)
 
         ()

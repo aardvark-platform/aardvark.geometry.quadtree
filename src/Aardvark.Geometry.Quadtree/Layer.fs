@@ -47,7 +47,7 @@ module ILayerExtensions =
         member this.CellBounds        with get() = if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
                                                      this.Mapping.BufferOrigin
                                                    else
-                                                     Cell2d(this.BoundingBox)
+                                                     Cell2d(this.SampleMin, this.SampleMaxIncl)
 
         member this.SampleWindowAtChildLevel with get() =
                 if this.Mapping.BufferOrigin.IsCenteredAtOrigin then
@@ -650,6 +650,7 @@ type LayerSet(layers : ILayer[]) =
     member this.Layers                   with get() = layers
 
     member this.BoundingBox              with get() = layers.[0].BoundingBox
+    member this.CellBounds               with get() = layers.[0].CellBounds
     member this.Mapping                  with get() = layers.[0].Mapping
     member this.SampleExponent           with get() = layers.[0].Mapping.BufferOrigin.Exponent
     member this.SampleWindow             with get() = layers.[0].Mapping.Window

@@ -2,13 +2,13 @@ STORAGE: NONE
 RESTRICTION: || (== net8.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    Aardvark.Base (5.3.6)
-      Aardvark.Base.Telemetry (5.3.6)
+    Aardvark.Base (5.3.28)
+      Aardvark.Base.Telemetry (5.3.28)
       SingleFileExtractor.Core (>= 2.2.1 < 2.3)
       System.Collections.Immutable (>= 8.0)
       System.Reflection.Metadata (>= 8.0)
       System.Text.Json (>= 8.0.5)
-    Aardvark.Base.Telemetry (5.3.6)
+    Aardvark.Base.Telemetry (5.3.28)
     Aardvark.Build (2.0.3)
     Aardvark.Data.Durable (0.4.4)
     Aardvark.Data.Durable.Codec (0.4.4)

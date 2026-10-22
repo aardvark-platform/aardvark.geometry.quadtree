@@ -45,7 +45,7 @@ and QNode(uid : Guid, exactBoundingBox : Box2d, cell : Cell2d, splitLimitExp : i
         QNode(Guid.NewGuid(), exactBoundingBox, cell, splitLimitExp, layers)
 
     new (splitLimitExp : int, layers : LayerSet) =
-        QNode(Guid.NewGuid(), layers.BoundingBox, layers.BoundingBox |> Cell2d, splitLimitExp, layers)
+        QNode(Guid.NewGuid(), layers.BoundingBox, layers.CellBounds, splitLimitExp, layers)
 
     member _.Id with get() = uid
 

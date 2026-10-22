@@ -132,9 +132,12 @@ type DataMapping(bufferOrigin : Cell2d, bufferSize : V2i, window : Box2l) =
     member this.Contains (box : Box2l) = window.Contains(box)
 
     member this.BoundingBox with get() =
-        let min = Cell2d(window.Min, bufferOrigin.Exponent).BoundingBox.Min
-        let max = Cell2d(window.Max, bufferOrigin.Exponent).BoundingBox.Min
-        Box2d(min, max)
+        if bufferOrigin.IsCenteredAtOrigin then
+            bufferOrigin.BoundingBox
+        else
+            let min = Cell2d(window.Min, bufferOrigin.Exponent).BoundingBox.Min
+            let max = Cell2d(window.Max, bufferOrigin.Exponent).BoundingBox.Min
+            Box2d(min, max)
 
     /// Returns this data mapping with new window (Some), or None if new window is not inside the current window.
     member this.WithWindow (newWindow : Box2l) =

@@ -6,6 +6,23 @@ open Aardvark.Base
 
 module LayerTests =
 
+    let private createLayer (ox : int) (oy : int) (w : int) (h : int) (e : int) =
+        Layer(Defs.Heights1f, Array.zeroCreate<float32> (w * h), DataMapping(V2l(ox, oy), V2i(w, h), exponent = e))
+
+    [<Fact>]
+    let ``ILayer_CellBounds_Centered`` () =
+        Assert.True((createLayer -2 -2 4 4 0).CellBounds = Cell2d(2))
+        Assert.True((createLayer -1 -1 2 2 0).CellBounds = Cell2d(1))
+
+    [<Fact>]
+    let ``ILayer_CellBounds_MaxOnCellBoundary`` () =
+        Assert.True((createLayer 0 0 4 4 0).CellBounds = Cell2d(0L, 0L, 2))
+        Assert.True((createLayer 4 4 4 4 -1).CellBounds = Cell2d(1L, 1L, 1))
+
+    [<Fact>]
+    let ``ILayer_CellBounds_Unaligned`` () =
+        Assert.True((createLayer 0 0 10 7 0).CellBounds = Cell2d(0L, 0L, 4))
+
     [<Fact>]
     let ``ILayer_Window`` () =
         let a = Layer(Defs.Heights1f, Array.zeroCreate<float32> 200, DataMapping(V2l(1000, 500), V2i(20, 10), 0))

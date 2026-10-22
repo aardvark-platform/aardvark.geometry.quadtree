@@ -19,6 +19,16 @@ module DataMappingTests =
         Assert.True(m.BufferOrigin.Exponent = 2)
 
     [<Fact>]
+    let ``DataMapping.BoundingBox centered`` () =
+        let m = DataMapping(Cell2d(2))
+        Assert.True(m.BoundingBox = Cell2d(2).BoundingBox)
+
+    [<Fact>]
+    let ``DataMapping.BoundingBox non-centered`` () =
+        let m = DataMapping(V2l(-3, 2), V2i(4, 2), -1)
+        Assert.True(m.BoundingBox = Box2d(-1.5, 1.0, 0.5, 2.0))
+
+    [<Fact>]
     let ``DataMapping.eq 1`` () =
         let a = DataMapping(V2l(1000, 500), V2i(20, 10), 0)
         Assert.True((a = a))
